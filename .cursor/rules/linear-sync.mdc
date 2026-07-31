@@ -1,0 +1,43 @@
+---
+description: Keep Cursor work and Linear (team DOM) continuously in sync, both directions
+alwaysApply: true
+---
+
+# Linear ⇆ Cursor sync
+
+This project is tracked in Linear team **Domagoj** (key `DOM`, workspace `domagojp`) via the Linear MCP tools. Keep Linear and the codebase in sync on every run **without the user having to ask**. Skip only for trivial, non-project chats (quick questions, explanations) or when the user says "skip linear".
+
+## A. Pull from Linear first (ask before acting)
+
+At the **start** of any substantive coding/planning task:
+
+1. Read the ISO timestamp in `.cursor/linear-sync-state.json` (`lastSyncedAt`). If the file is missing, treat now as the baseline and create it.
+2. Call `list_issues` (team `Domagoj`, `updatedAt` = that timestamp, `orderBy: updatedAt`) to find issues **created or changed since the last sync** — i.e. anything the user added/edited directly in Linear, not through Cursor.
+3. If any are found, **stop and ask** before proceeding — list them compactly (ID, title, status) and ask: *"These changed in Linear since we last synced — should I factor them into this task?"* Use the question tool. Do not silently absorb them.
+4. Only incorporate the ones the user confirms. After the user answers, write the current ISO time back to `lastSyncedAt`.
+5. If nothing changed, continue silently.
+
+## B. Push to Linear as work happens (automatic)
+
+Keep Linear reflecting reality — no need to be asked:
+
+- **Starting an issue:** move it to `In Progress` (or just create the branch from the issue's git branch name; the GitHub integration moves it for you).
+- **Finishing meaningful work:** add a brief comment on the issue (`save_comment`) summarizing what changed, and move it toward `Done`. Prefer `Fixes DOM-<n>` in the PR so merge auto-completes it.
+- **New scope discovered / work done that has no issue:** create the issue with `save_issue` (team `Domagoj`, assignee `me`, correct project + one `Area` label + a type label), then proceed. Mention the new ID to the user.
+- **Plans/estimates change:** update the issue description or project instead of leaving Linear stale.
+
+### Checklists (required)
+
+Markdown checklists in the issue description (`- [ ]` / `- [x]`) do **not** update themselves. After any progress on a checklist item:
+
+1. `get_issue` the current description.
+2. `save_issue` with the description rewritten so completed items are `- [x]` and incomplete stay `- [ ]`.
+3. Tick an item **only** when that item's own acceptance is met (e.g. spike run recorded, not merely harness code written). If code landed but validation is pending, leave the box unchecked and add/update a short `## Progress` section stating what's done vs pending.
+4. Never mark the issue `Done` until every checklist item is `- [x]` **and** the `## Done when` criteria are satisfied.
+5. Prefer also posting a short `save_comment` when ticking items so the activity feed shows what changed.
+
+## C. Conventions to preserve
+
+- One `Area` label per issue (they are mutually exclusive): `infra`, `extraction`, `ui`, `suggestions`, `nano`, `smart-mode`, `privacy-security`, `a11y-polish`, `docs-release`.
+- Projects map to milestones: `M0 · Technical Validation` … `M4 · Safety, Polish & Release`.
+- Never invent Linear IDs — always confirm via the tools.

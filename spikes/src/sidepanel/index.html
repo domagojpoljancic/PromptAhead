@@ -1,0 +1,27 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>PromptAhead Spikes</title>
+    <link rel="stylesheet" href="./sidepanel.css" />
+  </head>
+  <body>
+    <header class="app-header">
+      <div>
+        <p class="eyebrow">Milestone 0</p>
+        <h1>Technical validation spikes</h1>
+        <p class="lede">
+          Run S0.1–S0.7 experiments and record outcomes in
+          <code>docs/technical-spikes.md</code>.
+        </p>
+      </div>
+      <div class="app-header__actions">
+        <button type="button" class="btn" id="refresh-all">Refresh</button>
+        <button type="button" class="btn" id="open-options">Options page</button>
+      </div>
+    </header>
+    <main id="spike-list" class="spike-list" aria-live="polite"></main>
+    <script type="module" src="./sidepanel.ts"></script>
+  </body>
+</html>

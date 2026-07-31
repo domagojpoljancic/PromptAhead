@@ -12,7 +12,10 @@ __pycache__/
 
 # Build / cache
 dist/
+spikes/dist/
 build/
+*.tsbuildinfo
+.vite/
 .next/
 .turbo/
 .cache/
@@ -23,3 +26,8 @@ build/
 .idea/
 .vscode/
 *.swp
+
+# Cursor local / secrets (commit shared agent rules only)
+.cursor/*
+!.cursor/rules/
+!.cursor/rules/**
