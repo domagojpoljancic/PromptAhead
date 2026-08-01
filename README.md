@@ -17,7 +17,7 @@ Privacy-first Chrome extension (Manifest V3) that notices when you are genuinely
 | Extraction                                 | JSON-LD / Open Graph / semantic-HTML classification with §31 caps; 6 HTML fixtures; Readability still deferred                                                 |
 | Suggestions + prompts                      | Curated + mock-Nano engines; injection-resistant `<SOURCE_DATA>` builder; 5 destinations                                                                       |
 | Product docs                               | Draft handoff + architecture / plan / privacy / test plan                                                                                                      |
-| Planning                                   | Linear M1 — DOM-7/8/9/13/14 code Done; DOM-7 Chrome smoke + DOM-10–12 (panel polish, onboarding, acceptance) still open                                         |
+| Planning                                   | Linear used as the product / issue tracker — M1 Manual core code in; panel polish, onboarding, and Chrome smoke still open                                     |
 
 ### Locked from M0
 
@@ -30,7 +30,6 @@ Privacy-first Chrome extension (Manifest V3) that notices when you are genuinely
 Requires Node.js 20+ and Chrome with Developer mode.
 
 ```bash
-cd "/Users/domagoj/Documents/Cursor Projects/PromptAhead"
 npm install
 npm run build
 ```
@@ -83,9 +82,9 @@ See [`docs/architecture.md`](docs/architecture.md) for the full folder layout.
 
 ## What is intentionally missing
 
-- Side-panel state-machine polish and empty/error states (DOM-10)
-- Onboarding / settings / clear-data UX (DOM-11)
-- Manual smoke report + §25 acceptance (DOM-12); unpacked Chrome smoke still pending for DOM-7
+- Side-panel state-machine polish and empty/error states
+- Onboarding / settings / clear-data UX
+- Manual smoke report + acceptance checklist; unpacked Chrome smoke still pending
 - Main-content extraction beyond the thin `main`/`article` heuristic; Mozilla Readability license call still open
 - Sensitive-page heuristics (banking/medical pages are not blocked yet)
 - Published Chrome Web Store build

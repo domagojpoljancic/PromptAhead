@@ -20,11 +20,7 @@ import type { SpikeId } from "../shared/spikes/types";
 
 const LOGGED_SPIKE_IDS: SpikeId[] = ["S0.1", "S0.2", "S0.3", "S0.6"];
 
-const MATRIX_CONTEXTS: SpikeContextId[] = [
-  "sidepanel",
-  "options",
-  "service-worker",
-];
+const MATRIX_CONTEXTS: SpikeContextId[] = ["sidepanel", "options", "service-worker"];
 
 const BUTTON_IDS: Record<DocumentRunnableSpikeId, string> = {
   "S0.1": "probe-context",

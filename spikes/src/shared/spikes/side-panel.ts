@@ -25,9 +25,7 @@ const PANEL_PRESENCE_POLL_MS = 200;
 const PANEL_PRESENCE_TIMEOUT_MS = 2_000;
 
 export type SidePanelOpenTrigger =
-  | "toolbar-action"
-  | "context-menu"
-  | "notification-click";
+  "toolbar-action" | "context-menu" | "notification-click";
 
 export const SIDE_PANEL_TRIGGERS: readonly SidePanelOpenTrigger[] = [
   "toolbar-action",
@@ -45,8 +43,7 @@ export const SIDE_PANEL_TRIGGER_HOWTO: Record<SidePanelOpenTrigger, string> = {
   "toolbar-action": "Click the PromptAhead toolbar icon on any tab.",
   "context-menu":
     'Right-click a page → "Open PromptAhead Spikes panel" (or the S0.5 extract item).',
-  "notification-click":
-    "Run S0.7, then click the notification banner it posts.",
+  "notification-click": "Run S0.7, then click the notification banner it posts.",
 };
 
 export interface SidePanelOpenAttempt {
@@ -85,8 +82,7 @@ function emptyState(): SidePanelSpikeState {
 export async function getSidePanelSpikeState(): Promise<SidePanelSpikeState> {
   const stored = await chrome.storage.local.get(SIDE_PANEL_STATE_STORAGE_KEY);
   const existing = stored[SIDE_PANEL_STATE_STORAGE_KEY] as
-    | SidePanelSpikeState
-    | undefined;
+    SidePanelSpikeState | undefined;
   return { ...emptyState(), ...existing, attempts: { ...existing?.attempts } };
 }
 

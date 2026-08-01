@@ -24,9 +24,7 @@ export type DocumentRunnableSpikeId = DocumentSpikeId | Extract<SpikeId, "S0.6">
 
 const EXTRA_DOCUMENT_SPIKE_IDS: readonly DocumentRunnableSpikeId[] = ["S0.6"];
 
-export function runsInDocument(
-  spikeId: SpikeId,
-): spikeId is DocumentRunnableSpikeId {
+export function runsInDocument(spikeId: SpikeId): spikeId is DocumentRunnableSpikeId {
   return (
     isDocumentSpike(spikeId) ||
     (EXTRA_DOCUMENT_SPIKE_IDS as readonly string[]).includes(spikeId)

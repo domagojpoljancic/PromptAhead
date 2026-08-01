@@ -319,10 +319,11 @@ export function destroySession(session: LanguageModelSessionLike | null): void {
   }
 }
 
-export function describeSessionUsage(
-  session: LanguageModelSessionLike,
-): string | null {
-  if (typeof session.inputUsage !== "number" || typeof session.inputQuota !== "number") {
+export function describeSessionUsage(session: LanguageModelSessionLike): string | null {
+  if (
+    typeof session.inputUsage !== "number" ||
+    typeof session.inputQuota !== "number"
+  ) {
     return null;
   }
   return `inputUsage=${session.inputUsage} / inputQuota=${session.inputQuota}`;

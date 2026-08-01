@@ -31,9 +31,7 @@ export async function getContextMatrix(): Promise<ContextMatrix> {
   return (stored[NANO_CONTEXT_MATRIX_KEY] as ContextMatrix | undefined) ?? {};
 }
 
-export async function recordContextProbe(
-  record: ContextProbeRecord,
-): Promise<void> {
+export async function recordContextProbe(record: ContextProbeRecord): Promise<void> {
   const matrix = await getContextMatrix();
   matrix[record.context] = record;
   await chrome.storage.local.set({ [NANO_CONTEXT_MATRIX_KEY]: matrix });

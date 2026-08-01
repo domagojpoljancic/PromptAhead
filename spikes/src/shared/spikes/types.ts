@@ -1,11 +1,4 @@
-export type SpikeId =
-  | "S0.1"
-  | "S0.2"
-  | "S0.3"
-  | "S0.4"
-  | "S0.5"
-  | "S0.6"
-  | "S0.7";
+export type SpikeId = "S0.1" | "S0.2" | "S0.3" | "S0.4" | "S0.5" | "S0.6" | "S0.7";
 
 /**
  * Prompt API spikes must execute in the realm under test (side panel / options
@@ -13,11 +6,7 @@ export type SpikeId =
  */
 export type DocumentSpikeId = Extract<SpikeId, "S0.1" | "S0.2" | "S0.3">;
 
-export const DOCUMENT_SPIKE_IDS: readonly DocumentSpikeId[] = [
-  "S0.1",
-  "S0.2",
-  "S0.3",
-];
+export const DOCUMENT_SPIKE_IDS: readonly DocumentSpikeId[] = ["S0.1", "S0.2", "S0.3"];
 
 export function isDocumentSpike(spikeId: string): spikeId is DocumentSpikeId {
   return (DOCUMENT_SPIKE_IDS as readonly string[]).includes(spikeId);
@@ -71,8 +60,7 @@ export const SPIKE_DEFINITIONS: SpikeDefinition[] = [
   {
     id: "S0.2",
     title: "Model readiness and download behaviour",
-    question:
-      "availability(), user-activated create(), and downloadprogress events",
+    question: "availability(), user-activated create(), and downloadprogress events",
     testing:
       "Opens a real AI session from your click, watching how Chrome reports readiness, download progress, session limits, and how long the first reply takes.",
     matters:

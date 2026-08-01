@@ -169,9 +169,7 @@ async function clearSpikeSideState(spikeId: SpikeId): Promise<void> {
   }
 }
 
-async function handleRequest(
-  request: BackgroundRequest,
-): Promise<BackgroundResponse> {
+async function handleRequest(request: BackgroundRequest): Promise<BackgroundResponse> {
   switch (request.type) {
     case "GET_SPIKE_RESULTS": {
       const results = await getSpikeResults();
@@ -187,8 +185,7 @@ async function handleRequest(
         });
         return { ok: true, probe };
       } catch (error) {
-        const message =
-          error instanceof Error ? error.message : "Unknown probe error";
+        const message = error instanceof Error ? error.message : "Unknown probe error";
         await appendSpikeLog(
           "S0.1",
           "error",
@@ -202,8 +199,7 @@ async function handleRequest(
         const probe = await probeWorkerSessionCreation();
         return probe ? { ok: true, probe } : { ok: true };
       } catch (error) {
-        const message =
-          error instanceof Error ? error.message : "Unknown probe error";
+        const message = error instanceof Error ? error.message : "Unknown probe error";
         await appendSpikeLog(
           "S0.1",
           "error",
@@ -251,8 +247,7 @@ async function handleRequest(
         const results = await getSpikeResults();
         return { ok: true, result: results[request.spikeId] };
       } catch (error) {
-        const message =
-          error instanceof Error ? error.message : "Unknown spike error";
+        const message = error instanceof Error ? error.message : "Unknown spike error";
         await appendSpikeLog(request.spikeId, "error", message);
         const results = await getSpikeResults();
         return { ok: false, error: message, result: results[request.spikeId] };

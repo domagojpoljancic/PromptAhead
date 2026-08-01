@@ -3,10 +3,7 @@ import type { SpikeContextId } from "../nano/types";
 import { SPIKE_CONTEXT_LABELS } from "../nano/types";
 import type { SpikeId, SpikeLogLevel } from "./types";
 
-export type SpikeLogger = (
-  level: SpikeLogLevel,
-  message: string,
-) => Promise<void>;
+export type SpikeLogger = (level: SpikeLogLevel, message: string) => Promise<void>;
 
 /** Prefixes every line with the realm, so aggregated logs stay readable. */
 export function createSpikeLogger(

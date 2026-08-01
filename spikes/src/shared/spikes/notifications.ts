@@ -1,9 +1,6 @@
 import { appendSpikeLog, setSpikeStatus } from "../logging/spike-log";
 import { hasBroadHostAccess } from "./permissions";
-import {
-  getSidePanelSpikeState,
-  openSidePanelForSpike,
-} from "./side-panel";
+import { getSidePanelSpikeState, openSidePanelForSpike } from "./side-panel";
 import type { SpikeId } from "./types";
 
 /**
@@ -72,8 +69,7 @@ function emptyState(): NotificationSpikeState {
 export async function getNotificationSpikeState(): Promise<NotificationSpikeState> {
   const stored = await chrome.storage.local.get(NOTIFICATIONS_STATE_STORAGE_KEY);
   const existing = stored[NOTIFICATIONS_STATE_STORAGE_KEY] as
-    | NotificationSpikeState
-    | undefined;
+    NotificationSpikeState | undefined;
   return { ...emptyState(), ...existing };
 }
 
@@ -134,14 +130,11 @@ function getNotificationPermissionLevel(): Promise<string> {
 }
 
 function getLiveNotificationIds(): Promise<string[]> {
-  return promisify<Record<string, unknown>>(
-    "notifications.getAll",
-    (resolve) => {
-      chrome.notifications.getAll((all) => {
-        resolve((all ?? {}) as Record<string, unknown>);
-      });
-    },
-  ).then((all) => Object.keys(all));
+  return promisify<Record<string, unknown>>("notifications.getAll", (resolve) => {
+    chrome.notifications.getAll((all) => {
+      resolve((all ?? {}) as Record<string, unknown>);
+    });
+  }).then((all) => Object.keys(all));
 }
 
 function clearNotification(id: string): Promise<boolean> {
@@ -345,9 +338,7 @@ export async function runNotificationSpike(spikeId: SpikeId): Promise<void> {
 
   let presentAfterCreate: boolean | null = null;
   try {
-    presentAfterCreate = (await getLiveNotificationIds()).includes(
-      notificationId,
-    );
+    presentAfterCreate = (await getLiveNotificationIds()).includes(notificationId);
   } catch (error) {
     await appendSpikeLog(
       spikeId,

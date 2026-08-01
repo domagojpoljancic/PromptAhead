@@ -82,9 +82,7 @@ export async function probeWorkerSessionCreation(): Promise<ContextProbeRecord |
   const created = await createSession({ model, timeoutMs: CREATE_TIMEOUT_MS });
 
   if (!created.session) {
-    const reason = created.error
-      ? formatErrorShape(created.error)
-      : "unknown failure";
+    const reason = created.error ? formatErrorShape(created.error) : "unknown failure";
     createAttempt = "failed";
     note = `Worker create() failed: ${reason}`;
     await log(
@@ -102,15 +100,16 @@ export async function probeWorkerSessionCreation(): Promise<ContextProbeRecord |
       "This closes the S0.1 gap in the negative: the worker exposes the API but cannot host a session. The side panel stays the only proven Nano host, which is what the product already assumes.",
     );
   } else {
-    await log("success", `create() resolved in the worker in ${created.durationMs} ms.`);
+    await log(
+      "success",
+      `create() resolved in the worker in ${created.durationMs} ms.`,
+    );
     try {
       const smoke = await promptWithTimeout(created.session, SMOKE_PROMPT, {
         timeoutMs: SMOKE_TIMEOUT_MS,
       });
       if (smoke.text === null) {
-        const reason = smoke.error
-          ? formatErrorShape(smoke.error)
-          : "unknown failure";
+        const reason = smoke.error ? formatErrorShape(smoke.error) : "unknown failure";
         createAttempt = "failed";
         note = `Worker create() ok but prompt() failed: ${reason}`;
         await log(

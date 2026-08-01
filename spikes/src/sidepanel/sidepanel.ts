@@ -36,11 +36,7 @@ import {
   SIDE_PANEL_TRIGGER_LABELS,
   SIDE_PANEL_TRIGGERS,
 } from "../shared/spikes/side-panel";
-import type {
-  DocumentSpikeId,
-  SpikeId,
-  SpikeResult,
-} from "../shared/spikes/types";
+import type { DocumentSpikeId, SpikeId, SpikeResult } from "../shared/spikes/types";
 import { isDocumentSpike, SPIKE_DEFINITIONS } from "../shared/spikes/types";
 
 const S05_INSTRUCTIONS = [
@@ -97,11 +93,7 @@ const NANO_INSTRUCTIONS: Record<DocumentSpikeId, string[]> = {
   ],
 };
 
-const MATRIX_CONTEXTS: SpikeContextId[] = [
-  "sidepanel",
-  "options",
-  "service-worker",
-];
+const MATRIX_CONTEXTS: SpikeContextId[] = ["sidepanel", "options", "service-worker"];
 
 interface DashboardState {
   activeTab: ActiveTabSpikeState | null;
@@ -221,9 +213,7 @@ function extraButton(label: string, onClick: () => void): HTMLButtonElement {
 function renderActiveTabDetail(state: ActiveTabSpikeState | null): HTMLElement {
   const detail = detailSection("How to test in Chrome", S05_INSTRUCTIONS);
 
-  detail.append(
-    element("h3", "spike-detail__title", "Last extraction from a gesture"),
-  );
+  detail.append(element("h3", "spike-detail__title", "Last extraction from a gesture"));
 
   const gesture = state?.lastGestureExtraction;
   if (!gesture) {
@@ -307,9 +297,7 @@ function describeOpenTrigger(
   const when = new Date(attempt.attemptedAt).toLocaleTimeString();
   if (attempt.succeeded) {
     return {
-      className: attempt.confirmedByPanelAt
-        ? "spike-detail__ok"
-        : "spike-detail__flag",
+      className: attempt.confirmedByPanelAt ? "spike-detail__ok" : "spike-detail__flag",
       text: `${label}: opened at ${when}${
         attempt.confirmedByPanelAt
           ? ` and a live panel was confirmed (${attempt.confirmedBy ?? "panel"})`
@@ -337,11 +325,7 @@ function renderSidePanelDetail(state: SidePanelSpikeState): HTMLElement {
 
   if (state.panelBehavior) {
     detail.append(
-      element(
-        "p",
-        "spike-detail__meta",
-        `getPanelBehavior(): ${state.panelBehavior}`,
-      ),
+      element("p", "spike-detail__meta", `getPanelBehavior(): ${state.panelBehavior}`),
     );
   }
 
@@ -366,9 +350,7 @@ function renderPermissionsDetail(
   );
 
   if (!state.ranAt) {
-    detail.append(
-      element("p", "spike-detail__empty", "No S0.6 run recorded yet."),
-    );
+    detail.append(element("p", "spike-detail__empty", "No S0.6 run recorded yet."));
     return detail;
   }
 
@@ -423,9 +405,7 @@ function renderNotificationDetail(state: NotificationSpikeState): HTMLElement {
   const detail = detailSection("How to test in Chrome", S07_INSTRUCTIONS);
 
   if (!state.ranAt) {
-    detail.append(
-      element("p", "spike-detail__empty", "No S0.7 run recorded yet."),
-    );
+    detail.append(element("p", "spike-detail__empty", "No S0.7 run recorded yet."));
     return detail;
   }
 
@@ -487,11 +467,7 @@ function renderNotificationDetail(state: NotificationSpikeState): HTMLElement {
     );
   } else {
     detail.append(
-      element(
-        "p",
-        "spike-detail__empty",
-        "Waiting for you to click the notification.",
-      ),
+      element("p", "spike-detail__empty", "Waiting for you to click the notification."),
     );
   }
 
@@ -513,9 +489,7 @@ function renderNanoDetail(
     const record = matrix[context];
     const label = SPIKE_CONTEXT_LABELS[context];
     if (!record) {
-      detail.append(
-        element("p", "spike-detail__empty", `${label}: not probed yet`),
-      );
+      detail.append(element("p", "spike-detail__empty", `${label}: not probed yet`));
       continue;
     }
     detail.append(
@@ -605,9 +579,7 @@ function renderSpikeCard(result: SpikeResult, state: DashboardState): HTMLElemen
   }
 
   if (result.spikeId === "S0.6") {
-    actions?.after(
-      renderPermissionsDetail(state.permissions, state.broadHostsGranted),
-    );
+    actions?.after(renderPermissionsDetail(state.permissions, state.broadHostsGranted));
   }
 
   if (result.spikeId === "S0.7") {
