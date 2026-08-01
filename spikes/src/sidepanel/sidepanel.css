@@ -86,6 +86,47 @@ code {
   font-size: 0.875rem;
 }
 
+.spike-briefing {
+  margin: 12px 0 0;
+  padding: 10px 12px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: #121a24;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.spike-briefing__row {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.spike-briefing__label {
+  margin: 0;
+  font-size: 0.7rem;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--muted);
+}
+
+.spike-briefing__body,
+.spike-briefing__pass,
+.spike-briefing__warn {
+  margin: 0;
+  font-size: 0.82rem;
+  color: var(--text);
+}
+
+.spike-briefing__pass {
+  color: var(--success);
+}
+
+.spike-briefing__warn {
+  color: var(--warn);
+}
+
 .spike-card__status {
   font-size: 0.75rem;
   text-transform: uppercase;
@@ -225,5 +266,9 @@ code {
   .spike-card__log,
   .spike-detail__excerpt {
     background: #f8fafc;
+  }
+
+  .spike-briefing {
+    background: #f0f4f8;
   }
 }

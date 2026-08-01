@@ -5,12 +5,33 @@ import { chromeVersion } from "../nano/probe";
 import type { SpikeContextId } from "../nano/types";
 import { SPIKE_CONTEXT_LABELS } from "../nano/types";
 import { createSpikeLogger } from "./logger";
+import { runOptionalHostsSpike } from "./permissions";
 import { probePromptApiContext } from "./s01-contexts";
 import { runAvailabilityDownloadSpike } from "./s02-availability";
 import { runStructuredJsonSpike } from "./s03-structured";
-import type { DocumentSpikeId } from "./types";
+import type { DocumentSpikeId, SpikeId } from "./types";
+import { isDocumentSpike } from "./types";
 
 export type DocumentContextId = Extract<SpikeContextId, "sidepanel" | "options">;
+
+/**
+ * S0.6 joins the Prompt API spikes in having to run inside a document, but for
+ * a different reason: `permissions.request()` needs the user activation from
+ * the click. It is kept out of `DocumentSpikeId` so that type keeps meaning
+ * "Prompt API realm probe".
+ */
+export type DocumentRunnableSpikeId = DocumentSpikeId | Extract<SpikeId, "S0.6">;
+
+const EXTRA_DOCUMENT_SPIKE_IDS: readonly DocumentRunnableSpikeId[] = ["S0.6"];
+
+export function runsInDocument(
+  spikeId: SpikeId,
+): spikeId is DocumentRunnableSpikeId {
+  return (
+    isDocumentSpike(spikeId) ||
+    (EXTRA_DOCUMENT_SPIKE_IDS as readonly string[]).includes(spikeId)
+  );
+}
 
 export interface DocumentSpikeOptions {
   /** S0.1 only: also ask the service worker to probe its own realm. */
@@ -18,7 +39,7 @@ export interface DocumentSpikeOptions {
 }
 
 export async function runDocumentSpike(
-  spikeId: DocumentSpikeId,
+  spikeId: DocumentRunnableSpikeId,
   context: DocumentContextId,
   options: DocumentSpikeOptions = {},
 ): Promise<void> {
@@ -31,6 +52,9 @@ export async function runDocumentSpike(
       return;
     case "S0.3":
       await runStructuredJsonSpike(context);
+      return;
+    case "S0.6":
+      await runOptionalHostsSpike(context);
       return;
   }
 }

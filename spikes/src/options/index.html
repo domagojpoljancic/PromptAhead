@@ -35,6 +35,9 @@
           <button type="button" class="btn" id="run-s03">
             Run S0.3 · responseConstraint
           </button>
+          <button type="button" class="btn" id="probe-worker-create">
+            Probe worker create()
+          </button>
           <button type="button" class="btn" id="refresh-results">
             Refresh storage dump
           </button>
@@ -42,8 +45,35 @@
         <p id="run-status" aria-live="polite">Idle.</p>
         <p>
           S0.2 may download the model — keep this tab open. S0.3 needs a resident
-          model, so run S0.2 first.
+          model, so run S0.2 first. <strong>Probe worker create()</strong> fills
+          the last cell of the S0.1 matrix: whether the service worker can host
+          a session, not just expose the API. It is skipped unless the model is
+          already resident, so it can never start a download.
         </p>
+      </section>
+
+      <section class="panel">
+        <h2>S0.6 — Optional host permissions</h2>
+        <p>
+          <code>permissions.request()</code> needs the user activation from your
+          click, so it cannot run in the service worker. This page and the side
+          panel are different realms — run it in both and record whether each
+          one is allowed to ask.
+        </p>
+        <p>
+          The run grants <code>&lt;all_urls&gt;</code>, proves the grant works
+          without a reload, then revokes it again. It must end revoked: a
+          leftover grant makes S0.5 succeed for the wrong reason.
+        </p>
+        <div class="actions">
+          <button type="button" class="btn btn--primary" id="run-s06">
+            Run S0.6 · grant, verify, revoke
+          </button>
+          <button type="button" class="btn" id="revoke-hosts">
+            Revoke &lt;all_urls&gt; now
+          </button>
+        </div>
+        <p id="permission-state" aria-live="polite">Checking…</p>
       </section>
 
       <section class="panel">
@@ -52,7 +82,7 @@
       </section>
 
       <section class="panel">
-        <h2>S0.1–S0.3 log</h2>
+        <h2>S0.1–S0.3 and S0.6 log</h2>
         <pre id="nano-log" aria-live="polite">Loading…</pre>
       </section>
 

@@ -7,6 +7,8 @@ alwaysApply: true
 
 This project is tracked in Linear team **Domagoj** (key `DOM`, workspace `domagojp`) via the Linear MCP tools. Keep Linear and the codebase in sync on every run **without the user having to ask**. Skip only for trivial, non-project chats (quick questions, explanations) or when the user says "skip linear".
 
+Also follow project skill `.cursor/skills/linear-workflow/SKILL.md` when creating or sizing issues.
+
 ## A. Pull from Linear first (ask before acting)
 
 At the **start** of any substantive coding/planning task:
@@ -21,23 +23,24 @@ At the **start** of any substantive coding/planning task:
 
 Keep Linear reflecting reality — no need to be asked:
 
-- **Starting an issue:** move it to `In Progress` (or just create the branch from the issue's git branch name; the GitHub integration moves it for you).
-- **Finishing meaningful work:** add a brief comment on the issue (`save_comment`) summarizing what changed, and move it toward `Done`. Prefer `Fixes DOM-<n>` in the PR so merge auto-completes it.
-- **New scope discovered / work done that has no issue:** create the issue with `save_issue` (team `Domagoj`, assignee `me`, correct project + one `Area` label + a type label), then proceed. Mention the new ID to the user.
-- **Plans/estimates change:** update the issue description or project instead of leaving Linear stale.
+- **Starting an issue:** move it to `In Progress` (or create the branch from the issue's git branch name).
+- **Finishing meaningful work:** short comment optional; move toward `Done`. Prefer `Fixes DOM-<n>` in the PR.
+- **New scope / no ticket:** create the issue (`save_issue`, team `Domagoj`, assignee `me`, project + one `Area` + type label), then proceed. Mention the new ID.
+- **Plans change:** update issue/project description — don't leave Linear stale.
 
-### Checklists (required)
+### Issue size (required)
 
-Markdown checklists in the issue description (`- [ ]` / `- [x]`) do **not** update themselves. After any progress on a checklist item:
+- One issue = one closable outcome. If you can't mark Done without reading a comment thread, split it.
+- Too big for one issue, too small for a project → **parent + sub-issues** (Linear `parentId`).
+- Projects = milestones (M0–M4). Don't invent projects for single spikes.
+- **Comments are not a task list.** Use for decisions, blockers, or a 1–3 line status. Put durable findings in repo docs / Linear Documents. Prefer ticking checklists / closing sub-issues over long diaries.
 
-1. `get_issue` the current description.
-2. `save_issue` with the description rewritten so completed items are `- [x]` and incomplete stay `- [ ]`.
-3. Tick an item **only** when that item's own acceptance is met (e.g. spike run recorded, not merely harness code written). If code landed but validation is pending, leave the box unchecked and add/update a short `## Progress` section stating what's done vs pending.
-4. Never mark the issue `Done` until every checklist item is `- [x]` **and** the `## Done when` criteria are satisfied.
-5. Prefer also posting a short `save_comment` when ticking items so the activity feed shows what changed.
+### Checklists
 
-## C. Conventions to preserve
+Markdown checklists (`- [ ]` / `- [x]`) do not update themselves. After progress: `get_issue` → `save_issue` with boxes updated. Tick only when that item's acceptance is met. If code landed but validation is pending, leave unchecked and use a short `## Progress` note. Never mark Done until all boxes + `## Done when` are satisfied (for parents: all sub-issues Done).
 
-- One `Area` label per issue (they are mutually exclusive): `infra`, `extraction`, `ui`, `suggestions`, `nano`, `smart-mode`, `privacy-security`, `a11y-polish`, `docs-release`.
-- Projects map to milestones: `M0 · Technical Validation` … `M4 · Safety, Polish & Release`.
-- Never invent Linear IDs — always confirm via the tools.
+## C. Conventions
+
+- One `Area` label per issue: `infra`, `extraction`, `ui`, `suggestions`, `nano`, `smart-mode`, `privacy-security`, `a11y-polish`, `docs-release`.
+- Projects: `M0 · Technical Validation` … `M4 · Safety, Polish & Release`.
+- Never invent Linear IDs — confirm via tools.

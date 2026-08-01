@@ -1,6 +1,6 @@
 # PromptAhead
 
-> **WIP — first public draft.** Not installable as a product yet. Milestone 0 (technical validation) is in progress; Chrome spike results are still TBD.
+> **WIP — public draft.** Not installable as a product yet. Milestone 0 (technical validation) is in progress.
 
 **Your next question, already prepared.**
 
@@ -11,10 +11,10 @@ Privacy-first Chrome extension (Manifest V3) that notices when you are genuinely
 | Area | State |
 | --- | --- |
 | Product extension (`extension/`) | Not started |
-| M0 spike harness (`spikes/`) | **WIP** — scaffolded; S0.1–S0.3 + S0.5 implemented; S0.4 / S0.6 / S0.7 still stubs |
-| Spike results (`docs/technical-spikes.md`) | **WIP** — tables ready; Chrome runs not recorded |
+| M0 spike harness (`spikes/`) | **WIP** — all seven spikes (S0.1–S0.7) implemented in the harness |
+| Spike results (`docs/technical-spikes.md`) | **WIP** — Chrome **150.0.0.0** (2026-08-01): S0.1–S0.3 **pass**; S0.5 retest pending; S0.4 / S0.6 / S0.7 not yet recorded |
 | Product docs | Draft handoff + architecture / plan / privacy / test plan |
-| Milestone | [M0 · Technical Validation](https://linear.app/domagojp) · tracking [DOM-6](https://linear.app/domagojp/issue/DOM-6/run-chrome-api-validation-spikes-s01-s07) |
+| Planning | Linear used as the product / issue tracker |
 
 ## Quick start (spike harness only)
 
@@ -29,7 +29,7 @@ Then load **`spikes/dist/`** as an unpacked extension on `chrome://extensions`.
 
 Iterative rebuilds: `npm run spikes:dev` (reload the extension after each build).
 
-Details, gesture notes for S0.5, and permissions: [`spikes/README.md`](spikes/README.md).
+Details, ordered run session, and permissions: [`spikes/README.md`](spikes/README.md).
 
 ## Repository layout
 
@@ -50,7 +50,7 @@ The product app will live under `extension/` later (see [`docs/architecture.md`]
 | [`docs/promptahead-product-handoff.md`](docs/promptahead-product-handoff.md) | Product source of truth |
 | [`docs/architecture.md`](docs/architecture.md) | Proposed stack + folder layout |
 | [`docs/implementation-plan.md`](docs/implementation-plan.md) | Milestones M0–M4 |
-| [`docs/technical-spikes.md`](docs/technical-spikes.md) | M0 spike report (fill after Chrome runs) |
+| [`docs/technical-spikes.md`](docs/technical-spikes.md) | M0 spike report (Chrome results) |
 | [`docs/privacy-threat-model.md`](docs/privacy-threat-model.md) | Privacy / threat model |
 | [`docs/test-plan.md`](docs/test-plan.md) | Test plan |
 
@@ -63,4 +63,4 @@ The product app will live under `extension/` later (see [`docs/architecture.md`]
 
 ## Contributing / development notes
 
-This repo is a solo WIP first draft. Expect incomplete spikes, placeholder TBD tables, and docs that may lead the code. Prefer small, verifiable milestones over expanding MVP scope.
+This repo is a solo WIP draft. Expect incomplete Chrome validation tables and docs that may lead the code. Prefer small, verifiable milestones over expanding MVP scope.

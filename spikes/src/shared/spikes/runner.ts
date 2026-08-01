@@ -1,19 +1,21 @@
 import { appendSpikeLog, setSpikeStatus } from "../logging/spike-log";
 import { runManualActiveTabSpike } from "./active-tab";
+import { runNotificationSpike } from "./notifications";
+import { runSidePanelPathsSpike } from "./side-panel";
 import type { SpikeId } from "./types";
 import { isDocumentSpike } from "./types";
 
 export type SpikeRunner = (spikeId: SpikeId) => Promise<void>;
 
-async function runStub(spikeId: SpikeId, note: string): Promise<void> {
+/**
+ * S0.6 needs `permissions.request()`, which Chrome only accepts under user
+ * activation. The worker has none, so the panel and options page run it in
+ * their own realm and this exists only to explain a misrouted call.
+ */
+async function refuseWorkerRun(spikeId: SpikeId, reason: string): Promise<void> {
   await setSpikeStatus(spikeId, "running");
-  await appendSpikeLog(spikeId, "info", note);
-  await appendSpikeLog(
-    spikeId,
-    "warn",
-    "Spike logic not implemented yet — harness stub only.",
-  );
-  await setSpikeStatus(spikeId, "idle");
+  await appendSpikeLog(spikeId, "error", reason);
+  await setSpikeStatus(spikeId, "blocked");
 }
 
 /**
@@ -22,15 +24,14 @@ async function runStub(spikeId: SpikeId, note: string): Promise<void> {
  * `document-runners.ts`.
  */
 export const spikeRunners: Partial<Record<SpikeId, SpikeRunner>> = {
-  "S0.4": (id) =>
-    runStub(
-      id,
-      "Will test side panel open from toolbar, notification, and context menu.",
-    ),
+  "S0.4": (id) => runSidePanelPathsSpike(id),
   "S0.5": (id) => runManualActiveTabSpike(id),
   "S0.6": (id) =>
-    runStub(id, "Will test optional host permissions.request / remove / contains."),
-  "S0.7": (id) => runStub(id, "Will test badge + notification opening the side panel."),
+    refuseWorkerRun(
+      id,
+      "S0.6 reached the service worker, which has no user activation to spend on permissions.request(). Run it from the side panel or the options page instead.",
+    ),
+  "S0.7": (id) => runNotificationSpike(id),
 };
 
 export async function runSpike(spikeId: SpikeId): Promise<void> {

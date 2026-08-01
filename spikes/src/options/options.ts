@@ -9,10 +9,16 @@ import {
 } from "../shared/nano/matrix";
 import type { SpikeContextId } from "../shared/nano/types";
 import { SPIKE_CONTEXT_LABELS } from "../shared/nano/types";
+import type { DocumentRunnableSpikeId } from "../shared/spikes/document-runners";
 import { runDocumentSpike } from "../shared/spikes/document-runners";
-import type { DocumentSpikeId } from "../shared/spikes/types";
+import {
+  hasBroadHostAccess,
+  PERMISSIONS_STATE_STORAGE_KEY,
+  revokeBroadHostAccess,
+} from "../shared/spikes/permissions";
+import type { SpikeId } from "../shared/spikes/types";
 
-const NANO_SPIKE_IDS: DocumentSpikeId[] = ["S0.1", "S0.2", "S0.3"];
+const LOGGED_SPIKE_IDS: SpikeId[] = ["S0.1", "S0.2", "S0.3", "S0.6"];
 
 const MATRIX_CONTEXTS: SpikeContextId[] = [
   "sidepanel",
@@ -20,11 +26,14 @@ const MATRIX_CONTEXTS: SpikeContextId[] = [
   "service-worker",
 ];
 
-const BUTTON_IDS: Record<DocumentSpikeId, string> = {
+const BUTTON_IDS: Record<DocumentRunnableSpikeId, string> = {
   "S0.1": "probe-context",
   "S0.2": "run-s02",
   "S0.3": "run-s03",
+  "S0.6": "run-s06",
 };
+
+const RUNNABLE_SPIKE_IDS = Object.keys(BUTTON_IDS) as DocumentRunnableSpikeId[];
 
 function setText(elementId: string, text: string): void {
   const node = document.getElementById(elementId);
@@ -52,11 +61,29 @@ async function renderMatrix(): Promise<void> {
   setText("context-matrix", lines.join("\n"));
 }
 
-async function renderNanoLog(): Promise<void> {
+/**
+ * A lingering `<all_urls>` grant silently invalidates S0.5, so the state is on
+ * screen at all times rather than only inside the S0.6 log.
+ */
+async function renderPermissionState(): Promise<void> {
+  const granted = await hasBroadHostAccess();
+  setText(
+    "permission-state",
+    granted
+      ? "<all_urls> is GRANTED. Revoke it before running S0.5 — scripting will otherwise succeed on every tab for the wrong reason."
+      : "<all_urls> is not granted. S0.5 is safe to run.",
+  );
+  const node = document.getElementById("permission-state");
+  if (node) {
+    node.dataset.granted = String(granted);
+  }
+}
+
+async function renderSpikeLog(): Promise<void> {
   const results = await getSpikeResults();
   const lines: string[] = [];
 
-  for (const spikeId of NANO_SPIKE_IDS) {
+  for (const spikeId of LOGGED_SPIKE_IDS) {
     const result = results[spikeId];
     lines.push(`— ${spikeId} (${result?.status ?? "idle"}) —`);
     if (!result || result.entries.length === 0) {
@@ -75,14 +102,15 @@ async function renderNanoLog(): Promise<void> {
 async function renderResults(): Promise<void> {
   const results = await getSpikeResults();
   setText("stored-results", JSON.stringify(results, null, 2));
-  await Promise.all([renderMatrix(), renderNanoLog()]);
+  await Promise.all([renderMatrix(), renderSpikeLog(), renderPermissionState()]);
 }
 
 /**
  * Runs the spike in this document. Called straight from the click handler so
- * `create()` still sees the transient user activation.
+ * `create()` (S0.2) and `permissions.request()` (S0.6) still see the transient
+ * user activation.
  */
-async function run(spikeId: DocumentSpikeId): Promise<void> {
+async function run(spikeId: DocumentRunnableSpikeId): Promise<void> {
   const buttons = runButtons();
   for (const button of buttons) {
     button.disabled = true;
@@ -105,11 +133,21 @@ async function run(spikeId: DocumentSpikeId): Promise<void> {
   }
 }
 
-for (const spikeId of NANO_SPIKE_IDS) {
+for (const spikeId of RUNNABLE_SPIKE_IDS) {
   document.getElementById(BUTTON_IDS[spikeId])?.addEventListener("click", () => {
     void run(spikeId);
   });
 }
+
+document.getElementById("probe-worker-create")?.addEventListener("click", () => {
+  void chrome.runtime
+    .sendMessage({ type: "PROBE_WORKER_NANO_CREATE" })
+    .then(() => renderResults());
+});
+
+document.getElementById("revoke-hosts")?.addEventListener("click", () => {
+  void revokeBroadHostAccess("options").then(() => renderResults());
+});
 
 document.getElementById("refresh-results")?.addEventListener("click", () => {
   void renderResults();
@@ -119,9 +157,21 @@ chrome.storage.onChanged.addListener((changes, areaName) => {
   if (areaName !== "local") {
     return;
   }
-  if (changes[SPIKE_RESULTS_STORAGE_KEY] || changes[NANO_CONTEXT_MATRIX_KEY]) {
+  if (
+    changes[SPIKE_RESULTS_STORAGE_KEY] ||
+    changes[NANO_CONTEXT_MATRIX_KEY] ||
+    changes[PERMISSIONS_STATE_STORAGE_KEY]
+  ) {
     void renderResults();
   }
+});
+
+chrome.permissions.onAdded.addListener(() => {
+  void renderPermissionState();
+});
+
+chrome.permissions.onRemoved.addListener(() => {
+  void renderPermissionState();
 });
 
 void renderResults();

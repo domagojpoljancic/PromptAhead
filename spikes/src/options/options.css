@@ -6,6 +6,8 @@
   --text: #e7edf4;
   --muted: #9db0c5;
   --accent: #5b9cff;
+  --success: #3ecf8e;
+  --error: #ff6b6b;
   font-family: "Segoe UI", system-ui, sans-serif;
   line-height: 1.5;
 }
@@ -92,6 +94,20 @@ pre {
 #run-status {
   margin: 12px 0 0;
   color: var(--muted);
+}
+
+#permission-state {
+  margin: 12px 0 0;
+  color: var(--success);
+  font-weight: 600;
+}
+
+/* A leftover <all_urls> grant silently voids S0.5, so it has to be unmissable. */
+#permission-state[data-granted="true"] {
+  color: var(--error);
+  border: 1px solid var(--error);
+  border-radius: 8px;
+  padding: 10px 12px;
 }
 
 @media (prefers-color-scheme: light) {

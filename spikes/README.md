@@ -41,12 +41,12 @@ Rebuilds on file changes; click **Reload** on `chrome://extensions` after each b
 ## Using the harness
 
 1. Click the toolbar action to open the **side panel** dashboard.
-2. Each spike card has **Run** and **Clear log**. S0.1–S0.3 and S0.5 have real logic; S0.4, S0.6, and S0.7 are still stubs.
-3. Logs persist in `chrome.storage.local` under `spikes.results.v1`; S0.5 page context lives under `spikes.s05.activeTab.v1` and the S0.1 context matrix under `spikes.nano.contextMatrix.v1`.
-4. Open **Options page** from the panel header to run the Prompt API spikes in the options realm.
-5. Background service worker routes stub spike runs, owns the gesture handlers, sets up the context menu, and probes the Prompt API in its own realm on request.
+2. Each card has a **briefing** (what you are testing, why it matters, what pass looks like, when the result is invalid), then numbered steps, then **Run** / **Clear log**.
+3. All seven spikes have real logic. Logs live in `chrome.storage.local` (`spikes.results.v1` plus per-spike state keys).
+4. Open **Options page** from the panel header for options-realm probes (S0.1–S0.3, S0.6).
+5. Prefer the ordered session below rather than clicking cards at random — some spikes invalidate others if done in the wrong order.
 
-**Where each spike executes:** S0.1–S0.3 run *in the surface you clicked* (side panel or options page), because the Prompt API has to be exercised in the realm under test and `create()` needs the click's user activation. The service worker refuses to run them on a caller's behalf; it only probes itself for the S0.1 matrix. Everything else runs in the service worker.
+**Where each spike executes:** S0.1–S0.3 and S0.6 run *in the surface you clicked* (side panel or options). The service worker only self-probes for the S0.1 matrix and hosts gesture handlers for S0.4 / S0.5 / S0.7.
 
 If a card is stuck on **Running…** (for example because the panel was closed mid-download), press **Clear log** to reset it.
 
@@ -105,6 +105,54 @@ Notes:
 - The run also probes a tab that never received a gesture. If that injection succeeds, a broad host permission is active (likely left over from S0.6) and the results are not `activeTab`-only. The card warns when `<all_urls>` is granted.
 - Card status means: `pass` = Chrome behaved as documented for the current state, `fail` = surprising result that needs a product decision, `blocked` = no gesture extraction recorded yet.
 - **Clear log** on the S0.5 card also clears the stored page context and grant state.
+
+## Ordered Chrome test session
+
+Do these in order. Each step says **what you are proving**, then **exactly what to click**.
+
+### Before you start
+
+1. Rebuild and reload: `npm run spikes:build` → `chrome://extensions` → **Reload** on PromptAhead Spikes.
+2. Note Chrome version from `chrome://version`.
+3. Open one ordinary **https://** article tab (not `chrome://`, not the Web Store). Keep a second ordinary tab open for S0.5/S0.6 control checks.
+4. Confirm S0.6 banner does **not** say host access is GRANTED. If it does, press **Revoke `<all_urls>` now**.
+
+### Optional cold-download prep (only if you want a real S0.2 download)
+
+1. `chrome://on-device-internals` → Model Status → delete/clear the model if offered.
+2. Relaunch Chrome; confirm `availability()` is `downloadable` before running S0.2.
+
+### Block A — On-device AI (S0.1 → S0.2 → S0.3)
+
+| # | What you are proving | Click this |
+| --- | --- | --- |
+| A1 | AI API exists in side panel + service worker | Open panel → **Run** on S0.1 |
+| A2 | AI API exists in options page | Header **Options page** → **Run S0.1 probe here** |
+| A3 | Worker can host a session (not just expose the API) | Back in panel S0.1 → **Probe worker create()** (only when model is `available`) |
+| A4 | Create session, download/progress, first-prompt latency | **Run** on S0.2 — **keep the panel open** the whole time |
+| A5 | Structured JSON action lists are reliable enough | **Run** on S0.3 |
+
+### Block B — Manual page read (S0.5) — do before S0.6
+
+| # | What you are proving | Click this |
+| --- | --- | --- |
+| B1 | Toolbar click can extract without broad hosts | On the **https** article tab, click the **toolbar icon** |
+| B2 | Panel can (or cannot) re-read the same tab | S0.5 → **Run panel follow-up** |
+| B3 | Navigation revokes the temporary grant | Navigate that tab elsewhere → **Run panel follow-up** again |
+| B4 | Context menu / shortcut grant the same access | Right-click → S0.5 extract item, and/or `Alt+Shift+E` |
+
+### Block C — Permissions, notifications, open paths
+
+| # | What you are proving | Click this |
+| --- | --- | --- |
+| C1 | Optional all-sites grant + revoke without reload | **Run** on S0.6 → approve Chrome prompt → confirm end state is **revoked** |
+| C2 | Options realm can also ask (may differ) | Options page → Run S0.6 once |
+| C3 | Badge + notification can open the panel | **Run** on S0.7 → **close the panel** → click the notification → reopen panel |
+| C4 | All three open paths work | After toolbar, context-menu open, and notification click: **Run** on S0.4 |
+
+### After the session
+
+Paste each card’s outcome into [`docs/technical-spikes.md`](../docs/technical-spikes.md). Prefer the card’s briefing **Pass looks like** / **Result is invalid if** lines when judging whether a run counts.
 
 ## Recording results
 
