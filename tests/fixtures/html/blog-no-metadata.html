@@ -1,0 +1,46 @@
+<!doctype html>
+<html lang="en-GB">
+  <head>
+    <meta charset="utf-8" />
+    <title>Why I stopped using a bundler for small sites</title>
+  </head>
+  <body>
+    <nav><a href="/">Home</a> <a href="/archive">Archive of every post</a></nav>
+    <article>
+      <h1>Why I stopped using a bundler for small sites</h1>
+      <p>Published <time datetime="2026-01-18">18 January 2026</time></p>
+      <p>
+        For years every side project of mine started the same way: install a bundler,
+        copy a config from the last repository, and spend an evening fighting plugins
+        before writing a single line of the thing I actually wanted to build.
+      </p>
+      <h2>The moment it stopped making sense</h2>
+      <p>
+        Browsers ship modules natively now. For a site that is a few hundred lines of
+        JavaScript and some CSS, the build step buys almost nothing and costs a config
+        file, a lockfile, and a class of errors that only appear in production.
+      </p>
+      <h2>What I do instead</h2>
+      <p>
+        I serve source files directly, keep dependencies to a handful of small modules,
+        and add a build step only once measurements say the payload hurts. In practice
+        that threshold arrives far later than habit suggests.
+      </p>
+      <h2>What I gave up</h2>
+      <p>
+        Tree shaking and minification, mostly. On a site with three dependencies the
+        difference was eleven kilobytes, which is less than the hero image I had already
+        been careless about for two years.
+      </p>
+      <h2>When I still reach for a bundler</h2>
+      <p>
+        Anything with a component framework, anything with more than a dozen modules,
+        and anything a team maintains. The tooling earns its keep the moment more than
+        one person has to reason about the dependency graph.
+      </p>
+    </article>
+    <form>
+      <input name="comment" value="SECRET-draft-comment" />
+    </form>
+  </body>
+</html>

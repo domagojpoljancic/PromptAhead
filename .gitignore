@@ -13,7 +13,9 @@ __pycache__/
 # Build / cache
 dist/
 spikes/dist/
+extension/dist/
 build/
+coverage/
 *.tsbuildinfo
 .vite/
 .next/

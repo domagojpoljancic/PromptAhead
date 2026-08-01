@@ -1,0 +1,94 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>PromptAhead</title>
+    <link rel="stylesheet" href="./sidepanel.css" />
+  </head>
+  <body>
+    <header class="app-header">
+      <p class="eyebrow">PromptAhead</p>
+      <h1>Your next question, prepared</h1>
+      <p class="lede">
+        Manual mode — page context stays on this device. Choose a direction, refine,
+        then copy a portable prompt.
+      </p>
+    </header>
+    <main class="shell">
+      <p class="shell__status" id="status">Reading this page…</p>
+
+      <section class="context" id="context" hidden>
+        <p class="context__type" id="context-type"></p>
+        <h2 class="context__title" id="context-title"></h2>
+        <p class="context__url" id="context-url"></p>
+        <p class="context__excerpt" id="context-excerpt"></p>
+        <dl class="context__facts" id="context-facts"></dl>
+      </section>
+
+      <section class="workflow" id="choose" hidden>
+        <h2 class="workflow__heading">Choose a direction</h2>
+        <p class="workflow__hint">Three ranked suggestions for this page type.</p>
+        <ul class="action-list" id="primary-actions"></ul>
+        <button type="button" class="btn btn--ghost" id="show-more" hidden>
+          More…
+        </button>
+        <ul class="action-list action-list--more" id="more-actions" hidden></ul>
+      </section>
+
+      <section class="workflow" id="refine" hidden>
+        <h2 class="workflow__heading">Refine</h2>
+        <p class="workflow__selected" id="selected-action"></p>
+        <label class="field" for="user-note">
+          <span class="field__label">Anything to add?</span>
+          <textarea
+            id="user-note"
+            class="field__input"
+            rows="3"
+            maxlength="500"
+            placeholder="Optional preferences, constraints, or focus…"
+          ></textarea>
+        </label>
+        <div class="actions">
+          <button type="button" class="btn btn--primary" id="build-prompt">
+            Build prompt
+          </button>
+          <button type="button" class="btn" id="back-to-choose">Back</button>
+        </div>
+      </section>
+
+      <section class="workflow" id="review" hidden>
+        <h2 class="workflow__heading">Review</h2>
+        <p class="workflow__meta" id="prompt-meta"></p>
+        <textarea
+          id="prompt-text"
+          class="prompt-preview"
+          rows="14"
+          spellcheck="false"
+        ></textarea>
+        <p class="workflow__hint">Copy only, or copy and open a blank chat — never auto-submit.</p>
+        <div class="actions" id="destination-actions"></div>
+        <div class="actions">
+          <button type="button" class="btn" id="back-to-refine">Back</button>
+        </div>
+      </section>
+
+      <section class="workflow" id="success" hidden>
+        <h2 class="workflow__heading">Prompt ready</h2>
+        <p class="shell__status" id="success-message">Copied.</p>
+        <div class="actions">
+          <button type="button" class="btn" id="start-over">Choose another direction</button>
+        </div>
+      </section>
+
+      <div class="actions">
+        <button type="button" class="btn" id="refresh-context">
+          Refresh from page
+        </button>
+        <button type="button" class="btn" id="open-options">Settings</button>
+      </div>
+      <p class="shell__debug" id="debug-line">Reading settings…</p>
+    </main>
+    <script type="module" src="./sidepanel.ts"></script>
+  </body>
+</html>

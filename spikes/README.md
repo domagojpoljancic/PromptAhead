@@ -46,7 +46,7 @@ Rebuilds on file changes; click **Reload** on `chrome://extensions` after each b
 4. Open **Options page** from the panel header for options-realm probes (S0.1–S0.3, S0.6).
 5. Prefer the ordered session below rather than clicking cards at random — some spikes invalidate others if done in the wrong order.
 
-**Where each spike executes:** S0.1–S0.3 and S0.6 run *in the surface you clicked* (side panel or options). The service worker only self-probes for the S0.1 matrix and hosts gesture handlers for S0.4 / S0.5 / S0.7.
+**Where each spike executes:** S0.1–S0.3 and S0.6 run _in the surface you clicked_ (side panel or options). The service worker only self-probes for the S0.1 matrix and hosts gesture handlers for S0.4 / S0.5 / S0.7.
 
 If a card is stuck on **Running…** (for example because the panel was closed mid-download), press **Clear log** to reset it.
 
@@ -96,7 +96,7 @@ Steps:
 
 1. Open a normal `http(s)` page — `chrome://`, the Web Store, and other restricted pages will refuse injection for unrelated reasons.
 2. Click the toolbar icon on that tab. The panel opens and the S0.5 card shows the extraction captured during the gesture.
-3. Press **Run panel follow-up** on the S0.5 card. This asks the service worker to re-inject the *same* tab with no new gesture — the core question of the spike. The log records whether Chrome allows it.
+3. Press **Run panel follow-up** on the S0.5 card. This asks the service worker to re-inject the _same_ tab with no new gesture — the core question of the spike. The log records whether Chrome allows it.
 4. Navigate that tab to a different page, then press **Run panel follow-up** again. Injection is expected to be refused now; the card flags the navigation it saw.
 5. Repeat via the page context menu (**S0.5: extract this page on gesture**) and the `Alt+Shift+E` shortcut to confirm all three gestures grant the same access.
 
@@ -124,31 +124,31 @@ Do these in order. Each step says **what you are proving**, then **exactly what 
 
 ### Block A — On-device AI (S0.1 → S0.2 → S0.3)
 
-| # | What you are proving | Click this |
-| --- | --- | --- |
-| A1 | AI API exists in side panel + service worker | Open panel → **Run** on S0.1 |
-| A2 | AI API exists in options page | Header **Options page** → **Run S0.1 probe here** |
-| A3 | Worker can host a session (not just expose the API) | Back in panel S0.1 → **Probe worker create()** (only when model is `available`) |
-| A4 | Create session, download/progress, first-prompt latency | **Run** on S0.2 — **keep the panel open** the whole time |
-| A5 | Structured JSON action lists are reliable enough | **Run** on S0.3 |
+| #   | What you are proving                                    | Click this                                                                      |
+| --- | ------------------------------------------------------- | ------------------------------------------------------------------------------- |
+| A1  | AI API exists in side panel + service worker            | Open panel → **Run** on S0.1                                                    |
+| A2  | AI API exists in options page                           | Header **Options page** → **Run S0.1 probe here**                               |
+| A3  | Worker can host a session (not just expose the API)     | Back in panel S0.1 → **Probe worker create()** (only when model is `available`) |
+| A4  | Create session, download/progress, first-prompt latency | **Run** on S0.2 — **keep the panel open** the whole time                        |
+| A5  | Structured JSON action lists are reliable enough        | **Run** on S0.3                                                                 |
 
 ### Block B — Manual page read (S0.5) — do before S0.6
 
-| # | What you are proving | Click this |
-| --- | --- | --- |
-| B1 | Toolbar click can extract without broad hosts | On the **https** article tab, click the **toolbar icon** |
-| B2 | Panel can (or cannot) re-read the same tab | S0.5 → **Run panel follow-up** |
-| B3 | Navigation revokes the temporary grant | Navigate that tab elsewhere → **Run panel follow-up** again |
-| B4 | Context menu / shortcut grant the same access | Right-click → S0.5 extract item, and/or `Alt+Shift+E` |
+| #   | What you are proving                          | Click this                                                  |
+| --- | --------------------------------------------- | ----------------------------------------------------------- |
+| B1  | Toolbar click can extract without broad hosts | On the **https** article tab, click the **toolbar icon**    |
+| B2  | Panel can (or cannot) re-read the same tab    | S0.5 → **Run panel follow-up**                              |
+| B3  | Navigation revokes the temporary grant        | Navigate that tab elsewhere → **Run panel follow-up** again |
+| B4  | Context menu / shortcut grant the same access | Right-click → S0.5 extract item, and/or `Alt+Shift+E`       |
 
 ### Block C — Permissions, notifications, open paths
 
-| # | What you are proving | Click this |
-| --- | --- | --- |
-| C1 | Optional all-sites grant + revoke without reload | **Run** on S0.6 → approve Chrome prompt → confirm end state is **revoked** |
-| C2 | Options realm can also ask (may differ) | Options page → Run S0.6 once |
-| C3 | Badge + notification can open the panel | **Run** on S0.7 → **close the panel** → click the notification → reopen panel |
-| C4 | All three open paths work | After toolbar, context-menu open, and notification click: **Run** on S0.4 |
+| #   | What you are proving                             | Click this                                                                    |
+| --- | ------------------------------------------------ | ----------------------------------------------------------------------------- |
+| C1  | Optional all-sites grant + revoke without reload | **Run** on S0.6 → approve Chrome prompt → confirm end state is **revoked**    |
+| C2  | Options realm can also ask (may differ)          | Options page → Run S0.6 once                                                  |
+| C3  | Badge + notification can open the panel          | **Run** on S0.7 → **close the panel** → click the notification → reopen panel |
+| C4  | All three open paths work                        | After toolbar, context-menu open, and notification click: **Run** on S0.4     |
 
 ### After the session
 
@@ -162,15 +162,15 @@ After running spikes manually, copy findings into [`docs/technical-spikes.md`](.
 
 ## Permissions (broader than M1 product)
 
-| Permission | Purpose in spikes |
-| --- | --- |
-| `sidePanel` | S0.4 panel UX |
-| `activeTab` | S0.5 manual extraction |
-| `scripting` | S0.5 injection |
-| `storage` | Spike log persistence |
-| `contextMenus` | S0.4 open path + S0.5 gesture |
-| `notifications` | S0.7 invite UX |
-| `commands` (manifest key) | S0.5 keyboard gesture (`Alt+Shift+E`) |
+| Permission                              | Purpose in spikes                                  |
+| --------------------------------------- | -------------------------------------------------- |
+| `sidePanel`                             | S0.4 panel UX                                      |
+| `activeTab`                             | S0.5 manual extraction                             |
+| `scripting`                             | S0.5 injection                                     |
+| `storage`                               | Spike log persistence                              |
+| `contextMenus`                          | S0.4 open path + S0.5 gesture                      |
+| `notifications`                         | S0.7 invite UX                                     |
+| `commands` (manifest key)               | S0.5 keyboard gesture (`Alt+Shift+E`)              |
 | `optional_host_permissions: <all_urls>` | S0.6 grant/revoke (no persistent host permissions) |
 
 ## Layout
