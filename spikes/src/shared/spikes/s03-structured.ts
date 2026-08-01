@@ -93,9 +93,7 @@ interface SampleOutcome {
  * S0.3 — does `responseConstraint` give us reliably parseable action lists?
  * Requires the model to already be resident (run S0.2 first).
  */
-export async function runStructuredJsonSpike(
-  context: SpikeContextId,
-): Promise<void> {
+export async function runStructuredJsonSpike(context: SpikeContextId): Promise<void> {
   const log = createSpikeLogger("S0.3", context);
   await setSpikeStatus("S0.3", "running");
 
@@ -249,7 +247,10 @@ export async function runStructuredJsonSpike(
     "Copy the parse rate, error shapes, and Chrome version into docs/technical-spikes.md (S0.3).",
   );
 
-  await setSpikeStatus("S0.3", afterRepairValid === total && total > 0 ? "pass" : "fail");
+  await setSpikeStatus(
+    "S0.3",
+    afterRepairValid === total && total > 0 ? "pass" : "fail",
+  );
 }
 
 interface RunSampleArgs {
@@ -289,13 +290,19 @@ async function runSample({
   }
 
   try {
-    const attempt = await promptWithTimeout(session, buildPrompt(sample, useConstraint), {
-      timeoutMs: PROMPT_TIMEOUT_MS,
-      ...(useConstraint ? { responseConstraint: ACTION_LIST_SCHEMA } : {}),
-    });
+    const attempt = await promptWithTimeout(
+      session,
+      buildPrompt(sample, useConstraint),
+      {
+        timeoutMs: PROMPT_TIMEOUT_MS,
+        ...(useConstraint ? { responseConstraint: ACTION_LIST_SCHEMA } : {}),
+      },
+    );
 
     if (attempt.text === null) {
-      const reason = attempt.error ? formatErrorShape(attempt.error) : "unknown failure";
+      const reason = attempt.error
+        ? formatErrorShape(attempt.error)
+        : "unknown failure";
       await log(
         "error",
         `[${sample.id}] prompt() failed after ${attempt.durationMs}ms${attempt.timedOut ? " (10s timeout)" : ""} — ${reason}`,
@@ -314,7 +321,9 @@ async function runSample({
           repairAttempted: false,
         },
         constraintRejected:
-          useConstraint && attempt.error !== null && looksLikeConstraintRejection(attempt.error.message),
+          useConstraint &&
+          attempt.error !== null &&
+          looksLikeConstraintRejection(attempt.error.message),
       };
     }
 

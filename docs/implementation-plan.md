@@ -25,15 +25,15 @@ See [`architecture.md`](./architecture.md) for folder layout, message flow, and 
 
 ### Deliverables
 
-| Spike | Question to answer | Success criteria |
-| --- | --- | --- |
-| S0.1 Prompt API contexts | Does `LanguageModel` work in side panel, options page, service worker? | Matrix of available / unavailable with Chrome version |
-| S0.2 Availability + download | `availability()`, user-activated `create()` + `downloadprogress` | Progress UI path documented; skippable failure path clear |
-| S0.3 Structured JSON | `responseConstraint` schema for action list | Valid JSON parse rate on sample prompts; error shapes captured |
-| S0.4 Side Panel | Open from toolbar, notification click, context menu | All three paths work or documented limitation |
-| S0.5 Manual `activeTab` | Extract page on action click without host_permissions; does grant survive for panel-driven follow-up scripting on same tab? | Working pattern chosen (prefer extract-on-gesture) |
-| S0.6 Optional hosts | `permissions.request` / `remove` / `contains` | Grant and revoke without reload surprises |
-| S0.7 Notifications | Badge + compact notification can open panel without page injection | Least-intrusive UX selected |
+| Spike                        | Question to answer                                                                                                          | Success criteria                                               |
+| ---------------------------- | --------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------- |
+| S0.1 Prompt API contexts     | Does `LanguageModel` work in side panel, options page, service worker?                                                      | Matrix of available / unavailable with Chrome version          |
+| S0.2 Availability + download | `availability()`, user-activated `create()` + `downloadprogress`                                                            | Progress UI path documented; skippable failure path clear      |
+| S0.3 Structured JSON         | `responseConstraint` schema for action list                                                                                 | Valid JSON parse rate on sample prompts; error shapes captured |
+| S0.4 Side Panel              | Open from toolbar, notification click, context menu                                                                         | All three paths work or documented limitation                  |
+| S0.5 Manual `activeTab`      | Extract page on action click without host_permissions; does grant survive for panel-driven follow-up scripting on same tab? | Working pattern chosen (prefer extract-on-gesture)             |
+| S0.6 Optional hosts          | `permissions.request` / `remove` / `contains`                                                                               | Grant and revoke without reload surprises                      |
+| S0.7 Notifications           | Badge + compact notification can open panel without page injection                                                          | Least-intrusive UX selected                                    |
 
 ### Tests / checks
 
@@ -57,11 +57,24 @@ See [`architecture.md`](./architecture.md) for folder layout, message flow, and 
 
 ## Milestone 1 — Deterministic manual core
 
+**Status:** Ready to start (M0 decisions locked 2026-08-01 — see `docs/technical-spikes.md`)  
+**First issue:** [DOM-7](https://linear.app/domagojp/issue/DOM-7) — scaffold MV3 + TS + Vite/CRX + Vitest + lint + build
+
 **Scope (≤5 lines):** Ship a loadable MV3 TypeScript extension with Manual mode (`activeTab` + `scripting`), toolbar + side panel, deterministic article/product/generic recognition, compact extraction, curated + **More…** actions, **Anything to add?**, editable prompts, context preview/controls, Copy / Copy-and-open destinations, latest-three history, settings + clear data, and `SuggestionEngine` with curated + mock-Nano adapters. No Smart host permission. No real Nano.
+
+### M0 → M1 carry-forward (do not reopen)
+
+| Topic                 | Locked choice                                                                                                                                       |
+| --------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Manual extraction     | Gesture (toolbar / context menu / shortcut) extracts in SW; `openPanelOnActionClick: false`; panel may re-fetch **same tab** until navigation/close |
+| Manual permissions    | `activeTab` + `scripting` only — no optional hosts                                                                                                  |
+| Nano in M1            | Mock/curated only; real Prompt API = M2; host in **side panel** when added                                                                          |
+| Smart / notifications | Out of scope for M1; badge-first when M3 lands                                                                                                      |
+| Cold-start / timeout  | Budget for ~6s+ first prompt in M2; curated path must not depend on Nano                                                                            |
 
 ### Deliverables
 
-- Extension scaffold (manifest, build, load unpacked).
+- Extension scaffold (manifest, build, load unpacked) under `extension/` (spikes stay throwaway).
 - Onboarding shell (mode explanation; Smart deferred or disabled until M3; destination pick; skippable Nano placeholder).
 - Content extraction pipeline + classification.
 - Side-panel state machine: Understanding → Choose → Refine → Review → Prompt ready → Success / Fallback.
@@ -90,8 +103,8 @@ See [`architecture.md`](./architecture.md) for folder layout, message flow, and 
 
 ### Checklist
 
-- [ ] Scaffold + CI scripts (`typecheck`, `lint`, `test`, `build`)
-- [ ] Messaging + storage layer
+- [ ] Scaffold + CI scripts (`typecheck`, `lint`, `test`, `build`) — **DOM-7**
+- [ ] Messaging + storage layer — **DOM-8** (code + unit tests landed; unpacked smoke pending)
 - [ ] Extraction + classification + fixtures
 - [ ] Curated / mock suggestion engines
 - [ ] Prompt builder + destinations
@@ -100,7 +113,13 @@ See [`architecture.md`](./architecture.md) for folder layout, message flow, and 
 - [ ] Onboarding (Manual-first)
 - [ ] Manual smoke report
 
----
+### Kickoff order
+
+1. **DOM-7** — product `extension/` scaffold (do not merge spikes into product entrypoints).
+2. Messaging + versioned `chrome.storage` schemas.
+3. Gesture extract → `PageContext` → side panel (reuse S0.5 pattern).
+4. Classification + curated actions + prompt builder + copy/open.
+5. Onboarding/settings shell + smoke report.
 
 ## Milestone 2 — Gemini Nano
 
@@ -223,21 +242,21 @@ Add `notifications` (and `tabs` only if spike proves necessary). Optional hosts 
 
 ## Five largest implementation risks and mitigations
 
-| # | Risk | Mitigation |
-| --- | --- | --- |
-| 1 | **`activeTab` vs side-panel UX** — panel-internal clicks do not grant `activeTab`; Manual mode must not silently require `<all_urls>`. | M0 spike: extract (or retain access) on action/shortcut/context-menu gesture; pass `PageContext` into panel. Escalate smallest alternative only if gesture pattern fails. |
-| 2 | **Prompt API context / quality volatility** | Feature-detect; keep Nano optional; curated always tested; isolate adapter; document Chrome version; one repair + 10s timeout. |
-| 3 | **All-sites permission trust hit (Smart mode)** | Defer to M3; Manual-first; education before Chrome prompt; easy revoke; open architecture; no backend. |
-| 4 | **Prompt injection from page content** | Structured extraction, delimiters, untrusted framing, JSON constraints, validation, adversarial fixtures. |
-| 5 | **Proactive annoyance / false engagement** | Conservative thresholds, hard caps, snooze/exclude/pause, invite-before-Nano, local adaptation without URL retention. |
+| #   | Risk                                                                                                                                   | Mitigation                                                                                                                                                                |
+| --- | -------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 1   | **`activeTab` vs side-panel UX** — panel-internal clicks do not grant `activeTab`; Manual mode must not silently require `<all_urls>`. | M0 spike: extract (or retain access) on action/shortcut/context-menu gesture; pass `PageContext` into panel. Escalate smallest alternative only if gesture pattern fails. |
+| 2   | **Prompt API context / quality volatility**                                                                                            | Feature-detect; keep Nano optional; curated always tested; isolate adapter; document Chrome version; one repair + 10s timeout.                                            |
+| 3   | **All-sites permission trust hit (Smart mode)**                                                                                        | Defer to M3; Manual-first; education before Chrome prompt; easy revoke; open architecture; no backend.                                                                    |
+| 4   | **Prompt injection from page content**                                                                                                 | Structured extraction, delimiters, untrusted framing, JSON constraints, validation, adversarial fixtures.                                                                 |
+| 5   | **Proactive annoyance / false engagement**                                                                                             | Conservative thresholds, hard caps, snooze/exclude/pause, invite-before-Nano, local adaptation without URL retention.                                                     |
 
 ## Blocking questions
 
 Only items the handoff does not settle:
 
-1. **Manual extraction gesture pattern (post-spike):** If action-click extraction into the side panel is unreliable on current Chrome, may we use the smallest alternative of requesting **optional** host access also for “enhanced Manual”—*or* must Manual remain `activeTab`-only even if it forces extract-only-on-toolbar-click with no in-panel re-fetch? (**Preference to propose after M0:** keep Manual `activeTab`-only; re-fetch requires another toolbar/shortcut invocation.)
+1. **Manual extraction gesture pattern (post-spike):** If action-click extraction into the side panel is unreliable on current Chrome, may we use the smallest alternative of requesting **optional** host access also for “enhanced Manual”—_or_ must Manual remain `activeTab`-only even if it forces extract-only-on-toolbar-click with no in-panel re-fetch? (**Preference to propose after M0:** keep Manual `activeTab`-only; re-fetch requires another toolbar/shortcut invocation.)
 2. **Notification surface:** Prefer `chrome.notifications` + badge vs badge-only if notification permission friction is high—confirm after S0.7 which meets “compact, non-page-injected” best.
-3. **Readability license:** Confirm bundling Mozilla Readability (Apache-2.0) is acceptable for distribution; otherwise implement a thinner custom main-content heuristic for M1.
+3. **Readability license:** Confirm bundling Mozilla Readability (Apache-2.0) is acceptable for distribution; otherwise keep the custom main-content heuristic. (**Deferred, not blocking:** the first DOM-13 slice ships a thin `main`/`article` + JSON-LD/OG heuristic. Revisit once real-page misses show the heuristic is the limiting factor — the snapshot shape already isolates the swap.)
 
 No questions that reopen locked MVP name, destinations, curated lists, privacy (no backend), or Smart-vs-Manual product split.
 

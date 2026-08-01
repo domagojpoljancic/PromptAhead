@@ -1,0 +1,41 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>PromptAhead Settings</title>
+    <link rel="stylesheet" href="./options.css" />
+  </head>
+  <body>
+    <header class="app-header">
+      <h1>PromptAhead settings</h1>
+      <p class="lede">Onboarding and preferences shell — wired in a later M1 issue.</p>
+    </header>
+    <main class="settings">
+      <section class="settings__section">
+        <h2>Mode</h2>
+        <p>Manual mode only in Milestone 1. Smart mode arrives in M3.</p>
+      </section>
+      <section class="settings__section">
+        <h2>Destination</h2>
+        <p>Where prompts open by default. Copy always works.</p>
+        <label class="field">
+          <span class="field__label">Default destination</span>
+          <select id="destination"></select>
+        </label>
+      </section>
+      <section class="settings__section">
+        <h2>Local data</h2>
+        <p>Everything PromptAhead stores stays on this device.</p>
+        <button type="button" class="btn btn--danger" id="clear-all">
+          Clear all local data
+        </button>
+      </section>
+      <section class="settings__section">
+        <h2>Debug</h2>
+        <p class="debug-line" id="debug-line">Reading settings…</p>
+      </section>
+    </main>
+    <script type="module" src="./options.ts"></script>
+  </body>
+</html>

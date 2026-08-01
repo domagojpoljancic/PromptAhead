@@ -1,0 +1,8 @@
+{
+  "extends": "./tsconfig.base.json",
+  "include": [
+    "spikes/src/**/*.ts",
+    "spikes/manifest.config.ts",
+    "spikes/vite.config.ts"
+  ]
+}

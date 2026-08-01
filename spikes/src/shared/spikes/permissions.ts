@@ -87,8 +87,7 @@ function emptyState(): PermissionsSpikeState {
 export async function getPermissionsSpikeState(): Promise<PermissionsSpikeState> {
   const stored = await chrome.storage.local.get(PERMISSIONS_STATE_STORAGE_KEY);
   const existing = stored[PERMISSIONS_STATE_STORAGE_KEY] as
-    | PermissionsSpikeState
-    | undefined;
+    PermissionsSpikeState | undefined;
   return { ...emptyState(), ...existing };
 }
 
@@ -162,9 +161,10 @@ async function probeHostAccess(phase: string): Promise<HostAccessProbe> {
     };
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
-    const restricted = /chrome:\/\/|cannot be scripted|extension gallery|chrome-extension:\/\//i.test(
-      message,
-    );
+    const restricted =
+      /chrome:\/\/|cannot be scripted|extension gallery|chrome-extension:\/\//i.test(
+        message,
+      );
     return {
       effect: restricted ? "inconclusive" : "refused",
       tabId: target.id,
@@ -200,9 +200,7 @@ async function removeBroadHosts(): Promise<RemoveOutcome> {
  * but a run interrupted halfway (closed panel, reloaded extension) can leave
  * the grant behind, and S0.5 must never be run in that state.
  */
-export async function revokeBroadHostAccess(
-  context: SpikeContextId,
-): Promise<boolean> {
+export async function revokeBroadHostAccess(context: SpikeContextId): Promise<boolean> {
   const log = createSpikeLogger(SPIKE_ID, context);
   const before = await hasBroadHostAccess();
   if (!before) {
@@ -234,9 +232,7 @@ export async function revokeBroadHostAccess(
  * click handler in a document; the service worker has no user activation to
  * spend on `request()`.
  */
-export async function runOptionalHostsSpike(
-  context: SpikeContextId,
-): Promise<void> {
+export async function runOptionalHostsSpike(context: SpikeContextId): Promise<void> {
   const log = createSpikeLogger(SPIKE_ID, context);
   await setSpikeStatus(SPIKE_ID, "running");
 

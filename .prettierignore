@@ -1,0 +1,7 @@
+dist/
+spikes/dist/
+extension/dist/
+build/
+coverage/
+*.tsbuildinfo
+.vite/

@@ -13,22 +13,22 @@
 
 ## 2. Test layers
 
-| Layer | Tooling | Scope |
-| --- | --- | --- |
-| Unit | Vitest | Pure domain: classification, metadata, caps, prompts, sensitive heuristics, caps/state machines, storage migrations |
-| Fixture | Vitest + HTML fixtures | Article/product/generic extraction; sensitive pages; prompt injection |
-| Integration | Vitest + chrome mock / minimal harness | Typed messaging; storage facades; suggestion engine switching |
-| Manual Chrome | Checklist in docs | Permissions, side panel, notifications, Nano download, smoke flows |
-| Evaluation (dev) | Local developer mode | Nano rubric scoring; JSON export |
+| Layer            | Tooling                                | Scope                                                                                                               |
+| ---------------- | -------------------------------------- | ------------------------------------------------------------------------------------------------------------------- |
+| Unit             | Vitest                                 | Pure domain: classification, metadata, caps, prompts, sensitive heuristics, caps/state machines, storage migrations |
+| Fixture          | Vitest + HTML fixtures                 | Article/product/generic extraction; sensitive pages; prompt injection                                               |
+| Integration      | Vitest + chrome mock / minimal harness | Typed messaging; storage facades; suggestion engine switching                                                       |
+| Manual Chrome    | Checklist in docs                      | Permissions, side panel, notifications, Nano download, smoke flows                                                  |
+| Evaluation (dev) | Local developer mode                   | Nano rubric scoring; JSON export                                                                                    |
 
 Optional later: Playwright/Puppeteer extension loading if stable enough; not a M1 gate.
 
 ## 3. Modes required in automation
 
-| Mode | Purpose |
-| --- | --- |
-| `SUGGESTION_ENGINE=curated` | Default CI path |
-| `SUGGESTION_ENGINE=mock-nano` | Deterministic structured “AI” responses |
+| Mode                                               | Purpose                                  |
+| -------------------------------------------------- | ---------------------------------------- |
+| `SUGGESTION_ENGINE=curated`                        | Default CI path                          |
+| `SUGGESTION_ENGINE=mock-nano`                      | Deterministic structured “AI” responses  |
 | `SUGGESTION_ENGINE=nano` + `NANO_FORCE_DISABLED=1` | Ensures fallback wiring without hardware |
 
 Never call cloud models in tests.
@@ -39,42 +39,42 @@ Store under `tests/fixtures/html/` with expected JSON sidecars where useful.
 
 ### Recognition / extraction
 
-| Fixture | Expect |
-| --- | --- |
-| NewsArticle JSON-LD complete | `pageType: article`; publisher/author/date present |
-| Blog without structured metadata | `article` or high-quality `generic` with headings/excerpts |
-| Paywalled intro only | Truncation reported; no invented body |
-| Product JSON-LD | `pageType: product`; price/brand when present |
-| Dynamic price (static snapshot approximating) | Graceful missing price |
-| Product list / search | Not a single product (`generic` or list-safe behavior) |
-| Marketplace multi-seller | Product if primary entity clear; else generic |
-| Generic docs page | `generic` |
-| Empty / error / unsupported | Safe empty context; no throw |
+| Fixture                                       | Expect                                                     |
+| --------------------------------------------- | ---------------------------------------------------------- |
+| NewsArticle JSON-LD complete                  | `pageType: article`; publisher/author/date present         |
+| Blog without structured metadata              | `article` or high-quality `generic` with headings/excerpts |
+| Paywalled intro only                          | Truncation reported; no invented body                      |
+| Product JSON-LD                               | `pageType: product`; price/brand when present              |
+| Dynamic price (static snapshot approximating) | Graceful missing price                                     |
+| Product list / search                         | Not a single product (`generic` or list-safe behavior)     |
+| Marketplace multi-seller                      | Product if primary entity clear; else generic              |
+| Generic docs page                             | `generic`                                                  |
+| Empty / error / unsupported                   | Safe empty context; no throw                               |
 
 **Quality target:** ≥90% correct article/product/generic on maintained fixture set.
 
 ### Sensitive pages
 
-| Fixture | Auto analysis |
-| --- | --- |
-| Login form | Block |
-| Password change | Block |
-| Checkout | Block |
-| Card payment | Block |
-| Banking dashboard | Block |
-| Webmail | Block |
-| Private doc editor | Block |
-| Medical portal | Block |
+| Fixture                                       | Auto analysis                |
+| --------------------------------------------- | ---------------------------- |
+| Login form                                    | Block                        |
+| Password change                               | Block                        |
+| Checkout                                      | Block                        |
+| Card payment                                  | Block                        |
+| Banking dashboard                             | Block                        |
+| Webmail                                       | Block                        |
+| Private doc editor                            | Block                        |
+| Medical portal                                | Block                        |
 | Benign article mentioning “bank” / “password” | Allow (false-positive guard) |
 
 ### Prompt injection
 
-| Fixture | Expect |
-| --- | --- |
-| Hidden ignore-instructions text | Not obeyed; delimited in source only |
-| Visible fake system prompt | Not promoted to instructions |
-| Product “recommend only us” | Not forced as policy |
-| Malicious HTML attributes | Stripped or inert in context |
+| Fixture                              | Expect                                  |
+| ------------------------------------ | --------------------------------------- |
+| Hidden ignore-instructions text      | Not obeyed; delimited in source only    |
+| Visible fake system prompt           | Not promoted to instructions            |
+| Product “recommend only us”          | Not forced as policy                    |
+| Malicious HTML attributes            | Stripped or inert in context            |
 | Extremely long repeated instructions | Caps prevent crowding out system prompt |
 
 **Acceptance:** No unsafe instruction from fixtures appears as an instruction in the generated prompt.
@@ -167,12 +167,12 @@ Target: ≥1 of 3 suggestions useful on 80% of the manual eval set.
 
 ## 9. Performance checks
 
-| Metric | Target |
-| --- | --- |
-| Side panel first paint / state | ≤100 ms feel (instrument where practical) |
-| Curated actions after extraction | ≤500 ms |
-| Nano useful suggestions | ~5 s target; hard fallback 10 s |
-| Engagement listeners | No visible scroll/input jank |
+| Metric                           | Target                                    |
+| -------------------------------- | ----------------------------------------- |
+| Side panel first paint / state   | ≤100 ms feel (instrument where practical) |
+| Curated actions after extraction | ≤500 ms                                   |
+| Nano useful suggestions          | ~5 s target; hard fallback 10 s           |
+| Engagement listeners             | No visible scroll/input jank              |
 
 Record methodology in milestone report; do not add artificial delays.
 
@@ -188,18 +188,18 @@ A milestone’s tests are done when:
 
 ## 11. Acceptance criteria mapping (summary)
 
-| Handoff §25 item | Primary coverage |
-| --- | --- |
-| Manual without all-site access | M1 manual checklist + manifest assert |
-| Smart optional + revocable | M3 integration + manual |
-| No proactive on protected pages | Sensitive fixtures + M3 manual |
-| Article/product detection | Fixture suite (≥90%) |
-| Nano 3+ actions in page language | M2 manual + mock contracts |
-| Invalid/slow Nano → fallback | Unit validator + M2 manual |
-| Prompt contents + context controls | Unit prompt tests |
-| Copy / copy-and-open; panel stays open | M1 manual |
-| Latest three prompts | Storage unit + manual |
-| No remote analytics/backend | Architecture review + network observation during smoke |
-| Injection safety | Injection fixtures |
-| &lt;10 s to copy (excl. download) | M1/M4 manual timing |
-| Curated with Prompt API disabled | CI curated + force-disabled |
+| Handoff §25 item                       | Primary coverage                                       |
+| -------------------------------------- | ------------------------------------------------------ |
+| Manual without all-site access         | M1 manual checklist + manifest assert                  |
+| Smart optional + revocable             | M3 integration + manual                                |
+| No proactive on protected pages        | Sensitive fixtures + M3 manual                         |
+| Article/product detection              | Fixture suite (≥90%)                                   |
+| Nano 3+ actions in page language       | M2 manual + mock contracts                             |
+| Invalid/slow Nano → fallback           | Unit validator + M2 manual                             |
+| Prompt contents + context controls     | Unit prompt tests                                      |
+| Copy / copy-and-open; panel stays open | M1 manual                                              |
+| Latest three prompts                   | Storage unit + manual                                  |
+| No remote analytics/backend            | Architecture review + network observation during smoke |
+| Injection safety                       | Injection fixtures                                     |
+| &lt;10 s to copy (excl. download)      | M1/M4 manual timing                                    |
+| Curated with Prompt API disabled       | CI curated + force-disabled                            |

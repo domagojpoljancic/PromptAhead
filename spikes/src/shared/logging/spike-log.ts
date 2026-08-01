@@ -28,8 +28,7 @@ export async function getSpikeResults(): Promise<Record<SpikeId, SpikeResult>> {
   const stored = await chrome.storage.local.get(SPIKE_RESULTS_STORAGE_KEY);
   const defaults = createDefaultSpikeResults();
   const existing = stored[SPIKE_RESULTS_STORAGE_KEY] as
-    | Record<SpikeId, SpikeResult>
-    | undefined;
+    Record<SpikeId, SpikeResult> | undefined;
 
   if (!existing) {
     return defaults;

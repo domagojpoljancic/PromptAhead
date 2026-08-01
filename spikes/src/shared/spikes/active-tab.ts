@@ -74,8 +74,7 @@ function emptyState(): ActiveTabSpikeState {
 export async function getActiveTabSpikeState(): Promise<ActiveTabSpikeState> {
   const stored = await chrome.storage.local.get(ACTIVE_TAB_STATE_STORAGE_KEY);
   const existing = stored[ACTIVE_TAB_STATE_STORAGE_KEY] as
-    | ActiveTabSpikeState
-    | undefined;
+    ActiveTabSpikeState | undefined;
   return { ...emptyState(), ...existing };
 }
 
@@ -336,10 +335,7 @@ export async function runManualActiveTabSpike(spikeId: SpikeId): Promise<void> {
  * Control check: a tab that never had a gesture should never be injectable.
  * If it is, some broad host permission is in play and the S0.5 result is void.
  */
-async function probeOtherTab(
-  spikeId: SpikeId,
-  grantedTabId: number,
-): Promise<void> {
+async function probeOtherTab(spikeId: SpikeId, grantedTabId: number): Promise<void> {
   // The granted tab is usually still the active one while the panel is open,
   // so fall back to any other tab in the window.
   const tabs = await chrome.tabs.query({ currentWindow: true });

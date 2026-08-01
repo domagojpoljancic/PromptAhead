@@ -1,0 +1,45 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>chrome.scripting — Extension API reference</title>
+    <meta
+      name="description"
+      content="Use the chrome.scripting API to execute script in different contexts."
+    />
+  </head>
+  <body>
+    <nav aria-label="Reference">
+      <a href="/docs/tabs">chrome.tabs reference page</a>
+    </nav>
+    <main>
+      <h1>chrome.scripting</h1>
+      <p>
+        Use the chrome.scripting API to execute script in different contexts. The API
+        requires the scripting permission and host access to the target tab, either
+        persistent or temporary through activeTab.
+      </p>
+      <h2>Permissions</h2>
+      <p>
+        To use the scripting API, declare the "scripting" permission in the manifest
+        plus host permissions for the pages you inject into. Alternatively, rely on the
+        activeTab permission granted by a user gesture.
+      </p>
+      <h2>Methods</h2>
+      <p>
+        executeScript injects a script into a target context. The script runs once,
+        returns a serializable result per frame, and cannot close over variables from
+        the calling extension context.
+      </p>
+      <h2>Limitations</h2>
+      <p>
+        Injected functions are serialized before injection, so they lose their closure.
+        Arguments must be JSON-serializable and results are structured-clone compatible
+        values only.
+      </p>
+    </main>
+    <form aria-label="Search docs">
+      <input name="q" value="SECRET-search-query" />
+    </form>
+  </body>
+</html>

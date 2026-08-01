@@ -6,30 +6,30 @@
 
 ## 1. Current repository state
 
-| Asset | State |
-| --- | --- |
-| Git | `main` with initial commit (`README.md`, `.gitignore`) |
-| Application code | None |
-| Package / build | None |
-| Tests | None |
-| Docs | Handoff (`promptahead-product-handoff.md`, duplicate `promptahead-prd.md`) |
+| Asset            | State                                                                      |
+| ---------------- | -------------------------------------------------------------------------- |
+| Git              | `main` with initial commit (`README.md`, `.gitignore`)                     |
+| Application code | None                                                                       |
+| Package / build  | None                                                                       |
+| Tests            | None                                                                       |
+| Docs             | Handoff (`promptahead-product-handoff.md`, duplicate `promptahead-prd.md`) |
 
 Reusable assets: the handoff contracts (`PageContext`, Nano schemas, curated actions, notification state machine). Nothing else to preserve.
 
 ## 2. Recommended stack
 
-| Layer | Choice | Rationale |
-| --- | --- | --- |
-| Language | TypeScript (strict) | Matches handoff; types for Chrome + Prompt API |
-| Extension | Manifest V3 | Required |
-| Build | Vite + `@crxjs/vite-plugin` (or equivalent CRX bundler) | Simple multi-entry MV3 builds; no React required |
-| UI | Vanilla TS + CSS (CSS variables) | Side panel + options are small; avoid framework weight |
-| Unit tests | Vitest | Fast, fixture-friendly |
-| HTML fixtures | Static HTML under `tests/fixtures/` | Classification / extraction / injection cases |
-| Extraction helper | Bundled Mozilla Readability (license-reviewed) + custom JSON-LD/OG parsers | Deterministic article body; products via metadata heuristics |
-| Prompt API types | `@types/dom-chromium-ai` | Official typings |
-| Storage | `chrome.storage.local` only for MVP | IndexedDB deferred unless full history needs it |
-| Lint / format | ESLint + Prettier | Minimal, readable TS |
+| Layer             | Choice                                                                                                                    | Rationale                                                    |
+| ----------------- | ------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------ |
+| Language          | TypeScript (strict)                                                                                                       | Matches handoff; types for Chrome + Prompt API               |
+| Extension         | Manifest V3                                                                                                               | Required                                                     |
+| Build             | Vite + `@crxjs/vite-plugin` (or equivalent CRX bundler)                                                                   | Simple multi-entry MV3 builds; no React required             |
+| UI                | Vanilla TS + CSS (CSS variables)                                                                                          | Side panel + options are small; avoid framework weight       |
+| Unit tests        | Vitest                                                                                                                    | Fast, fixture-friendly                                       |
+| HTML fixtures     | Static HTML under `tests/fixtures/`                                                                                       | Classification / extraction / injection cases                |
+| Extraction helper | Custom JSON-LD/OG parsers + thin `main`/`article` heuristic today; bundled Mozilla Readability still under license review | Deterministic article body; products via metadata heuristics |
+| Prompt API types  | `@types/dom-chromium-ai`                                                                                                  | Official typings                                             |
+| Storage           | `chrome.storage.local` only for MVP                                                                                       | IndexedDB deferred unless full history needs it              |
+| Lint / format     | ESLint + Prettier                                                                                                         | Minimal, readable TS                                         |
 
 **Dependencies to avoid:** React/Vue unless UI complexity forces it later; WebLLM / Transformers.js; any remote CDN scripts; analytics SDKs.
 
@@ -127,14 +127,14 @@ interface SuggestionEngine {
 
 Versioned keys (illustrative):
 
-| Key | Contents |
-| --- | --- |
-| `settings.v1` | Mode, destination, language override, Nano preference, history mode, pause, exclusions |
-| `history.recent.v1` | Latest three prompts |
-| `history.full.v1` | Optional full history |
-| `learning.aggregates.v1` | Category-level thresholds / preferences (no URLs) |
-| `dev.logs.v1` | Local evaluation events |
-| `onboarding.v1` | Completion flags |
+| Key                      | Contents                                                                               |
+| ------------------------ | -------------------------------------------------------------------------------------- |
+| `settings.v1`            | Mode, destination, language override, Nano preference, history mode, pause, exclusions |
+| `history.recent.v1`      | Latest three prompts                                                                   |
+| `history.full.v1`        | Optional full history                                                                  |
+| `learning.aggregates.v1` | Category-level thresholds / preferences (no URLs)                                      |
+| `dev.logs.v1`            | Local evaluation events                                                                |
+| `onboarding.v1`          | Completion flags                                                                       |
 
 Migrations run on read/startup. “Clear everything” wipes all PromptAhead-owned keys.
 
@@ -171,7 +171,7 @@ Migrations run on read/startup. “Clear everything” wipes all PromptAhead-own
 4. Side panel runs curated (or mock/Nano) suggestions → refine → prompt → copy/open.
 5. Navigate away → `activeTab` revoked; user must invoke again.
 
-**Known Chrome constraint (to spike):** `activeTab` is granted by action/context-menu/shortcut gestures, not by later clicks *inside* the side panel. Design must extract (or retain host access) from the granting gesture—typically extract on action click in the service worker path, then hand `PageContext` to the panel. Do **not** silently add `<all_urls>` for Manual mode.
+**Known Chrome constraint (to spike):** `activeTab` is granted by action/context-menu/shortcut gestures, not by later clicks _inside_ the side panel. Design must extract (or retain host access) from the granting gesture—typically extract on action click in the service worker path, then hand `PageContext` to the panel. Do **not** silently add `<all_urls>` for Manual mode.
 
 ### Smart mode (Milestone 3)
 
@@ -182,26 +182,26 @@ Migrations run on read/startup. “Clear everything” wipes all PromptAhead-own
 
 ## 6. Permissions by milestone
 
-| Milestone | Permissions | Host permissions |
-| --- | --- | --- |
-| M0 spikes | As needed per isolated prototype | Temporary / optional in spike only |
-| M1 Manual core | `sidePanel`, `activeTab`, `scripting`, `storage`, `contextMenus` (optional), `alarms` (optional) | None persistent |
-| M2 Nano | Same as M1; no extra host permission | None |
-| M3 Smart | + `notifications`, optional `tabs` if required for invitation UX; runtime `permissions.request` for hosts | Optional `<all_urls>` or equivalent via runtime grant |
-| M4 | Same; no new remote powers | Same |
+| Milestone      | Permissions                                                                                               | Host permissions                                      |
+| -------------- | --------------------------------------------------------------------------------------------------------- | ----------------------------------------------------- |
+| M0 spikes      | As needed per isolated prototype                                                                          | Temporary / optional in spike only                    |
+| M1 Manual core | `sidePanel`, `activeTab`, `scripting`, `storage`, `contextMenus` (optional), `alarms` (optional)          | None persistent                                       |
+| M2 Nano        | Same as M1; no extra host permission                                                                      | None                                                  |
+| M3 Smart       | + `notifications`, optional `tabs` if required for invitation UX; runtime `permissions.request` for hosts | Optional `<all_urls>` or equivalent via runtime grant |
+| M4             | Same; no new remote powers                                                                                | Same                                                  |
 
 Never request permissions for features not yet implemented. Bundle all JS; CSP must block remote code.
 
 ## 7. API volatility notes (pre-spike)
 
-| API | Handoff assumption | Current docs signal (verify in M0) |
-| --- | --- | --- |
-| Prompt API / `LanguageModel` | Not in Web Workers; use side panel | Official web docs still say not in Web Workers; some extension guidance claims SW support—**spike both** |
-| Structured output | JSON schema via `responseConstraint` | Documented for Prompt API |
-| Side Panel | Open from toolbar / notification / gesture | `setPanelBehavior`, `sidePanel.open` require user gesture |
-| `activeTab` + panel | Manual extraction without broad hosts | Panel-internal clicks do not grant `activeTab`; action-click grant persists until navigation—**spike** |
-| Optional hosts | Runtime request + revoke | `permissions.request` / `permissions.remove` |
-| Notifications | Badge + compact invite; no page modal | Prefer `chrome.notifications` + action badge |
+| API                          | Handoff assumption                         | Current docs signal (verify in M0)                                                                       |
+| ---------------------------- | ------------------------------------------ | -------------------------------------------------------------------------------------------------------- |
+| Prompt API / `LanguageModel` | Not in Web Workers; use side panel         | Official web docs still say not in Web Workers; some extension guidance claims SW support—**spike both** |
+| Structured output            | JSON schema via `responseConstraint`       | Documented for Prompt API                                                                                |
+| Side Panel                   | Open from toolbar / notification / gesture | `setPanelBehavior`, `sidePanel.open` require user gesture                                                |
+| `activeTab` + panel          | Manual extraction without broad hosts      | Panel-internal clicks do not grant `activeTab`; action-click grant persists until navigation—**spike**   |
+| Optional hosts               | Runtime request + revoke                   | `permissions.request` / `permissions.remove`                                                             |
+| Notifications                | Badge + compact invite; no page modal      | Prefer `chrome.notifications` + action badge                                                             |
 
 ## 8. Security boundaries
 

@@ -8,10 +8,7 @@
  */
 
 export type LanguageModelAvailability =
-  | "unavailable"
-  | "downloadable"
-  | "downloading"
-  | "available";
+  "unavailable" | "downloadable" | "downloading" | "available";
 
 export const AVAILABILITY_VALUES: readonly LanguageModelAvailability[] = [
   "unavailable",

@@ -39,7 +39,10 @@ export async function runAvailabilityDownloadSpike(
   await setSpikeStatus("S0.2", "running");
 
   const version = chromeVersion();
-  await log("info", `S0.2 started in ${SPIKE_CONTEXT_LABELS[context]} — Chrome ${version}`);
+  await log(
+    "info",
+    `S0.2 started in ${SPIKE_CONTEXT_LABELS[context]} — Chrome ${version}`,
+  );
   await log("info", `User activation at click time: ${userActivationState()}`);
 
   const detection = detectPromptApi();
@@ -128,7 +131,10 @@ export async function runAvailabilityDownloadSpike(
       "A download is already in flight — create() should attach to it and resolve when it completes.",
     );
   } else {
-    await log("info", "Model is resident — create() should resolve without any download.");
+    await log(
+      "info",
+      "Model is resident — create() should resolve without any download.",
+    );
   }
 
   const logProgress = createProgressLogger(log);

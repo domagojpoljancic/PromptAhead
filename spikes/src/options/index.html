@@ -13,8 +13,7 @@
         <h1>Spike options &amp; context probes</h1>
         <p>
           Use this page for the options-page row of the S0.1 matrix. Results are
-          mirrored to <code>chrome.storage.local</code> and visible in the side
-          panel.
+          mirrored to <code>chrome.storage.local</code> and visible in the side panel.
         </p>
       </header>
 
@@ -22,8 +21,8 @@
         <h2>S0.1–S0.3 — Prompt API in this realm</h2>
         <p>
           A document can only probe the realm it runs in, so these buttons run
-          <code>LanguageModel</code> checks inside this options page. The click
-          is also what gives <code>create()</code> its user activation.
+          <code>LanguageModel</code> checks inside this options page. The click is also
+          what gives <code>create()</code> its user activation.
         </p>
         <div class="actions">
           <button type="button" class="btn btn--primary" id="probe-context">
@@ -44,26 +43,26 @@
         </div>
         <p id="run-status" aria-live="polite">Idle.</p>
         <p>
-          S0.2 may download the model — keep this tab open. S0.3 needs a resident
-          model, so run S0.2 first. <strong>Probe worker create()</strong> fills
-          the last cell of the S0.1 matrix: whether the service worker can host
-          a session, not just expose the API. It is skipped unless the model is
-          already resident, so it can never start a download.
+          S0.2 may download the model — keep this tab open. S0.3 needs a resident model,
+          so run S0.2 first. <strong>Probe worker create()</strong> fills the last cell
+          of the S0.1 matrix: whether the service worker can host a session, not just
+          expose the API. It is skipped unless the model is already resident, so it can
+          never start a download.
         </p>
       </section>
 
       <section class="panel">
         <h2>S0.6 — Optional host permissions</h2>
         <p>
-          <code>permissions.request()</code> needs the user activation from your
-          click, so it cannot run in the service worker. This page and the side
-          panel are different realms — run it in both and record whether each
-          one is allowed to ask.
+          <code>permissions.request()</code> needs the user activation from your click,
+          so it cannot run in the service worker. This page and the side panel are
+          different realms — run it in both and record whether each one is allowed to
+          ask.
         </p>
         <p>
-          The run grants <code>&lt;all_urls&gt;</code>, proves the grant works
-          without a reload, then revokes it again. It must end revoked: a
-          leftover grant makes S0.5 succeed for the wrong reason.
+          The run grants <code>&lt;all_urls&gt;</code>, proves the grant works without a
+          reload, then revokes it again. It must end revoked: a leftover grant makes
+          S0.5 succeed for the wrong reason.
         </p>
         <div class="actions">
           <button type="button" class="btn btn--primary" id="run-s06">
