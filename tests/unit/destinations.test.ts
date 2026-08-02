@@ -1,4 +1,4 @@
-import { describe, expect, it, vi } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 
 import {
   DEEP_LINK_URL_BUDGET,
@@ -115,6 +115,10 @@ describe("generateLLMDeepLink", () => {
 });
 
 describe("openLLMWithFallback", () => {
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
   it("copy-only skips opening a tab", async () => {
     const copy = vi.fn().mockResolvedValue(undefined);
     const openTab = vi.fn();
@@ -273,10 +277,7 @@ describe("openLLMWithFallback", () => {
 
   it("copyAndMaybeOpen remains a thin wrapper over the new flow", async () => {
     const writeText = vi.fn().mockResolvedValue(undefined);
-    Object.defineProperty(navigator, "clipboard", {
-      configurable: true,
-      value: { writeText },
-    });
+    vi.stubGlobal("navigator", { clipboard: { writeText } });
 
     const opened: string[] = [];
     const result = await copyAndMaybeOpen({

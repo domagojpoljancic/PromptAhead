@@ -30,7 +30,7 @@ Privacy-first Chrome extension (Manifest V3) that notices when you are genuinely
 
 ## Quick start (product extension)
 
-Requires Node.js 20+ and Chrome with Developer mode.
+Requires Node.js 20.19+ (same floor as CI / `engines`) and Chrome with Developer mode.
 
 ```bash
 npm install
