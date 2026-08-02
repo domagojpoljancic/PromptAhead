@@ -7,6 +7,104 @@
     <link rel="stylesheet" href="./sidepanel.css" />
   </head>
   <body>
+    <div class="onboarding" id="onboarding" hidden>
+      <div class="onboarding__card">
+        <p class="eyebrow">Welcome</p>
+        <div id="onboarding-steps">
+          <section class="onboarding__step" data-step="welcome">
+            <h2 class="onboarding__heading">Your next question, prepared</h2>
+            <p class="onboarding__copy">
+              PromptAhead turns the page you’re on into a portable prompt for ChatGPT,
+              Claude, Gemini, or Perplexity. Everything stays on this device — no cloud
+              backend, no analytics.
+            </p>
+            <div class="actions">
+              <button type="button" class="btn btn--primary" data-onboarding-action="next">
+                Continue
+              </button>
+              <button type="button" class="btn btn--ghost" data-onboarding-action="skip">
+                Skip setup
+              </button>
+            </div>
+          </section>
+
+          <section class="onboarding__step" data-step="mode" hidden>
+            <h2 class="onboarding__heading">How you’ll use it</h2>
+            <p class="onboarding__copy">
+              Manual mode is active: click the toolbar icon when you want PromptAhead.
+              Smart mode (engagement-based invites) is coming later — no website access
+              is requested today.
+            </p>
+            <ul class="onboarding__choices">
+              <li class="onboarding__choice onboarding__choice--active">
+                <strong>Manual</strong>
+                <span>You decide when to open the panel. Uses activeTab only.</span>
+              </li>
+              <li class="onboarding__choice onboarding__choice--disabled">
+                <strong>Smart</strong>
+                <span>Coming soon — optional host access, deferred to a later milestone.</span>
+              </li>
+            </ul>
+            <div class="actions">
+              <button type="button" class="btn btn--back" data-onboarding-action="back">
+                ← Back
+              </button>
+              <button type="button" class="btn btn--primary" data-onboarding-action="next">
+                Continue
+              </button>
+              <button type="button" class="btn btn--ghost" data-onboarding-action="skip">
+                Skip
+              </button>
+            </div>
+          </section>
+
+          <section class="onboarding__step" data-step="destination" hidden>
+            <h2 class="onboarding__heading">Default destination</h2>
+            <p class="onboarding__copy">
+              Where should prompts open by default? You can change this anytime in
+              Settings or on the prompt screen.
+            </p>
+            <label class="field" for="onboarding-destination">
+              <span class="field__label">Default destination</span>
+              <select id="onboarding-destination" class="field__input"></select>
+            </label>
+            <div class="actions">
+              <button type="button" class="btn btn--back" data-onboarding-action="back">
+                ← Back
+              </button>
+              <button type="button" class="btn btn--primary" data-onboarding-action="next">
+                Continue
+              </button>
+              <button type="button" class="btn btn--ghost" data-onboarding-action="skip">
+                Skip
+              </button>
+            </div>
+          </section>
+
+          <section class="onboarding__step" data-step="nano" hidden>
+            <h2 class="onboarding__heading">On-device Nano (later)</h2>
+            <p class="onboarding__copy">
+              Gemini Nano will optionally rank page-specific directions on your device.
+              In this milestone it’s skipped — curated suggestions work fully without a
+              download. You’ll be able to enable Nano in a later update.
+            </p>
+            <div class="actions">
+              <button type="button" class="btn btn--back" data-onboarding-action="back">
+                ← Back
+              </button>
+              <button type="button" class="btn btn--primary" data-onboarding-action="finish">
+                Finish
+              </button>
+              <button type="button" class="btn btn--ghost" data-onboarding-action="skip">
+                Skip
+              </button>
+            </div>
+          </section>
+        </div>
+        <p class="onboarding__status" id="onboarding-status" role="status"></p>
+      </div>
+    </div>
+
     <header class="app-header">
       <p class="eyebrow">PromptAhead</p>
       <h1>Your next question, prepared</h1>
@@ -16,14 +114,19 @@
       </p>
     </header>
     <main class="shell">
-      <p class="shell__status" id="status">Reading this page…</p>
+      <p class="shell__status" id="status" role="status">Reading this page…</p>
 
-      <section class="context" id="context" hidden>
+      <section class="context" id="context-summary" hidden>
         <p class="context__type" id="context-type"></p>
         <h2 class="context__title" id="context-title"></h2>
         <p class="context__url" id="context-url"></p>
-        <p class="context__excerpt" id="context-excerpt"></p>
-        <dl class="context__facts" id="context-facts"></dl>
+      </section>
+
+      <section class="workflow" id="understanding" hidden>
+        <h2 class="workflow__heading">Understanding this page</h2>
+        <p class="workflow__hint" id="understanding-message">
+          Capturing compact context and ranking directions…
+        </p>
       </section>
 
       <section class="workflow" id="choose" hidden>
@@ -37,6 +140,7 @@
       </section>
 
       <section class="workflow" id="refine" hidden>
+        <button type="button" class="btn btn--back" id="back-to-choose">← Back</button>
         <h2 class="workflow__heading">Refine</h2>
         <p class="workflow__selected" id="selected-action"></p>
         <label class="field" for="user-note">
@@ -50,15 +154,51 @@
           ></textarea>
         </label>
         <div class="actions">
-          <button type="button" class="btn btn--primary" id="build-prompt">
-            Build prompt
+          <button type="button" class="btn btn--primary" id="continue-to-review">
+            Continue
           </button>
-          <button type="button" class="btn" id="back-to-choose">Back</button>
         </div>
       </section>
 
       <section class="workflow" id="review" hidden>
-        <h2 class="workflow__heading">Review</h2>
+        <button type="button" class="btn btn--back" id="back-to-refine">← Back</button>
+        <h2 class="workflow__heading">Review context</h2>
+        <p class="workflow__hint">
+          Choose what to include in the prompt. Preview is collapsed — expand to inspect.
+        </p>
+        <details class="context-preview" id="context-preview">
+          <summary class="context-preview__summary">Included context</summary>
+          <div class="context-preview__body" id="context-preview-body"></div>
+        </details>
+        <fieldset class="inclusion">
+          <legend class="inclusion__legend">Include in prompt</legend>
+          <label class="inclusion__item">
+            <input type="checkbox" id="include-title-url" checked />
+            <span>Title &amp; URL</span>
+          </label>
+          <label class="inclusion__item">
+            <input type="checkbox" id="include-page-body" checked />
+            <span>Page context</span>
+          </label>
+          <label class="inclusion__item" id="include-selected-wrap" hidden>
+            <input type="checkbox" id="include-selected-text" checked />
+            <span>Selected text</span>
+          </label>
+          <label class="inclusion__item">
+            <input type="checkbox" id="include-user-note" checked />
+            <span>Your note</span>
+          </label>
+        </fieldset>
+        <div class="actions">
+          <button type="button" class="btn btn--primary" id="build-prompt">
+            Build prompt
+          </button>
+        </div>
+      </section>
+
+      <section class="workflow" id="prompt" hidden>
+        <button type="button" class="btn btn--back" id="back-to-review">← Back</button>
+        <h2 class="workflow__heading">Prompt ready</h2>
         <p class="workflow__meta" id="prompt-meta"></p>
         <textarea
           id="prompt-text"
@@ -66,19 +206,50 @@
           rows="14"
           spellcheck="false"
         ></textarea>
-        <p class="workflow__hint">Open in a provider via deep link (or copy to paste) — never auto-submit.</p>
+        <p class="workflow__hint">
+          Open in a provider via deep link (or copy to paste) — never auto-submit.
+        </p>
         <div class="actions" id="destination-actions"></div>
-        <div class="actions">
-          <button type="button" class="btn" id="back-to-refine">Back</button>
-        </div>
       </section>
 
       <section class="workflow" id="success" hidden>
-        <h2 class="workflow__heading">Prompt ready</h2>
-        <p class="shell__status" id="success-message">Copied.</p>
+        <h2 class="workflow__heading">Done</h2>
+        <p class="shell__status shell__status--ok" id="success-message">Copied.</p>
         <div class="actions">
-          <button type="button" class="btn" id="start-over">Choose another direction</button>
+          <button type="button" class="btn btn--primary" id="edit-prompt">
+            Edit prompt
+          </button>
+          <button type="button" class="btn" id="start-over">
+            Choose another direction
+          </button>
         </div>
+      </section>
+
+      <section class="workflow workflow--error" id="fallback" hidden>
+        <h2 class="workflow__heading" id="fallback-heading">Something went wrong</h2>
+        <p class="workflow__hint" id="fallback-message"></p>
+        <div class="actions">
+          <button type="button" class="btn btn--primary" id="fallback-retry">
+            Try again
+          </button>
+          <button type="button" class="btn" id="fallback-choose" hidden>
+            Back to directions
+          </button>
+        </div>
+      </section>
+
+      <section class="workflow workflow--error" id="stale" hidden>
+        <h2 class="workflow__heading">Page changed</h2>
+        <p class="workflow__hint" id="stale-message">
+          This page changed — click the PromptAhead icon to capture it again.
+        </p>
+      </section>
+
+      <section class="workflow" id="empty" hidden>
+        <h2 class="workflow__heading">No page captured</h2>
+        <p class="workflow__hint" id="empty-message">
+          Click the PromptAhead icon on the page you want to use.
+        </p>
       </section>
 
       <div class="actions">

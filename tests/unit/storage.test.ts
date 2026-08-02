@@ -6,10 +6,13 @@ import {
   STORAGE_KEYS,
   addRecentPrompt,
   clearAllPromptAheadData,
+  clearLearningAggregates,
+  clearRecentHistory,
   ensureDefaults,
   readOnboarding,
   readRecentHistory,
   readSettings,
+  updateOnboarding,
   updateSettings,
 } from "../../extension/src/shared/storage";
 import {
@@ -151,23 +154,75 @@ describe("recent history", () => {
 });
 
 describe("clearAllPromptAheadData", () => {
-  it("removes every PromptAhead-owned key and nothing else", async () => {
+  it("removes every PromptAhead-owned key and restores defaults", async () => {
     uninstallChromeMock();
     mock = installChromeMock({
       initialStorage: {
-        [STORAGE_KEYS.settings]: { schemaVersion: 1 },
+        [STORAGE_KEYS.settings]: { schemaVersion: 1, developerMode: true },
         [STORAGE_KEYS.recentHistory]: { schemaVersion: 1, entries: [] },
         [STORAGE_KEYS.fullHistory]: { schemaVersion: 1, entries: [] },
         [STORAGE_KEYS.learningAggregates]: { schemaVersion: 1 },
         [STORAGE_KEYS.devLogs]: { schemaVersion: 1, events: [] },
-        [STORAGE_KEYS.onboarding]: { schemaVersion: 1 },
+        [STORAGE_KEYS.onboarding]: {
+          schemaVersion: 1,
+          completed: true,
+          completedAt: "2026-01-01T00:00:00.000Z",
+        },
         "someone-elses-key": { keep: true },
       },
     });
 
-    await clearAllPromptAheadData();
+    const restored = await clearAllPromptAheadData();
 
-    expect(Object.keys(mock.storage)).toEqual(["someone-elses-key"]);
+    expect(Object.keys(mock.storage).sort()).toEqual(
+      ["someone-elses-key", STORAGE_KEYS.onboarding, STORAGE_KEYS.settings].sort(),
+    );
+    expect(restored.settings).toEqual(DEFAULT_SETTINGS);
+    expect(restored.onboarding.completed).toBe(false);
     expect(await readSettings()).toEqual(DEFAULT_SETTINGS);
+    expect(await readOnboarding()).toMatchObject({ completed: false });
+  });
+});
+
+describe("clearRecentHistory and clearLearningAggregates", () => {
+  it("empties recent history and removes learning aggregates", async () => {
+    await addRecentPrompt({
+      title: "t",
+      url: "https://example.com",
+      prompt: "p",
+      destination: "copy",
+    });
+    mock.storage[STORAGE_KEYS.learningAggregates] = {
+      schemaVersion: 1,
+      actionCategoryCounts: { dig_deeper: 1 },
+      invitationsAccepted: 0,
+      invitationsDismissed: 0,
+    };
+
+    expect((await clearRecentHistory()).entries).toEqual([]);
+    await clearLearningAggregates();
+    expect(mock.storage[STORAGE_KEYS.learningAggregates]).toBeUndefined();
+  });
+});
+
+describe("onboarding persistence", () => {
+  it("marks onboarding complete and resets after clear-all", async () => {
+    await updateOnboarding({
+      completed: true,
+      completedAt: "2026-08-02T12:00:00.000Z",
+      modeChosen: true,
+      destinationChosen: true,
+      nanoStepSkipped: true,
+    });
+    expect(await readOnboarding()).toMatchObject({
+      completed: true,
+      nanoStepSkipped: true,
+    });
+
+    await clearAllPromptAheadData();
+    expect(await readOnboarding()).toMatchObject({
+      completed: false,
+      completedAt: null,
+    });
   });
 });

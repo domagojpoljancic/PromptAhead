@@ -100,6 +100,7 @@ export function createChromeMock(options: ChromeMockOptions = {}): ChromeMock {
     runtime: {
       id: "promptahead-test",
       sendMessage,
+      openOptionsPage: async () => undefined,
       onMessage: {
         addListener: (listener: MessageListener) => {
           listeners.push(listener);

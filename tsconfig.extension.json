@@ -5,7 +5,9 @@
     "extension/manifest.config.ts",
     "extension/vite.config.ts",
     "tests/unit/**/*.ts",
+    "tests/e2e/**/*.ts",
     "vitest.config.ts",
+    "playwright.config.ts",
     "eslint.config.js"
   ]
 }

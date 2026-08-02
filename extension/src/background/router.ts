@@ -5,7 +5,9 @@
 
 import { getActiveTab, openSidePanel } from "../shared/chrome";
 import {
+  broadcastBackgroundEvent,
   describeError,
+  isBackgroundEvent,
   isBackgroundRequest,
   type BackgroundRequest,
   type BackgroundResponse,
@@ -13,6 +15,8 @@ import {
 import {
   addRecentPrompt,
   clearAllPromptAheadData,
+  clearLearningAggregates,
+  clearRecentHistory,
   readOnboarding,
   readRecentHistory,
   readSettings,
@@ -81,16 +85,46 @@ export async function handleBackgroundRequest(
       };
     }
 
-    case "CLEAR_ALL_DATA":
-      await clearAllPromptAheadData();
+    case "CLEAR_RECENT_HISTORY":
+      return {
+        ok: true,
+        type: "CLEAR_RECENT_HISTORY",
+        history: await clearRecentHistory(),
+      };
+
+    case "CLEAR_LEARNED_PREFS":
+      await clearLearningAggregates();
+      return { ok: true, type: "CLEAR_LEARNED_PREFS", cleared: true };
+
+    case "CLEAR_ALL_DATA": {
+      const restored = await clearAllPromptAheadData();
       clearPageContextCache();
-      return { ok: true, type: "CLEAR_ALL_DATA", cleared: true };
+      broadcastBackgroundEvent({
+        type: "PAGE_CONTEXT_CLEARED",
+        tabId: -1,
+        reason: "cleared",
+      });
+      return {
+        ok: true,
+        type: "CLEAR_ALL_DATA",
+        cleared: true,
+        settings: restored.settings,
+        onboarding: restored.onboarding,
+      };
+    }
 
     case "GET_LATEST_PAGE_CONTEXT": {
       const tab = await resolveTab(request.tabId);
-      const latest =
-        tab === null ? { pageContext: null } : await readLatestPageContext(tab.id);
-      return { ok: true, type: "GET_LATEST_PAGE_CONTEXT", ...latest };
+      if (tab === null) {
+        return { ok: true, type: "GET_LATEST_PAGE_CONTEXT", pageContext: null };
+      }
+      const latest = await readLatestPageContext(tab.id);
+      return {
+        ok: true,
+        type: "GET_LATEST_PAGE_CONTEXT",
+        tabId: tab.id,
+        ...latest,
+      };
     }
 
     case "EXTRACT_ACTIVE_TAB": {
@@ -104,7 +138,12 @@ export async function handleBackgroundRequest(
       }
       const outcome = await captureTabContext(tab.id, tab.url);
       return outcome.ok
-        ? { ok: true, type: "EXTRACT_ACTIVE_TAB", pageContext: outcome.pageContext }
+        ? {
+            ok: true,
+            type: "EXTRACT_ACTIVE_TAB",
+            pageContext: outcome.pageContext,
+            tabId: tab.id,
+          }
         : { ok: false, type: "EXTRACT_ACTIVE_TAB", error: outcome.error };
     }
 
@@ -131,6 +170,10 @@ export async function handleBackgroundRequest(
 /** Wires the router into `chrome.runtime.onMessage` (service worker only). */
 export function registerBackgroundRouter(): void {
   chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
+    // Push events are for open pages (side panel); the worker ignores them.
+    if (isBackgroundEvent(message)) {
+      return false;
+    }
     if (!isBackgroundRequest(message)) {
       sendResponse({
         ok: false,
