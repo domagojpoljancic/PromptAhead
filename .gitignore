@@ -16,6 +16,9 @@ spikes/dist/
 extension/dist/
 build/
 coverage/
+test-results/
+playwright-report/
+blob-report/
 *.tsbuildinfo
 .vite/
 .next/

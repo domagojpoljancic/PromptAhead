@@ -9,31 +9,130 @@
   <body>
     <header class="app-header">
       <h1>PromptAhead settings</h1>
-      <p class="lede">Onboarding and preferences shell — wired in a later M1 issue.</p>
+      <p class="lede">
+        Preferences stay on this device. The side panel is where you prepare prompts.
+      </p>
     </header>
     <main class="settings">
+      <p class="banner" id="status" role="status" hidden></p>
+
       <section class="settings__section">
         <h2>Mode</h2>
-        <p>Manual mode only in Milestone 1. Smart mode arrives in M3.</p>
+        <p>
+          <strong id="mode-label">Manual</strong> is the working default. Smart mode
+          (engagement-based invites) is coming later and does not request website access
+          yet.
+        </p>
+        <p class="hint" id="smart-status">Smart mode: coming soon</p>
       </section>
+
       <section class="settings__section">
         <h2>Destination</h2>
-        <p>Where prompts open by default. Copy always works.</p>
+        <p>Where prompts open by default. You can still pick per prompt in the panel.</p>
         <label class="field">
           <span class="field__label">Default destination</span>
           <select id="destination"></select>
         </label>
       </section>
+
+      <section class="settings__section">
+        <h2>Output language</h2>
+        <p>By default the prompt follows the page language. Override when you want.</p>
+        <label class="field">
+          <span class="field__label">Language override</span>
+          <select id="language-preset">
+            <option value="">Follow page language</option>
+            <option value="en">English (en)</option>
+            <option value="hr">Croatian (hr)</option>
+            <option value="de">German (de)</option>
+            <option value="fr">French (fr)</option>
+            <option value="es">Spanish (es)</option>
+            <option value="custom">Custom BCP-47…</option>
+          </select>
+        </label>
+        <label class="field" id="language-custom-wrap" hidden>
+          <span class="field__label">Custom language tag</span>
+          <input
+            id="language-custom"
+            type="text"
+            maxlength="16"
+            placeholder="e.g. pt-BR"
+            autocomplete="off"
+            spellcheck="false"
+          />
+        </label>
+      </section>
+
+      <section class="settings__section">
+        <h2>Prompt history</h2>
+        <p>
+          Recent keeps the latest three prompts. Full history storage is reserved for a
+          later milestone — the flag is saved now so the preference survives.
+        </p>
+        <fieldset class="choice-set">
+          <legend class="field__label">History mode</legend>
+          <label class="choice">
+            <input type="radio" name="history-mode" value="recent" />
+            <span>Recent (latest 3)</span>
+          </label>
+          <label class="choice">
+            <input type="radio" name="history-mode" value="full" />
+            <span>Full local history (storage lands later)</span>
+          </label>
+        </fieldset>
+        <div class="button-row">
+          <button type="button" class="btn" id="clear-history">
+            Clear prompt history
+          </button>
+        </div>
+      </section>
+
+      <section class="settings__section">
+        <h2>Learning</h2>
+        <p>
+          Category-level preference aggregates (no URLs). Unused until Smart mode —
+          clearing is still available.
+        </p>
+        <div class="button-row">
+          <button type="button" class="btn" id="clear-learned">
+            Clear learned preferences
+          </button>
+        </div>
+      </section>
+
+      <section class="settings__section">
+        <h2>Nano</h2>
+        <p id="nano-status">
+          On-device Gemini Nano setup is skipped in this milestone. Curated suggestions
+          work without a download.
+        </p>
+      </section>
+
+      <section class="settings__section">
+        <h2>Developer</h2>
+        <p>Enables local evaluation helpers. No data leaves this device.</p>
+        <label class="choice">
+          <input type="checkbox" id="developer-mode" />
+          <span>Developer mode</span>
+        </label>
+      </section>
+
       <section class="settings__section">
         <h2>Local data</h2>
-        <p>Everything PromptAhead stores stays on this device.</p>
-        <button type="button" class="btn btn--danger" id="clear-all">
-          Clear all local data
-        </button>
+        <p>
+          Clear all removes settings, history, learning aggregates, logs, and onboarding
+          state, then restores Manual-first defaults.
+        </p>
+        <div class="button-row">
+          <button type="button" class="btn btn--danger" id="clear-all">
+            Clear all PromptAhead data
+          </button>
+        </div>
       </section>
-      <section class="settings__section">
+
+      <section class="settings__section" id="debug-section" hidden>
         <h2>Debug</h2>
-        <p class="debug-line" id="debug-line">Reading settings…</p>
+        <p class="debug-line" id="debug-line"></p>
       </section>
     </main>
     <script type="module" src="./options.ts"></script>

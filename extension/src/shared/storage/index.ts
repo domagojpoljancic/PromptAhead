@@ -149,6 +149,11 @@ export async function clearRecentHistory(): Promise<RecentHistory> {
   return empty;
 }
 
+/** Wipes category-level aggregates (M3 learning). Safe no-op when unused. */
+export async function clearLearningAggregates(): Promise<void> {
+  await enqueueWrite(() => localArea().remove(STORAGE_KEYS.learningAggregates));
+}
+
 /** Writes defaults for any record missing on first run (or after a wipe). */
 export async function ensureDefaults(): Promise<{
   settings: Settings;
@@ -172,7 +177,14 @@ export async function ensureDefaults(): Promise<{
   });
 }
 
-/** Handoff §19 "Clear all local PromptAhead data" — wipes every owned key. */
-export async function clearAllPromptAheadData(): Promise<void> {
+/**
+ * Handoff §19 "Clear all local PromptAhead data" — wipes every owned key,
+ * then restores Manual-first defaults and incomplete onboarding.
+ */
+export async function clearAllPromptAheadData(): Promise<{
+  settings: Settings;
+  onboarding: OnboardingState;
+}> {
   await enqueueWrite(() => localArea().remove([...ALL_STORAGE_KEYS]));
+  return ensureDefaults();
 }

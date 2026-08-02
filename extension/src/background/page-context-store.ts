@@ -7,6 +7,7 @@
  */
 
 import type { PageContext } from "../domain/extraction";
+import { broadcastBackgroundEvent } from "../shared/messaging";
 import { extractPageContextForTab, type ExtractionOutcome } from "./extraction";
 
 export type LatestPageContext = {
@@ -70,6 +71,11 @@ export function captureTabContext(
     inFlightByTab.delete(tabId);
     if (outcome.ok) {
       rememberPageContext(tabId, outcome.pageContext);
+      broadcastBackgroundEvent({
+        type: "PAGE_CONTEXT_UPDATED",
+        tabId,
+        pageContext: outcome.pageContext,
+      });
     } else {
       rememberExtractionError(tabId, outcome.error);
     }

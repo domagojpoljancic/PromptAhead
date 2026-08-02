@@ -1,4 +1,5 @@
 import { openSidePanel } from "../shared/chrome";
+import { broadcastBackgroundEvent } from "../shared/messaging";
 import { ensureDefaults } from "../shared/storage";
 import { registerBackgroundRouter } from "./router";
 import { captureTabContext, forgetPageContext } from "./page-context-store";
@@ -70,14 +71,25 @@ chrome.commands.onCommand.addListener((command, tab) => {
 });
 
 // Navigation revokes `activeTab`, so cached context for that tab is stale.
+// The panel stays open and reacts to PAGE_CONTEXT_CLEARED (DOM-10).
 chrome.tabs.onUpdated.addListener((tabId, changeInfo) => {
   if (changeInfo.status === "loading") {
     forgetPageContext(tabId);
+    broadcastBackgroundEvent({
+      type: "PAGE_CONTEXT_CLEARED",
+      tabId,
+      reason: "navigated",
+    });
   }
 });
 
 chrome.tabs.onRemoved.addListener((tabId) => {
   forgetPageContext(tabId);
+  broadcastBackgroundEvent({
+    type: "PAGE_CONTEXT_CLEARED",
+    tabId,
+    reason: "closed",
+  });
 });
 
 export {};

@@ -33,6 +33,10 @@ export type BackgroundRequest =
   | { type: "GET_RECENT_HISTORY" }
   /** Append a copied prompt to `history.recent.v1` (UI never writes storage). */
   | { type: "ADD_RECENT_PROMPT"; entry: AddRecentPromptPayload }
+  /** Empty `history.recent.v1` only (settings / learning untouched). */
+  | { type: "CLEAR_RECENT_HISTORY" }
+  /** Wipe `learning.aggregates.v1` (unused until M3; still clearable). */
+  | { type: "CLEAR_LEARNED_PREFS" }
   | { type: "CLEAR_ALL_DATA" }
   /** Whatever the last gesture extracted for this tab, if anything. */
   | { type: "GET_LATEST_PAGE_CONTEXT"; tabId?: number }
@@ -50,10 +54,17 @@ type OkPayloads = {
   SET_ONBOARDING: { onboarding: OnboardingState };
   GET_RECENT_HISTORY: { history: RecentHistory };
   ADD_RECENT_PROMPT: { entry: PromptHistoryEntry; history: RecentHistory };
-  CLEAR_ALL_DATA: { cleared: true };
+  CLEAR_RECENT_HISTORY: { history: RecentHistory };
+  CLEAR_LEARNED_PREFS: { cleared: true };
+  CLEAR_ALL_DATA: { cleared: true; settings: Settings; onboarding: OnboardingState };
   /** `error` explains an empty context (restricted page, revoked access). */
-  GET_LATEST_PAGE_CONTEXT: { pageContext: PageContext | null; error?: string };
-  EXTRACT_ACTIVE_TAB: { pageContext: PageContext };
+  GET_LATEST_PAGE_CONTEXT: {
+    pageContext: PageContext | null;
+    error?: string;
+    /** Tab the panel should bind stale-context UX to. */
+    tabId?: number;
+  };
+  EXTRACT_ACTIVE_TAB: { pageContext: PageContext; tabId: number };
   OPEN_SIDE_PANEL: { opened: true };
 };
 
@@ -79,6 +90,8 @@ export const BACKGROUND_REQUEST_TYPES: readonly BackgroundRequestType[] = [
   "SET_ONBOARDING",
   "GET_RECENT_HISTORY",
   "ADD_RECENT_PROMPT",
+  "CLEAR_RECENT_HISTORY",
+  "CLEAR_LEARNED_PREFS",
   "CLEAR_ALL_DATA",
   "GET_LATEST_PAGE_CONTEXT",
   "EXTRACT_ACTIVE_TAB",
