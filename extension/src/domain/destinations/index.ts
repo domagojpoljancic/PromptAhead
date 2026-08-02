@@ -1,27 +1,55 @@
 /**
- * Copy / Copy-and-open destinations (handoff §15).
- *
- * MVP never auto-submits. "Copy and open" copies the prompt, then opens a blank
- * chat URL for the provider — the user pastes. Prefill is out of scope.
+ * Destination handoff: deep links (app-first + web fallback) with clipboard
+ * paste for Gemini and oversized prompts. Never auto-submits.
  */
 
 import type { DestinationId } from "../../shared/storage/schema";
 import { DESTINATION_LABELS } from "../../shared/storage/schema";
+import {
+  openLLMWithFallback,
+  type OpenLLMDeps,
+} from "./open-with-fallback";
+import {
+  DESTINATION_OPEN_URLS,
+  getProviderConfig,
+  PROVIDER_REGISTRY,
+} from "./registry";
+import type { ProviderId } from "./types";
 
-export { DESTINATION_IDS, DESTINATION_LABELS, type DestinationId } from "../../shared/storage/schema";
+export {
+  DESTINATION_IDS,
+  DESTINATION_LABELS,
+  type DestinationId,
+} from "../../shared/storage/schema";
 
-/** Blank chat entry points — no query params that would auto-fill or submit. */
-export const DESTINATION_OPEN_URLS: Record<Exclude<DestinationId, "copy">, string> = {
-  chatgpt: "https://chatgpt.com/",
-  claude: "https://claude.ai/new",
-  gemini: "https://gemini.google.com/app",
-  perplexity: "https://www.perplexity.ai/",
-};
+export { copyTextToClipboard } from "./clipboard";
+export { generateLLMDeepLink } from "./generate-deep-link";
+export {
+  openLLMWithFallback,
+  type OpenLLMDeps,
+  type TabHandle,
+} from "./open-with-fallback";
+export {
+  DESTINATION_OPEN_URLS,
+  getProviderConfig,
+  PROVIDER_REGISTRY,
+} from "./registry";
+export {
+  APP_SCHEME_FALLBACK_MS,
+  DEEP_LINK_URL_BUDGET,
+  type DeepLinkResult,
+  type DeepLinkStrategy,
+  type OpenLLMResult,
+  type OpenMode,
+  type ProviderConfig,
+  type ProviderId,
+} from "./types";
 
 export function destinationLabel(id: DestinationId): string {
   return DESTINATION_LABELS[id];
 }
 
+/** Base (non-prefilled) open URL for a destination, or null for copy-only. */
 export function openUrlForDestination(id: DestinationId): string | null {
   if (id === "copy") {
     return null;
@@ -30,63 +58,81 @@ export function openUrlForDestination(id: DestinationId): string | null {
 }
 
 /**
- * True when a URL looks like a blank provider entry (no prompt payload).
- * Used by tests to guard against accidental auto-submit encodings.
+ * True when a destination URL must not look like an auto-submit endpoint.
+ * Prefill via `q` is allowed; `submit` / `send` / `autosubmit` are not.
  */
-export function isBlankChatUrl(url: string): boolean {
+export function isSafeHandoffUrl(url: string): boolean {
   try {
     const parsed = new URL(url);
-    // Reject anything that embeds the prompt in the query or hash.
-    if ([...parsed.searchParams.keys()].length > 0) {
-      return false;
+    const banned = ["submit", "send", "autosubmit", "auto_submit"];
+    for (const key of parsed.searchParams.keys()) {
+      if (banned.includes(key.toLowerCase())) {
+        return false;
+      }
     }
-    if (parsed.hash.length > 1) {
-      return false;
-    }
-    return Object.values(DESTINATION_OPEN_URLS).some((known) => {
-      const expected = new URL(known);
-      return (
-        parsed.origin === expected.origin &&
-        (parsed.pathname === expected.pathname ||
-          parsed.pathname === `${expected.pathname}/`)
-      );
-    });
+    return true;
   } catch {
-    return false;
+    // Custom schemes (com.openai.chat://…) are not always WHATWG-parseable.
+    const lower = url.toLowerCase();
+    return !bannedParamInRaw(lower);
   }
 }
 
-export async function copyTextToClipboard(text: string): Promise<void> {
-  if (typeof navigator !== "undefined" && navigator.clipboard?.writeText) {
-    await navigator.clipboard.writeText(text);
-    return;
-  }
-  throw new Error("Clipboard API is unavailable in this context");
+function bannedParamInRaw(url: string): boolean {
+  return /[?&](submit|send|autosubmit|auto_submit)=/i.test(url);
 }
 
 /**
- * Copies the prompt, then opens the provider (unless destination is Copy only).
- * Never puts the prompt in the URL.
+ * Opens (or copies for) a destination. Prefer `openLLMWithFallback` for new code.
+ * Kept as a thin wrapper for call sites that still expect the old name.
  */
 export async function copyAndMaybeOpen(options: {
   prompt: string;
   destination: DestinationId;
+  model?: string | null;
   openTab?: (url: string) => void | Promise<void>;
-}): Promise<{ copied: true; openedUrl: string | null }> {
-  await copyTextToClipboard(options.prompt);
-  const url = openUrlForDestination(options.destination);
-  if (!url) {
-    return { copied: true, openedUrl: null };
+  deps?: OpenLLMDeps;
+}): Promise<{
+  copied: boolean;
+  openedUrl: string | null;
+  mode: import("./types").OpenMode;
+}> {
+  const deps: OpenLLMDeps | undefined = options.deps ??
+    (options.openTab
+      ? {
+          openTab: async (url) => {
+            await options.openTab?.(url);
+          },
+        }
+      : undefined);
+
+  const result = await openLLMWithFallback({
+    prompt: options.prompt,
+    destination: options.destination,
+    model: options.model,
+    deps,
+  });
+
+  return {
+    copied: result.copied,
+    openedUrl: result.openedUrl,
+    mode: result.mode,
+  };
+}
+
+/** Suggested models for a provider (empty when none configured). */
+export function suggestedModelsFor(provider: ProviderId): readonly string[] {
+  return getProviderConfig(provider).suggestedModels;
+}
+
+/** Resolve default/suggested model id for deep-link generation. */
+export function resolveDefaultModel(
+  provider: ProviderId,
+  override?: string | null,
+): string | null {
+  const config = PROVIDER_REGISTRY[provider];
+  if (!config.modelParamKey) {
+    return null;
   }
-  const open =
-    options.openTab ??
-    ((target: string) => {
-      if (typeof chrome !== "undefined" && chrome.tabs?.create) {
-        void chrome.tabs.create({ url: target });
-        return;
-      }
-      window.open(target, "_blank", "noopener,noreferrer");
-    });
-  await open(url);
-  return { copied: true, openedUrl: url };
+  return override ?? config.defaultModel ?? null;
 }

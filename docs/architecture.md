@@ -56,7 +56,7 @@ PromptAhead/
 │           ├── sensitive/         # Sensitive-page heuristics
 │           ├── suggestions/       # SuggestionEngine + adapters
 │           ├── prompts/           # Deterministic prompt builder
-│           ├── destinations/      # Copy / open targets
+│           ├── destinations/      # Deep-link registry + app/web open
 │           ├── engagement/        # Smart-mode thresholds (M3)
 │           └── learning/          # Aggregate preference signals (M3)
 ├── spikes/                        # Isolated M0 prototypes (removable)

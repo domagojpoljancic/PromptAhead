@@ -117,7 +117,7 @@ They already use one or more external LLMs. They value convenience but care abou
 - Chrome side-panel experience.
 - Optional “Anything to add?” instruction.
 - Editable generated prompt.
-- Copy and open actions for ChatGPT, Claude, Gemini, and Perplexity.
+- Copy and Open-in actions for ChatGPT, Claude, Gemini, and Perplexity.
 - Latest three prompts stored locally by default.
 - Optional full local history.
 - Local preference learning.
@@ -446,7 +446,7 @@ States:
 6. **Success:** Confirm copying/opening while retaining edit and alternate-action controls.
 7. **Fallback/error:** Explain what happened, show curated actions, and allow retry.
 
-Never submit a prompt automatically. “Copy and open” copies the prompt and opens the selected provider in a new tab. If safe and reliable prefill is later supported, it requires a separate reviewed feature; it remains out of MVP.
+Never submit a prompt automatically. Destination buttons **Open in {provider}** use documented deep links / URL schemes where the provider supports query prefill (ChatGPT, Claude, Perplexity). For providers with a desktop app scheme (ChatGPT, Claude), try the app first and fall back to the web URL if the protocol does not hand off. Gemini and prompts that exceed a safe URL length copy to the clipboard, open the provider, and show a short paste hint. Prefill must never auto-submit.
 
 ## 16. History and local learning
 
@@ -460,13 +460,13 @@ Preference learning stores aggregate behavior such as preferred action categorie
 
 MVP destinations:
 
-- ChatGPT.
-- Claude.
-- Gemini.
-- Perplexity.
+- ChatGPT (web `?q=` + optional `model`; app scheme with web fallback).
+- Claude (web/app `?q=`; app scheme with web fallback).
+- Gemini (clipboard + open; no reliable query prefill).
+- Perplexity (web/universal search `?q=`).
 - Universal Copy.
 
-One destination is saved as the default. A dropdown is always available on the prompt screen. Opening a provider never grants PromptAhead access to that provider's conversation or account.
+One destination is saved as the default. Destination buttons are always available on the prompt screen. Opening a provider never grants PromptAhead access to that provider's conversation or account. A provider registry maps each destination to deep-link patterns, suggested models, and capabilities (`supportsQueryParam`, app scheme, web URL).
 
 ## 18. Personality and visual direction
 
@@ -627,7 +627,7 @@ Provide local JSON export for deliberate evaluation. Export must require explici
 - Invalid or slow Nano output always reaches a usable fallback state.
 - The final prompt includes the selected action, optional note, compact context, source URL, research/citation instructions, and uncertainty requirements.
 - Users can inspect and remove included context.
-- Copy and Copy-and-open work for every supported destination without automatic submission.
+- Copy and Open-in work for every supported destination without automatic submission (deep-link prefill where supported; clipboard paste for Gemini / oversize).
 - The side panel remains open afterward.
 - Exactly the latest three prompts are retained by default.
 - No remote analytics or product backend requests occur.

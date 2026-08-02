@@ -122,7 +122,7 @@ Store under `tests/fixtures/html/` with expected JSON sidecars where useful.
 - Content → worker → panel message round-trip with typed payloads.
 - Action-click extraction path stores/forwards `PageContext` for side panel (per M0 decision).
 - Permission `contains` / mocked request / revoke updates settings mode safely.
-- Destination open URLs are correct; no auto-submit APIs called.
+- Destination deep links are correct per provider registry; no auto-submit query params; Gemini / oversize use clipboard + base URL; app→web fallback is covered by unit tests.
 
 ## 7. Manual Chrome verification checklists
 
@@ -131,7 +131,7 @@ Store under `tests/fixtures/html/` with expected JSON sidecars where useful.
 1. Load unpacked build.
 2. Open article page → toolbar → side panel populates actions &lt; feeling sticky.
 3. Select action → add note → inspect context → edit prompt → Copy.
-4. Copy-and-open each destination once.
+4. Open-in each destination once (verify prefill or paste hint; nothing auto-submitted).
 5. Confirm latest-three history; clear all data.
 6. Confirm manifest has no broad host permission.
 

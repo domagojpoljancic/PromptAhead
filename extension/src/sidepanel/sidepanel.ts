@@ -6,8 +6,8 @@ import {
   type DestinationId,
 } from "../shared/storage/schema";
 import {
-  copyAndMaybeOpen,
   destinationLabel,
+  openLLMWithFallback,
 } from "../domain/destinations";
 import {
   selectSuggestionEngine,
@@ -226,7 +226,7 @@ async function buildPromptFromSelection(): Promise<void> {
   }
   setText(
     promptMeta,
-    `${builtPrompt.length.toLocaleString()} characters · editable before copy`,
+    `${builtPrompt.length.toLocaleString()} characters · editable before open`,
   );
   renderDestinationButtons();
   showStep("review");
@@ -250,12 +250,37 @@ function renderDestinationButtons(): void {
     button.className =
       id === defaultDestination ? "btn btn--primary" : "btn";
     button.textContent =
-      id === "copy" ? "Copy" : `Copy and open ${destinationLabel(id)}`;
+      id === "copy"
+        ? "Copy"
+        : id === "gemini"
+          ? `Open ${destinationLabel(id)} (paste)`
+          : `Open in ${destinationLabel(id)}`;
     button.addEventListener("click", () => {
       void handoff(id);
     });
     destinationActions.append(button);
   }
+}
+
+function pasteShortcutHint(): string {
+  const isMac =
+    typeof navigator !== "undefined" &&
+    /Mac|iPhone|iPad|iPod/i.test(navigator.platform ?? "");
+  return isMac ? "Cmd+V" : "Ctrl+V";
+}
+
+function successCopyForHandoff(
+  destination: DestinationId,
+  mode: "deeplink" | "fallback-web" | "clipboard" | "copy-only",
+): string {
+  if (mode === "copy-only") {
+    return "Copied to clipboard.";
+  }
+  const label = DESTINATION_LABELS[destination];
+  if (mode === "clipboard") {
+    return `Prompt copied — switch to ${label} and press ${pasteShortcutHint()} to paste. Nothing was submitted.`;
+  }
+  return `Opened ${label}. Prompt was prefilled where supported — nothing was submitted.`;
 }
 
 async function handoff(destination: DestinationId): Promise<void> {
@@ -270,7 +295,7 @@ async function handoff(destination: DestinationId): Promise<void> {
   builtPrompt = prompt;
 
   try {
-    const result = await copyAndMaybeOpen({ prompt, destination });
+    const result = await openLLMWithFallback({ prompt, destination });
     await sendToBackground({
       type: "ADD_RECENT_PROMPT",
       entry: {
@@ -281,15 +306,16 @@ async function handoff(destination: DestinationId): Promise<void> {
       },
     });
 
-    const opened =
-      result.openedUrl === null
-        ? "Copied to clipboard."
-        : `Copied and opened ${DESTINATION_LABELS[destination]}. Paste when ready — nothing was submitted.`;
-    setText(successMessage, opened);
+    setText(successMessage, successCopyForHandoff(destination, result.mode));
     showStep("success");
-    setText(statusLine, "Prompt ready.");
+    setText(
+      statusLine,
+      result.mode === "clipboard" || result.mode === "copy-only"
+        ? "Prompt copied."
+        : "Opened destination.",
+    );
   } catch (error) {
-    const message = error instanceof Error ? error.message : "Copy failed";
+    const message = error instanceof Error ? error.message : "Handoff failed";
     setText(statusLine, message);
   }
 }

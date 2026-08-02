@@ -18,6 +18,11 @@
   box-sizing: border-box;
 }
 
+/* Author `display` rules beat the UA `[hidden]` stylesheet otherwise. */
+[hidden] {
+  display: none !important;
+}
+
 body {
   margin: 0;
   min-height: 100vh;
