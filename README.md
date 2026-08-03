@@ -1,6 +1,6 @@
 # PromptAhead
 
-> **WIP — M1 Manual core + automation.** Product path is buildable and covered by Vitest/Playwright/CI. Remaining: a short real-Chrome release smoke (toolbar gesture, `activeTab` revoke, clipboard, one provider open), then Web Store packaging.
+> **WIP — M1 Manual core closing (DOM-12).** Product path is buildable and covered by Vitest/Playwright/CI; real-Chrome smoke recorded; §25 Manual map in [`docs/test-plan.md`](docs/test-plan.md) §12. Remaining for store: reload unpacked after latest build for revoke→stale UX, then Web Store packaging (M4).
 
 **Your next question, already prepared.**
 
@@ -11,10 +11,11 @@ Privacy-first Chrome extension (Manifest V3) that notices when you are genuinely
 | Area | State |
 | --- | --- |
 | Product extension (`extension/`) | **Manual core** — gesture extract → Choose → Refine → Review → Prompt ready → Copy / Open-in |
-| Side panel | Explicit workflow state machine; one step at a time; context inclusion controls; stale-after-navigate |
+| Side panel | Explicit workflow state machine; one step at a time; context inclusion controls; **calm stale** after navigate / access-lost refresh |
 | Onboarding + settings | Manual-first first-run overlay; options page for destination, history, clear-data, developer mode |
 | Destinations | Deep links with **app-first + web fallback**; Gemini / oversized prompts use **clipboard + open**; never auto-submit |
-| Automation | Vitest (unit + jsdom UI), Playwright (built MV3), GitHub Actions (`test:ci`) |
+| Automation | Vitest (unit + jsdom UI), Playwright (built MV3 + navigate→stale), GitHub Actions (`test:ci`) |
+| M1 acceptance (DOM-12) | Smoke recorded; Manual §25 map → automated tests / documented checks; Nano/Smart/M4 → DOM-31 / DOM-38 / DOM-45 |
 | M0 spike harness (`spikes/`) | **Done** — S0.1–S0.7 implemented and run |
 | Spike results (`docs/technical-spikes.md`) | **Filled** — Chrome **150.0.0.0** (2026-08-01) |
 | Extraction | JSON-LD / Open Graph / semantic-HTML classification with size caps; 6 HTML fixtures; Readability deferred |
@@ -99,11 +100,10 @@ See [`docs/architecture.md`](docs/architecture.md) for the full folder layout. A
 
 ## What is intentionally missing
 
-- Short real-Chrome release smoke (toolbar/context-menu gesture, `activeTab` revoke, real clipboard, one provider open)
+- Chrome Web Store packaging / listing (M4)
 - Main-content extraction beyond the thin `main`/`article` heuristic; Mozilla Readability license call still open
 - Sensitive-page heuristics (banking/medical pages are not blocked yet)
-- Published Chrome Web Store build
-- Smart mode / host-permission product UI
+- Smart mode / host-permission product UI (M3)
 - Real Gemini Nano integration (M2)
 
 ## Contributing / development notes

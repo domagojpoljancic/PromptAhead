@@ -333,6 +333,7 @@ describe("side panel click-through", () => {
 
     expect(isVisible("#stale")).toBe(true);
     expect(textOf("#stale-message")).toBe(STALE_CONTEXT_MESSAGE);
+    expect(textOf("#status")).toBe("");
   });
 
   it("shows empty state when no page is captured", async () => {
@@ -342,13 +343,25 @@ describe("side panel click-through", () => {
     expect(textOf("#empty-message")).toMatch(/no page captured/i);
   });
 
-  it("shows extraction fallback when refresh fails", async () => {
-    store.extractError = "activeTab grant expired — click the icon again.";
+  it("shows stale state when refresh fails because access was revoked", async () => {
+    store.extractError =
+      "PromptAhead no longer has access to this tab. Chrome revokes it when the page navigates — click the PromptAhead icon on the page again.";
+    await boot();
+    click("#refresh-context");
+    await flush();
+    expect(isVisible("#stale")).toBe(true);
+    expect(isVisible("#fallback")).toBe(false);
+    expect(textOf("#stale-message")).toMatch(/no longer has access/i);
+    expect(textOf("#status")).toBe("");
+  });
+
+  it("shows extraction fallback when refresh fails for other reasons", async () => {
+    store.extractError = "The page returned no content to extract.";
     await boot();
     click("#refresh-context");
     await flush();
     expect(isVisible("#fallback")).toBe(true);
-    expect(textOf("#fallback-message")).toMatch(/activeTab/i);
+    expect(textOf("#fallback-message")).toMatch(/no content/i);
   });
 
   it("completes onboarding and then shows the workflow", async () => {

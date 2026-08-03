@@ -236,20 +236,32 @@ A milestone’s tests are done when:
 - Privacy assumptions / limitations updated if new data flows appeared.
 - No live-site-only assertions without a fixture backup for core classifiers.
 
-## 12. Acceptance criteria mapping (summary)
+## 12. Acceptance criteria mapping (handoff §25)
 
-| Handoff §25 item | Primary coverage |
+Owner for M1 Manual close: **DOM-12**. Nano / Smart / final polish rows point at follow-up issues — do not block M1 Done on them.
+
+### Manual-related (M1 — covered now)
+
+| Handoff §25 criterion | Coverage |
 | --- | --- |
-| Manual without all-site access | Playwright + manifest assert; manual gesture smoke |
-| Smart optional + revocable | M3 integration + manual |
-| No proactive on protected pages | Sensitive fixtures + M3 manual |
-| Article/product detection | Fixture suite (≥90%) |
-| Nano 3+ actions in page language | M2 manual + mock contracts |
-| Invalid/slow Nano → fallback | Unit validator + M2 manual |
-| Prompt contents + context controls | Unit prompt tests + jsdom inclusion |
-| Copy / copy-and-open; panel stays open | Playwright copy + unit handoff; manual one provider |
-| Latest three prompts | Storage unit + options clear |
-| No remote analytics/backend | Architecture review + network observation during smoke |
-| Injection safety | Injection fixtures |
-| &lt;10 s to copy (excl. download) | M1/M4 manual timing |
-| Curated with Prompt API disabled | CI curated + force-disabled |
+| Manual analyzes active page only after explicit action, without all-site access | Playwright MV3 extract (test-only fixture host grant); production manifest `activeTab`-only; **manual smoke** toolbar / context-menu / shortcut gesture |
+| Article and product detection on representative set | Vitest HTML fixture suite (classification + extraction); quality target ≥90% on maintained fixtures |
+| Final prompt includes action, optional note, compact context, source URL, research/citation/uncertainty asks | Vitest prompt builder + jsdom Refine inclusion controls |
+| Users can inspect and remove included context | Vitest jsdom: empty inclusion block disables Build; per-field toggles |
+| Copy and Open-in without auto-submit; panel stays open | Playwright copy path; Vitest destination / handoff unit tests; **manual smoke** one live provider Open-in |
+| Latest three prompts retained by default | Vitest storage + options clear-history / clear-all |
+| No remote analytics or product backend | Architecture (no backend); **manual smoke** Network tab observation |
+| Injection safety (no unsafe page text as instructions) | Vitest injection fixtures |
+| &lt;10 s panel → copy (excl. model download) | Playwright curated flow timing feel; **manual smoke** once on real Chrome |
+| Curated mode with Prompt API disabled | CI default `SUGGESTION_ENGINE=curated` + mock-nano / force-disabled modes |
+| Stale after navigate / `activeTab` revoke | Vitest access-lost → `#stale`; Playwright navigate → stale; **manual smoke** Refresh after navigate |
+
+**Recorded smoke:** DOM-12 Linear comment (2026-08-03) + checklist on the issue. Still manual-only at release: real toolbar gesture, OS clipboard paste check, one live provider Open-in, Network tab no-backend check.
+
+### Deferred (not M1 Done blockers)
+
+| Handoff §25 criterion | Follow-up |
+| --- | --- |
+| Smart optional + revocable; never proactive on protected pages | [DOM-38](https://linear.app/domagojp/issue/DOM-38) (M3 Smart smoke + Manual regression after revoke); sensitive fixtures also grow under M3/M4 |
+| Nano returns 3+ actions in page language; invalid/slow → fallback; Nano usefulness ≥80% eval | [DOM-31](https://linear.app/domagojp/issue/DOM-31) (M2 Nano manual verification); mock contracts already in Vitest |
+| Final full §25 map + eval rubric dry run; a11y / polish acceptance | [DOM-45](https://linear.app/domagojp/issue/DOM-45) (M4) |

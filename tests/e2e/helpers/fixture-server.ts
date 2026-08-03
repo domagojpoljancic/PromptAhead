@@ -26,6 +26,10 @@ export type FixtureServer = {
 export async function startFixtureServer(): Promise<FixtureServer> {
   const htmlByPath: Record<string, string> = {
     "/article.html": readFileSync(join(FIXTURE_DIR, "article-jsonld.html"), "utf8"),
+    "/product.html": readFileSync(
+      join(FIXTURE_DIR, "product-jsonld.html"),
+      "utf8",
+    ),
   };
 
   const server: Server = createServer((req, res) => {
