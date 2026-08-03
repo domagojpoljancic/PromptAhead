@@ -375,7 +375,8 @@ export async function initSidePanel(
     clearWorkflowData();
     showStep("stale");
     setText(staleMessage, message);
-    setText(statusLine, message);
+    // Keep the status strip empty so the revoke copy isn't duplicated.
+    setText(statusLine, "");
   }
 
   function renderFallback(
@@ -390,8 +391,15 @@ export async function initSidePanel(
       kind === "handoff" ? "Couldn’t hand off" : "Something went wrong",
     );
     setText(fallbackMessage, message);
-    setText(statusLine, message);
+    setText(statusLine, "");
     setHidden(fallbackChoose, !options.canChoose);
+  }
+
+  function isExpectedReinvokeError(message: string): boolean {
+    return (
+      /no longer has access to this tab/i.test(message) ||
+      /can't read this page/i.test(message)
+    );
   }
 
   async function loadSuggestions(ctx: PageContext): Promise<void> {
@@ -653,6 +661,9 @@ export async function initSidePanel(
     });
     if (response.ok) {
       await acceptPageContext(response.pageContext, response.tabId);
+    } else if (isExpectedReinvokeError(response.error)) {
+      // Expected after navigate / restricted URL — calm stale UX, not a generic failure.
+      renderStale(response.error);
     } else {
       renderFallback("extraction", response.error, { canChoose: false });
     }

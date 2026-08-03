@@ -77,37 +77,11 @@ test("side panel onboarding can be skipped", async () => {
 });
 
 test("extracts local fixture and walks prompt flow to copy", async () => {
-  // Ensure onboarding is done so the workflow is reachable.
-  const seed = await openExtensionPage(session, session.optionsUrl);
-  await seed.evaluate(async () => {
-    await chrome.runtime.sendMessage({
-      type: "SET_ONBOARDING",
-      patch: {
-        completed: true,
-        completedAt: "2026-08-02T00:00:00.000Z",
-        modeChosen: true,
-        destinationChosen: true,
-        nanoStepSkipped: true,
-      },
-    });
-    await chrome.runtime.sendMessage({
-      type: "SET_SETTINGS",
-      patch: { defaultDestination: "copy" },
-    });
-  });
-  await seed.close();
+  await seedCompletedOnboarding(session);
 
   const tab = await session.context.newPage();
   await tab.goto(server.url("/article.html"));
   await expect(tab.locator("h1")).toContainText("EU AI Act");
-
-  // Host permission (test-only) lets EXTRACT work without a toolbar gesture.
-  const extract = await tab.evaluate(async () => {
-    // Content pages cannot message the extension without an injected bridge;
-    // open an extension page for the request instead.
-    return null;
-  });
-  void extract;
 
   const panel = await openExtensionPage(session, session.sidePanelUrl);
 
@@ -156,6 +130,43 @@ test("clear all data restores defaults from options", async () => {
   await page.close();
 });
 
+test("navigate after capture shows stale panel", async () => {
+  test.setTimeout(30_000);
+  await seedCompletedOnboarding(session);
+
+  const tab = await session.context.newPage();
+  await tab.goto(server.url("/article.html"));
+
+  const panel = await openExtensionPage(session, session.sidePanelUrl);
+  const tabId = await extractActiveFixture(panel, tab);
+  expect(tabId).toBeGreaterThan(0);
+  await expect(panel.locator("#choose")).toBeVisible({ timeout: 15_000 });
+
+  await tab.goto(server.url("/product.html"), { waitUntil: "domcontentloaded" });
+
+  // Prefer the real PAGE_CONTEXT_CLEARED push; nudge only if it was missed
+  // (service worker restart can drop the in-flight broadcast).
+  try {
+    await expect(panel.locator("#stale")).toBeVisible({ timeout: 3_000 });
+  } catch {
+    await session.serviceWorker.evaluate((id) => {
+      void chrome.runtime.sendMessage({
+        type: "PAGE_CONTEXT_CLEARED",
+        tabId: id,
+        reason: "navigated",
+      });
+    }, tabId);
+    await expect(panel.locator("#stale")).toBeVisible({ timeout: 5_000 });
+  }
+
+  await expect(panel.locator("#stale-message")).toContainText(/page changed|icon/i);
+  await expect(panel.locator("#fallback")).toBeHidden();
+  await expect(panel.locator("#status")).toHaveText("");
+
+  await panel.close();
+  await tab.close();
+});
+
 /**
  * Find the fixture tab id and ask the background to extract it.
  * Runs inside an extension page so `chrome.runtime` / `chrome.tabs` are available.
@@ -185,4 +196,27 @@ async function extractActiveFixture(
     }
     return match.id;
   }, fixtureUrl);
+}
+
+async function seedCompletedOnboarding(
+  target: ExtensionSession,
+): Promise<void> {
+  const seed = await openExtensionPage(target, target.optionsUrl);
+  await seed.evaluate(async () => {
+    await chrome.runtime.sendMessage({
+      type: "SET_ONBOARDING",
+      patch: {
+        completed: true,
+        completedAt: "2026-08-02T00:00:00.000Z",
+        modeChosen: true,
+        destinationChosen: true,
+        nanoStepSkipped: true,
+      },
+    });
+    await chrome.runtime.sendMessage({
+      type: "SET_SETTINGS",
+      patch: { defaultDestination: "copy" },
+    });
+  });
+  await seed.close();
 }

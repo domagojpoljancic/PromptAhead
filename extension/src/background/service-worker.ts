@@ -73,14 +73,17 @@ chrome.commands.onCommand.addListener((command, tab) => {
 // Navigation revokes `activeTab`, so cached context for that tab is stale.
 // The panel stays open and reacts to PAGE_CONTEXT_CLEARED (DOM-10).
 chrome.tabs.onUpdated.addListener((tabId, changeInfo) => {
-  if (changeInfo.status === "loading") {
-    forgetPageContext(tabId);
-    broadcastBackgroundEvent({
-      type: "PAGE_CONTEXT_CLEARED",
-      tabId,
-      reason: "navigated",
-    });
+  // `status: "loading"` covers full navigations; `url` covers same-document
+  // and some Playwright-driven navigations that omit status.
+  if (changeInfo.status !== "loading" && changeInfo.url === undefined) {
+    return;
   }
+  forgetPageContext(tabId);
+  broadcastBackgroundEvent({
+    type: "PAGE_CONTEXT_CLEARED",
+    tabId,
+    reason: "navigated",
+  });
 });
 
 chrome.tabs.onRemoved.addListener((tabId) => {

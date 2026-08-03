@@ -1,0 +1,56 @@
+---
+description: Pre-push/PR hygiene — README, alignment, secrets, stale docs, branch hygiene
+alwaysApply: true
+---
+
+# Pre-push / PR hygiene
+
+Before any `git push`, creating a PR, or merging to `main`, run this checklist. Do it even if the user did not mention it. Skip only if they say "skip hygiene" or "skip readme".
+
+## 1. README matches reality
+
+1. Refresh root `README.md` to **current** repo state (not the last commit’s story).
+2. Keep a clear **WIP** banner while store packaging / major milestones are incomplete.
+3. Status table: what works, what’s stubbed, what’s TBD.
+4. Quick-start commands and paths must match `package.json` scripts (`build`, `test`, `test:e2e`, `test:ci`, spikes, etc.).
+5. Link important docs; do not dump full PRD into the README.
+6. Prefer product language over internal tracker IDs in the public README (tracker details stay in Linear / commit messages).
+
+## 2. Repo alignment
+
+1. Diff the change set vs stated milestone: no half-finished features advertised as done.
+2. `package.json` `engines` / CI Node version / local docs stay coherent.
+3. Manifest permissions and README/privacy claims still match.
+4. Tests that claim coverage still exist and are referenced accurately in `docs/test-plan.md` when that doc is in the change set.
+
+## 3. Secrets and junk (block the push)
+
+1. Never commit `.env`, tokens, private keys, real API keys, cookies, or auth dumps.
+2. Scan staged files for accidental secrets (`sk-`, `ghp_`, `BEGIN PRIVATE KEY`, credential JSON). Fixture strings like `SECRET-*` in HTML test fixtures are OK when intentional.
+3. Do not commit `node_modules/`, `dist/`, coverage, Playwright reports, `.DS_Store`, or local Cursor state (`.cursor/mcp.json`, sync state, settings) — only shared `.cursor/rules/`.
+4. No machine-absolute paths in docs (`/Users/...`).
+
+## 4. Docs hygiene
+
+1. Flag duplicate sources of truth (e.g. identical `promptahead-prd.md` and `promptahead-product-handoff.md`) — keep one canonical path linked from the README, or delete the duplicate only with user confirmation.
+2. Remove or archive docs that contradict current code; prefer updating over leaving stale “proposed” claims that are now shipped.
+3. Do not invent new markdown files unless asked.
+
+## 5. Git / branch hygiene (dev phase)
+
+1. Prefer landing work on `main` via PR (no force-push to `main`).
+2. After merge, delete merged feature branches locally and on `origin` when the user wants a single-branch workflow.
+3. Do not leave empty remote branches that share the same tip as `main` with no unique commits.
+
+## 6. Verification before push (when feasible)
+
+1. Prefer `npm run test:ci` (or at least `npm run test`) green for product/test changes.
+2. If only docs/rules changed, skip full CI but still refresh README if status wording changed.
+
+## Extra ideas (apply when relevant)
+
+- Changelog or PR body: short “what / why”, not a file dump.
+- License / third-party notices if new deps land.
+- Accessibility or privacy one-liners when UI or permissions change.
+- Confirm Playwright / Vitest counts or CI workflow paths still exist after renames.
+- Ask before deleting user-visible docs or renaming public APIs.

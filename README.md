@@ -1,6 +1,6 @@
 # PromptAhead
 
-> **WIP — M1 Manual core + automation.** Product path is buildable and covered by Vitest/Playwright/CI. Remaining: a short real-Chrome release smoke (toolbar gesture, `activeTab` revoke, clipboard, one provider open), then Web Store packaging.
+> **WIP — M1 Manual core complete in-repo.** Product path is buildable, covered by Vitest/Playwright/CI, and real-Chrome smoke is recorded in [`docs/test-plan.md`](docs/test-plan.md). Next: Chrome Web Store packaging (M4); Nano (M2) and Smart mode (M3) still ahead.
 
 **Your next question, already prepared.**
 
@@ -11,15 +11,16 @@ Privacy-first Chrome extension (Manifest V3) that notices when you are genuinely
 | Area | State |
 | --- | --- |
 | Product extension (`extension/`) | **Manual core** — gesture extract → Choose → Refine → Review → Prompt ready → Copy / Open-in |
-| Side panel | Explicit workflow state machine; one step at a time; context inclusion controls; stale-after-navigate |
+| Side panel | Workflow state machine; one step at a time; context inclusion; **calm stale** after navigate / access-lost refresh |
 | Onboarding + settings | Manual-first first-run overlay; options page for destination, history, clear-data, developer mode |
 | Destinations | Deep links with **app-first + web fallback**; Gemini / oversized prompts use **clipboard + open**; never auto-submit |
-| Automation | Vitest (unit + jsdom UI), Playwright (built MV3), GitHub Actions (`test:ci`) |
+| Automation | Vitest (unit + jsdom UI), Playwright (built MV3 + navigate→stale), GitHub Actions (`test:ci`, Node 20.19+) |
+| M1 acceptance | Manual §25 map + smoke notes in [`docs/test-plan.md`](docs/test-plan.md); remaining store/eval work tracked in Linear |
 | M0 spike harness (`spikes/`) | **Done** — S0.1–S0.7 implemented and run |
 | Spike results (`docs/technical-spikes.md`) | **Filled** — Chrome **150.0.0.0** (2026-08-01) |
 | Extraction | JSON-LD / Open Graph / semantic-HTML classification with size caps; 6 HTML fixtures; Readability deferred |
 | Suggestions + prompts | Curated + mock-Nano engines; injection-resistant `<SOURCE_DATA>` builder |
-| Product docs | Draft handoff + architecture / plan / privacy / test plan |
+| Product docs | Handoff + architecture / plan / privacy / test plan |
 | Planning | Linear used as the product / issue tracker |
 
 ### Locked from M0
@@ -30,7 +31,7 @@ Privacy-first Chrome extension (Manifest V3) that notices when you are genuinely
 
 ## Quick start (product extension)
 
-Requires Node.js 20.19+ (same floor as CI / `engines`) and Chrome with Developer mode.
+Requires Node.js **20.19+** (same floor as CI / `engines`) and Chrome with Developer mode.
 
 ```bash
 npm install
@@ -45,7 +46,7 @@ First run shows a short, skippable onboarding (Manual default; Smart deferred). 
 - **Open in ChatGPT / Claude / Perplexity** — deep link (native app scheme when available, then web URL with `q=` prefill)
 - **Open in Gemini** (and any oversized prompt) — copy to clipboard, then open the chat UI for paste
 
-Nothing is auto-submitted. **Refresh from page** re-reads the same tab until it navigates — after that Chrome revokes `activeTab` and you invoke the extension again. Settings and **Clear all PromptAhead data** live on the options page.
+Nothing is auto-submitted. **Refresh from page** re-reads the same tab until it navigates — after that Chrome revokes `activeTab` and you invoke the extension again (panel shows calm stale / access-lost UX). Settings and **Clear all PromptAhead data** live on the options page.
 
 ### Developer scripts
 
@@ -97,15 +98,16 @@ See [`docs/architecture.md`](docs/architecture.md) for the full folder layout. A
 | [`docs/privacy-threat-model.md`](docs/privacy-threat-model.md) | Privacy / threat model |
 | [`docs/test-plan.md`](docs/test-plan.md) | Test plan (automated + manual) |
 
+`docs/promptahead-prd.md` is currently an identical copy of the handoff (legacy alias). Prefer the handoff path in links.
+
 ## What is intentionally missing
 
-- Short real-Chrome release smoke (toolbar/context-menu gesture, `activeTab` revoke, real clipboard, one provider open)
+- Chrome Web Store packaging / listing (M4)
 - Main-content extraction beyond the thin `main`/`article` heuristic; Mozilla Readability license call still open
 - Sensitive-page heuristics (banking/medical pages are not blocked yet)
-- Published Chrome Web Store build
-- Smart mode / host-permission product UI
+- Smart mode / host-permission product UI (M3)
 - Real Gemini Nano integration (M2)
 
 ## Contributing / development notes
 
-Solo WIP. Prefer small, verifiable milestones over expanding MVP scope. Open work via PR into `main`.
+Solo WIP. Prefer small, verifiable milestones over expanding MVP scope. Open work via PR into `main`. Agents follow `.cursor/rules/pre-push-hygiene.mdc` on every push/PR.
