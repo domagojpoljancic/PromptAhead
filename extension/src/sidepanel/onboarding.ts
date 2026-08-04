@@ -2,16 +2,28 @@
  * First-run overlay in the side panel. Persists only via background messages.
  */
 
+import {
+  destroyNanoSession,
+  downloadNanoModel,
+  formatDownloadProgress,
+  getLanguageModel,
+  probeNanoReadiness,
+  progressFractionToPercent,
+  type LanguageModelLike,
+  type NanoReadinessState,
+} from "../domain/suggestions";
 import { sendToBackground as defaultSendToBackground } from "../shared/messaging";
 import {
   DESTINATION_IDS,
   DESTINATION_LABELS,
   isDestinationId,
   type DestinationId,
+  type NanoPreference,
 } from "../shared/storage/schema";
 import {
   buildOnboardingCompletion,
   isOnboardingStepId,
+  nanoStepCopy,
   nextOnboardingStep,
   previousOnboardingStep,
   type OnboardingStepId,
@@ -19,13 +31,18 @@ import {
 
 export type OnboardingDeps = {
   sendToBackground: typeof defaultSendToBackground;
+  /** Injected for tests — defaults to realm LanguageModel. */
+  getLanguageModel: () => LanguageModelLike | undefined;
 };
 
 let wired = false;
 let currentStep: OnboardingStepId = "welcome";
 let chosenDestination: DestinationId = "copy";
+let nanoState: NanoReadinessState = "checking";
+let downloading = false;
 let onComplete: (() => void) | undefined;
 let activeSend: typeof defaultSendToBackground = defaultSendToBackground;
+let activeGetModel: () => LanguageModelLike | undefined = getLanguageModel;
 
 function setText(element: HTMLElement | null, text: string): void {
   if (element) {
@@ -62,6 +79,38 @@ function destinationSelectEl(): HTMLSelectElement | null {
   ) as HTMLSelectElement | null;
 }
 
+function nanoHeadingEl(): HTMLElement | null {
+  return document.getElementById("onboarding-nano-heading");
+}
+
+function nanoCopyEl(): HTMLElement | null {
+  return document.getElementById("onboarding-nano-copy");
+}
+
+function nanoPrimaryEl(): HTMLButtonElement | null {
+  return document.getElementById(
+    "onboarding-nano-primary",
+  ) as HTMLButtonElement | null;
+}
+
+function nanoDownloadEl(): HTMLButtonElement | null {
+  return document.getElementById(
+    "onboarding-nano-download",
+  ) as HTMLButtonElement | null;
+}
+
+function nanoProgressEl(): HTMLElement | null {
+  return document.getElementById("onboarding-nano-progress");
+}
+
+function nanoProgressBarEl(): HTMLElement | null {
+  return document.getElementById("onboarding-nano-progress-bar");
+}
+
+function nanoProgressLabelEl(): HTMLElement | null {
+  return document.getElementById("onboarding-nano-progress-label");
+}
+
 function showOverlay(visible: boolean): void {
   setHidden(overlayEl(), !visible);
   document.body.classList.toggle("onboarding-active", visible);
@@ -78,6 +127,9 @@ function showStep(step: OnboardingStepId): void {
     setHidden(panel, id !== step);
   }
   setText(statusLineEl(), "");
+  if (step === "nano") {
+    void refreshNanoStep();
+  }
 }
 
 function populateDestinations(): void {
@@ -94,7 +146,75 @@ function populateDestinations(): void {
   destinationSelect.value = chosenDestination;
 }
 
-async function persistCompletion(skipped: boolean): Promise<boolean> {
+function setProgressUi(fraction: number | null, visible: boolean): void {
+  const wrap = nanoProgressEl();
+  const bar = nanoProgressBarEl();
+  const label = nanoProgressLabelEl();
+  setHidden(wrap, !visible);
+  if (!visible || !bar) {
+    return;
+  }
+  const pct = progressFractionToPercent(fraction);
+  if (pct === null) {
+    bar.dataset.indeterminate = "true";
+    bar.style.removeProperty("--progress");
+    bar.setAttribute("aria-valuenow", "0");
+  } else {
+    bar.dataset.indeterminate = "false";
+    bar.style.setProperty("--progress", `${pct}%`);
+    bar.setAttribute("aria-valuenow", String(pct));
+  }
+  setText(label, formatDownloadProgress(fraction));
+}
+
+function renderNanoStepUi(state: NanoReadinessState): void {
+  nanoState = state;
+  const copy = nanoStepCopy(state);
+  setText(nanoHeadingEl(), copy.heading);
+  setText(nanoCopyEl(), copy.body);
+
+  const primary = nanoPrimaryEl();
+  const download = nanoDownloadEl();
+
+  setHidden(primary, state !== "ready");
+  setHidden(download, state !== "download");
+  if (primary) {
+    primary.disabled = downloading;
+    primary.textContent = "Enable on-device AI";
+  }
+  if (download) {
+    download.disabled = downloading;
+    download.textContent = downloading
+      ? "Downloading…"
+      : "Download on-device model";
+  }
+
+  if (!downloading) {
+    setProgressUi(null, false);
+  }
+}
+
+async function refreshNanoStep(): Promise<void> {
+  renderNanoStepUi("checking");
+  setProgressUi(null, false);
+  try {
+    const probe = await probeNanoReadiness(activeGetModel);
+    if (currentStep !== "nano") {
+      return;
+    }
+    renderNanoStepUi(probe.state);
+  } catch {
+    if (currentStep !== "nano") {
+      return;
+    }
+    renderNanoStepUi("unsupported");
+  }
+}
+
+async function persistCompletion(input: {
+  skipped: boolean;
+  nanoPreference: NanoPreference;
+}): Promise<boolean> {
   const destinationSelect = destinationSelectEl();
   if (destinationSelect && isDestinationId(destinationSelect.value)) {
     chosenDestination = destinationSelect.value;
@@ -102,8 +222,8 @@ async function persistCompletion(skipped: boolean): Promise<boolean> {
 
   const { onboarding, settings } = buildOnboardingCompletion({
     destination: chosenDestination,
-    skipped,
-    nanoSkipped: true,
+    skipped: input.skipped,
+    nanoPreference: input.nanoPreference,
   });
 
   const settingsResponse = await activeSend({
@@ -127,6 +247,58 @@ async function persistCompletion(skipped: boolean): Promise<boolean> {
   showOverlay(false);
   onComplete?.();
   return true;
+}
+
+async function startNanoDownload(): Promise<void> {
+  if (downloading) {
+    return;
+  }
+  const model = activeGetModel();
+  if (!model) {
+    setText(
+      statusLineEl(),
+      "On-device AI is not available in this Chrome. Continue with basic private mode.",
+    );
+    renderNanoStepUi("unsupported");
+    return;
+  }
+
+  downloading = true;
+  renderNanoStepUi("download");
+  setProgressUi(null, true);
+  setText(statusLineEl(), "");
+
+  const result = await downloadNanoModel(model, {
+    onProgress: (fraction) => {
+      setProgressUi(fraction, true);
+    },
+  });
+
+  destroyNanoSession(result.session);
+  downloading = false;
+
+  if (result.session) {
+    setProgressUi(1, true);
+    renderNanoStepUi("ready");
+    setText(statusLineEl(), "Download complete — you can enable on-device AI.");
+    return;
+  }
+
+  renderNanoStepUi("download");
+  setProgressUi(result.lastProgressFraction, Boolean(result.progressEvents));
+  if (result.timedOut) {
+    setText(
+      statusLineEl(),
+      "Download is taking too long. Continue with basic private mode, or try again later.",
+    );
+  } else {
+    setText(
+      statusLineEl(),
+      result.error?.message
+        ? `Download failed — ${result.error.message}. Continue with basic private mode anytime.`
+        : "Download failed. Continue with basic private mode anytime.",
+    );
+  }
 }
 
 function wireControls(): void {
@@ -157,7 +329,7 @@ function wireControls(): void {
     if (action === "next") {
       const next = nextOnboardingStep(currentStep);
       if (next === "complete") {
-        void persistCompletion(false);
+        void persistCompletion({ skipped: false, nanoPreference: "skipped" });
         return;
       }
       showStep(next);
@@ -165,6 +337,9 @@ function wireControls(): void {
     }
 
     if (action === "back") {
+      if (downloading) {
+        return;
+      }
       const previous = previousOnboardingStep(currentStep);
       if (previous) {
         showStep(previous);
@@ -172,8 +347,23 @@ function wireControls(): void {
       return;
     }
 
-    if (action === "skip" || action === "finish") {
-      void persistCompletion(action === "skip");
+    if (action === "skip") {
+      void persistCompletion({ skipped: true, nanoPreference: "skipped" });
+      return;
+    }
+
+    if (action === "nano-basic") {
+      void persistCompletion({ skipped: false, nanoPreference: "basic" });
+      return;
+    }
+
+    if (action === "nano-primary") {
+      void persistCompletion({ skipped: false, nanoPreference: "enabled" });
+      return;
+    }
+
+    if (action === "nano-download") {
+      void startNanoDownload();
     }
   });
 }
@@ -187,6 +377,7 @@ export async function maybeStartOnboarding(
   deps: Partial<OnboardingDeps> = {},
 ): Promise<boolean> {
   activeSend = deps.sendToBackground ?? defaultSendToBackground;
+  activeGetModel = deps.getLanguageModel ?? getLanguageModel;
   onComplete = afterComplete;
   wireControls();
 
@@ -226,6 +417,7 @@ export async function refreshOnboardingAfterClear(
   deps: Partial<OnboardingDeps> = {},
 ): Promise<void> {
   activeSend = deps.sendToBackground ?? defaultSendToBackground;
+  activeGetModel = deps.getLanguageModel ?? getLanguageModel;
   const response = await activeSend({ type: "GET_ONBOARDING" });
   if (!response.ok || response.onboarding.completed) {
     showOverlay(false);
@@ -239,11 +431,18 @@ export function readCurrentOnboardingStep(): OnboardingStepId | null {
   return isOnboardingStepId(currentStep) ? currentStep : null;
 }
 
+export function readCurrentNanoStateForTests(): NanoReadinessState {
+  return nanoState;
+}
+
 /** Test helper — resets module wiring between jsdom mounts. */
 export function resetOnboardingForTests(): void {
   wired = false;
   currentStep = "welcome";
   chosenDestination = "copy";
+  nanoState = "checking";
+  downloading = false;
   onComplete = undefined;
   activeSend = defaultSendToBackground;
+  activeGetModel = getLanguageModel;
 }

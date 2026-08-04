@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import {
   buildOnboardingCompletion,
+  nanoStepCopy,
   nextOnboardingStep,
   previousOnboardingStep,
 } from "../../extension/src/sidepanel/onboarding-flow";
@@ -20,36 +21,54 @@ describe("onboarding-flow", () => {
     expect(previousOnboardingStep("nano")).toBe("destination");
   });
 
-  it("builds a Manual-first completion patch with Nano skipped", () => {
+  it("persists enabled Nano preference when the user opts in", () => {
     const { onboarding, settings } = buildOnboardingCompletion({
       destination: "chatgpt",
       skipped: false,
-      nanoSkipped: true,
+      nanoPreference: "enabled",
       now: "2026-08-02T12:00:00.000Z",
     });
 
     expect(settings).toEqual({
       mode: "manual",
       defaultDestination: "chatgpt",
-      nanoPreference: "skipped",
+      nanoPreference: "enabled",
     });
     expect(onboarding).toEqual({
       completed: true,
       completedAt: "2026-08-02T12:00:00.000Z",
       modeChosen: true,
       destinationChosen: true,
-      nanoStepSkipped: true,
+      nanoStepSkipped: false,
     });
   });
 
-  it("marks nano skipped when the whole flow is skipped", () => {
-    const { onboarding } = buildOnboardingCompletion({
+  it("persists basic private mode and marks the nano step skipped", () => {
+    const { onboarding, settings } = buildOnboardingCompletion({
       destination: "copy",
-      skipped: true,
-      nanoSkipped: false,
+      skipped: false,
+      nanoPreference: "basic",
       now: "2026-08-02T12:00:00.000Z",
     });
+    expect(settings.nanoPreference).toBe("basic");
+    expect(onboarding.nanoStepSkipped).toBe(true);
+  });
+
+  it("marks nano skipped when the whole flow is skipped", () => {
+    const { onboarding, settings } = buildOnboardingCompletion({
+      destination: "copy",
+      skipped: true,
+      nanoPreference: "skipped",
+      now: "2026-08-02T12:00:00.000Z",
+    });
+    expect(settings.nanoPreference).toBe("skipped");
     expect(onboarding.nanoStepSkipped).toBe(true);
     expect(onboarding.completed).toBe(true);
+  });
+
+  it("returns sober copy for unsupported hardware", () => {
+    const copy = nanoStepCopy("unsupported");
+    expect(copy.heading).toMatch(/unavailable/i);
+    expect(copy.body).toMatch(/basic private mode/i);
   });
 });
