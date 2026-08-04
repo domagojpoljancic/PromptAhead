@@ -16,8 +16,44 @@ export { curatedActionsFor } from "./catalog";
 export { CuratedSuggestionEngine } from "./curated";
 export { MockNanoSuggestionEngine } from "./mock-nano";
 export {
+  NanoSuggestionEngine,
+  NANO_CREATE_TIMEOUT_MS,
+  NANO_PROMPT_TIMEOUT_MS,
+} from "./nano";
+export {
+  validateNanoActionOutput,
+  parseNanoActionJson,
+  stripJsonFences,
+} from "./nano-validate";
+export {
+  downloadNanoModel,
+  destroyNanoSession,
+  getLanguageModel,
+  isPromptApiPresent,
+  probeAvailability,
+  NANO_DOWNLOAD_TIMEOUT_MS,
+  type LanguageModelAvailability,
+  type LanguageModelLike,
+} from "./nano-prompt-api";
+export {
+  NANO_FALLBACK_COPY,
+  NANO_THINKING_COPY,
+  describeNanoStatus,
+  didNanoFallBackToCurated,
+  engineIdForNanoPreference,
+  formatDownloadProgress,
+  probeNanoReadiness,
+  progressFractionToPercent,
+  readinessFromAvailability,
+  shouldOfferNanoRetry,
+  type NanoReadinessProbe,
+  type NanoReadinessState,
+} from "./nano-readiness";
+export {
   SUGGESTION_ENGINE_FLAG,
   UnavailableNanoSuggestionEngine,
   createSuggestionEngine,
+  resolveSuggestionEngineId,
   selectSuggestionEngine,
+  selectSuggestionEngineForPreference,
 } from "./registry";

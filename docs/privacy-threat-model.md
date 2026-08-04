@@ -1,8 +1,14 @@
 # PromptAhead — Privacy Threat Model
 
-**Status:** Proposed  
+**Status:** Active (M2 Nano UX)  
 **Source of truth:** [`promptahead-product-handoff.md`](./promptahead-product-handoff.md)  
 **Product posture:** Local-first Chrome extension; no PromptAhead backend; no remote analytics.
+
+## On-device Nano (M2)
+
+Gemini Nano inference in PromptAhead runs **only on the device** via Chrome’s Prompt API (side panel / options documents). Page content used for suggestions does **not** leave the device through PromptAhead — there is no PromptAhead cloud model call and no analytics pipeline for page text.
+
+Chrome may perform a one-time, browser-managed model download from Google infrastructure when the user activates setup. PromptAhead must not attach page content to that download. After the model is local, action ranking stays on-device.
 
 ## 1. Assets to protect
 
@@ -60,7 +66,7 @@
 | Flow                                   | Leaves device via PromptAhead?                  |
 | -------------------------------------- | ----------------------------------------------- |
 | Page → extraction → side panel         | No                                              |
-| PageContext → Gemini Nano (Prompt API) | No (on-device after Chrome model download)      |
+| PageContext → Gemini Nano (Prompt API) | **No** — on-device only via PromptAhead; Chrome may download the model separately |
 | Prompt → clipboard                     | User-mediated local                             |
 | Copy-and-open → provider site          | Navigation only; no PromptAhead network payload |
 | Settings / history / learning          | Local `chrome.storage` only                     |

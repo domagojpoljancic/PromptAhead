@@ -364,7 +364,7 @@ describe("side panel click-through", () => {
     expect(textOf("#fallback-message")).toMatch(/no content/i);
   });
 
-  it("completes onboarding and then shows the workflow", async () => {
+  it("completes onboarding with basic private mode and then shows the workflow", async () => {
     await boot({ onboardingIncomplete: true });
     expect(isVisible("#onboarding")).toBe(true);
     expect(document.body.classList.contains("onboarding-active")).toBe(true);
@@ -383,14 +383,97 @@ describe("side panel click-through", () => {
 
     click('[data-step="destination"] [data-onboarding-action="next"]');
     await flush();
-    click('[data-step="nano"] [data-onboarding-action="finish"]');
+    expect(isVisible('[data-step="nano"]')).toBe(true);
+    await flush();
+    click('[data-step="nano"] [data-onboarding-action="nano-basic"]');
     await flush();
 
     expect(isVisible("#onboarding")).toBe(false);
     expect(store.onboarding.completed).toBe(true);
     expect(store.settings.defaultDestination).toBe("chatgpt");
-    expect(store.settings.nanoPreference).toBe("skipped");
+    expect(store.settings.nanoPreference).toBe("basic");
+    expect(store.onboarding.nanoStepSkipped).toBe(true);
     expect(isVisible("#choose")).toBe(true);
+  });
+
+  it("enables Nano from onboarding when LanguageModel is ready", async () => {
+    resetOnboardingForTests();
+    mountExtensionHtml("sidepanel/index.html");
+    store = {
+      settings: { ...DEFAULT_SETTINGS },
+      onboarding: { ...DEFAULT_ONBOARDING },
+      history: [],
+      latest: { pageContext: samplePage, tabId: 7 },
+    };
+    const { send, listeners } = createSend(store);
+    const fakeModel = {
+      availability: async () => "available" as const,
+      create: async () => ({
+        prompt: async () => "{}",
+        destroy: () => undefined,
+      }),
+    };
+
+    controller = await initSidePanel({
+      sendToBackground: send,
+      selectSuggestionEngine: async () => mockEngine(),
+      openLLMWithFallback: async () => ({
+        copied: true,
+        openedUrl: null,
+        mode: "copy-only",
+        usedModel: null,
+      }),
+      openOptionsPage: vi.fn(),
+      addMessageListener: (listener) => {
+        listeners.push(listener);
+        return () => undefined;
+      },
+      maybeStartOnboarding: async (afterComplete, deps) => {
+        const { maybeStartOnboarding } = await import(
+          "../../extension/src/sidepanel/onboarding"
+        );
+        return maybeStartOnboarding(afterComplete, {
+          ...deps,
+          getLanguageModel: () => fakeModel,
+        });
+      },
+    });
+    await flush();
+
+    click('[data-step="welcome"] [data-onboarding-action="next"]');
+    await flush();
+    click('[data-step="mode"] [data-onboarding-action="next"]');
+    await flush();
+    click('[data-step="destination"] [data-onboarding-action="next"]');
+    await flush();
+    await flush();
+
+    expect(textOf("#onboarding-nano-heading")).toMatch(/ready/i);
+    click('[data-step="nano"] [data-onboarding-action="nano-primary"]');
+    await flush();
+
+    expect(store.settings.nanoPreference).toBe("enabled");
+    expect(store.onboarding.nanoStepSkipped).toBe(false);
+    expect(isVisible("#onboarding")).toBe(false);
+  });
+
+  it("shows Retry local AI when Nano falls back to curated", async () => {
+    store.settings = { ...DEFAULT_SETTINGS, nanoPreference: "enabled" };
+    const nanoThenCurated: SuggestionEngine = {
+      id: "nano",
+      isAvailable: async () => true,
+      suggestActions: async () => ({
+        engineId: "curated",
+        primary: [primaryAction],
+        more: [moreAction],
+      }),
+      generatePrompt: async () => "TASK",
+    };
+    await boot({ engine: nanoThenCurated });
+    expect(isVisible("#choose")).toBe(true);
+    expect(isVisible("#nano-fallback")).toBe(true);
+    expect(textOf("#nano-fallback-copy")).toMatch(/tiny brain/i);
+    expect(textOf("#status")).toMatch(/tiny brain/i);
   });
 
   it("re-shows onboarding after clear-all event", async () => {
@@ -454,6 +537,57 @@ describe("options click-through", () => {
     expect(store.settings.languageOverride).toBe("hr");
   });
 
+  it("toggles force basic private mode for Nano", async () => {
+    const { send } = createSend(store);
+    initOptions({
+      sendToBackground: send,
+      confirm: () => true,
+      getLanguageModel: () => ({
+        availability: async () => "available",
+        create: async () => ({
+          prompt: async () => "{}",
+          destroy: () => undefined,
+        }),
+      }),
+    });
+    await flush();
+    await flush();
+
+    const forceBasic = document.getElementById(
+      "nano-force-basic",
+    ) as HTMLInputElement;
+    expect(forceBasic).toBeTruthy();
+    forceBasic.checked = true;
+    forceBasic.dispatchEvent(new Event("change", { bubbles: true }));
+    await flush();
+    expect(store.settings.nanoPreference).toBe("basic");
+    expect(textOf("#nano-status")).toMatch(/Basic private mode/i);
+  });
+
+  it("enables Nano from settings when the model is already ready", async () => {
+    store.settings = { ...DEFAULT_SETTINGS, nanoPreference: "skipped" };
+    const { send } = createSend(store);
+    initOptions({
+      sendToBackground: send,
+      confirm: () => true,
+      getLanguageModel: () => ({
+        availability: async () => "available",
+        create: async () => ({
+          prompt: async () => "{}",
+          destroy: () => undefined,
+        }),
+      }),
+    });
+    await flush();
+    await flush();
+
+    expect(isVisible("#nano-enable")).toBe(true);
+    click("#nano-enable");
+    await flush();
+    expect(store.settings.nanoPreference).toBe("enabled");
+    expect(textOf("#status")).toMatch(/enabled/i);
+  });
+
   it("clears history when confirmed", async () => {
     const { send } = createSend(store);
     initOptions({ sendToBackground: send, confirm: () => true });
@@ -468,6 +602,7 @@ describe("options click-through", () => {
   it("clears all data and restores defaults", async () => {
     store.settings.developerMode = true;
     store.settings.defaultDestination = "gemini";
+    store.settings.nanoPreference = "enabled";
     const { send } = createSend(store);
     initOptions({ sendToBackground: send, confirm: () => true });
     await flush();
@@ -476,6 +611,7 @@ describe("options click-through", () => {
     await flush();
     expect(store.settings.defaultDestination).toBe("copy");
     expect(store.settings.developerMode).toBe(false);
+    expect(store.settings.nanoPreference).toBe("skipped");
     expect(store.onboarding.completed).toBe(false);
     expect(textOf("#status")).toMatch(/all local data cleared/i);
   });

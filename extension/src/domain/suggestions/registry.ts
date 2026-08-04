@@ -3,56 +3,60 @@
  * selection always degrades to curated rather than failing.
  */
 
+import type { NanoPreference } from "../../shared/storage/schema";
 import { CuratedSuggestionEngine } from "./curated";
 import { MockNanoSuggestionEngine } from "./mock-nano";
+import { NanoSuggestionEngine } from "./nano";
+import { engineIdForNanoPreference } from "./nano-readiness";
 import {
-  type ActionGenerationInput,
-  type PromptGenerationInput,
   type SuggestionEngine,
   type SuggestionEngineId,
-  type SuggestionResult,
 } from "./types";
 
 /**
- * The single switch. `curated` ships in M1; tests and local development pass
- * `mock-nano` explicitly, and M2 flips this to `nano` once the Prompt API
- * adapter exists.
+ * The single switch. `curated` ships by default; tests and local development
+ * pass `mock-nano` / `nano` explicitly. Prefer Nano only when available.
  */
 export const SUGGESTION_ENGINE_FLAG: SuggestionEngineId = "curated";
 
 /**
- * Placeholder for the real Prompt API adapter (M2). It reports unavailable so
- * `selectSuggestionEngine` exercises the same fallback path the real adapter
- * will use on machines without Nano.
+ * @deprecated Prefer {@link NanoSuggestionEngine} with `forceDisabled` / unavailable
+ * Prompt API. Kept so older tests that construct the placeholder still compile.
  */
-export class UnavailableNanoSuggestionEngine implements SuggestionEngine {
-  readonly id = "nano" as const;
-
-  isAvailable(): Promise<boolean> {
-    return Promise.resolve(false);
+export class UnavailableNanoSuggestionEngine extends NanoSuggestionEngine {
+  constructor() {
+    super({ forceDisabled: true });
   }
+}
 
-  suggestActions(_input: ActionGenerationInput): Promise<SuggestionResult> {
-    void _input;
-    return Promise.reject(new Error("Gemini Nano is not wired up until M2"));
+function readEnvEngineId(): SuggestionEngineId | null {
+  if (typeof process === "undefined") {
+    return null;
   }
+  const value = process.env?.SUGGESTION_ENGINE;
+  if (value === "curated" || value === "mock-nano" || value === "nano") {
+    return value;
+  }
+  return null;
+}
 
-  generatePrompt(_input: PromptGenerationInput): Promise<string> {
-    void _input;
-    return Promise.reject(new Error("Gemini Nano is not wired up until M2"));
-  }
+export function resolveSuggestionEngineId(
+  id: SuggestionEngineId = SUGGESTION_ENGINE_FLAG,
+): SuggestionEngineId {
+  return readEnvEngineId() ?? id;
 }
 
 export function createSuggestionEngine(
   id: SuggestionEngineId = SUGGESTION_ENGINE_FLAG,
 ): SuggestionEngine {
-  switch (id) {
+  const resolved = resolveSuggestionEngineId(id);
+  switch (resolved) {
     case "curated":
       return new CuratedSuggestionEngine();
     case "mock-nano":
       return new MockNanoSuggestionEngine();
     case "nano":
-      return new UnavailableNanoSuggestionEngine();
+      return new NanoSuggestionEngine();
   }
 }
 
@@ -64,8 +68,22 @@ export async function selectSuggestionEngine(
   id: SuggestionEngineId = SUGGESTION_ENGINE_FLAG,
 ): Promise<SuggestionEngine> {
   const engine = createSuggestionEngine(id);
-  if (engine.id === "curated" || (await engine.isAvailable())) {
+  if (engine.id === "curated" || engine.id === "mock-nano") {
+    return engine;
+  }
+  if (await engine.isAvailable()) {
     return engine;
   }
   return new CuratedSuggestionEngine();
+}
+
+/**
+ * Product selection: honor `nanoPreference`, then env override, then availability.
+ * `basic` / `skipped` → curated. `enabled` → Nano when available.
+ */
+export async function selectSuggestionEngineForPreference(
+  preference: NanoPreference,
+): Promise<SuggestionEngine> {
+  const preferred = engineIdForNanoPreference(preference);
+  return selectSuggestionEngine(preferred);
 }

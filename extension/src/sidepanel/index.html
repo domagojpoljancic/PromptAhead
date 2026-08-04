@@ -82,21 +82,58 @@
           </section>
 
           <section class="onboarding__step" data-step="nano" hidden>
-            <h2 class="onboarding__heading">On-device Nano (later)</h2>
-            <p class="onboarding__copy">
-              Gemini Nano will optionally rank page-specific directions on your device.
-              In this milestone it’s skipped — curated suggestions work fully without a
-              download. You’ll be able to enable Nano in a later update.
+            <h2 class="onboarding__heading" id="onboarding-nano-heading">
+              On-device AI
+            </h2>
+            <p class="onboarding__copy" id="onboarding-nano-copy">
+              Checking whether Gemini Nano is available on this device…
             </p>
+            <div
+              class="onboarding__progress"
+              id="onboarding-nano-progress"
+              hidden
+            >
+              <div
+                class="onboarding__progress-bar"
+                id="onboarding-nano-progress-bar"
+                role="progressbar"
+                aria-valuemin="0"
+                aria-valuemax="100"
+                aria-valuenow="0"
+              ></div>
+              <p
+                class="onboarding__progress-label"
+                id="onboarding-nano-progress-label"
+              ></p>
+            </div>
             <div class="actions">
               <button type="button" class="btn btn--back" data-onboarding-action="back">
                 ← Back
               </button>
-              <button type="button" class="btn btn--primary" data-onboarding-action="finish">
-                Finish
+              <button
+                type="button"
+                class="btn btn--primary"
+                id="onboarding-nano-primary"
+                data-onboarding-action="nano-primary"
+                hidden
+              >
+                Enable on-device AI
               </button>
-              <button type="button" class="btn btn--ghost" data-onboarding-action="skip">
-                Skip
+              <button
+                type="button"
+                class="btn"
+                id="onboarding-nano-download"
+                data-onboarding-action="nano-download"
+                hidden
+              >
+                Download on-device model
+              </button>
+              <button
+                type="button"
+                class="btn btn--ghost"
+                data-onboarding-action="nano-basic"
+              >
+                Continue with basic private mode
               </button>
             </div>
           </section>
@@ -132,6 +169,12 @@
       <section class="workflow" id="choose" hidden>
         <h2 class="workflow__heading">Choose a direction</h2>
         <p class="workflow__hint">Three ranked suggestions for this page type.</p>
+        <div class="nano-fallback" id="nano-fallback" hidden>
+          <p class="nano-fallback__copy" id="nano-fallback-copy"></p>
+          <button type="button" class="btn btn--ghost" id="nano-retry">
+            Retry local AI
+          </button>
+        </div>
         <ul class="action-list" id="primary-actions"></ul>
         <button type="button" class="btn btn--ghost" id="show-more" hidden>
           More…

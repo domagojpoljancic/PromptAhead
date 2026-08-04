@@ -1,3 +1,14 @@
+import {
+  describeNanoStatus,
+  destroyNanoSession,
+  downloadNanoModel,
+  formatDownloadProgress,
+  getLanguageModel,
+  probeNanoReadiness,
+  progressFractionToPercent,
+  type LanguageModelLike,
+  type NanoReadinessProbe,
+} from "../domain/suggestions";
 import { sendToBackground as defaultSendToBackground } from "../shared/messaging";
 import {
   DESTINATION_IDS,
@@ -13,6 +24,7 @@ const LANGUAGE_PRESETS = new Set(["en", "hr", "de", "fr", "es"]);
 export type OptionsDeps = {
   sendToBackground: typeof defaultSendToBackground;
   confirm: (message: string) => boolean;
+  getLanguageModel: () => LanguageModelLike | undefined;
 };
 
 export type OptionsController = {
@@ -31,6 +43,12 @@ function setHidden(element: HTMLElement | null, hidden: boolean): void {
   }
 }
 
+function isForceDisabledEnv(): boolean {
+  return (
+    typeof process !== "undefined" && process.env?.NANO_FORCE_DISABLED === "1"
+  );
+}
+
 /**
  * Wire the options page. Call once after the DOM is present.
  * Production entry boots via the guard at the bottom of this module.
@@ -39,6 +57,7 @@ export function initOptions(deps: Partial<OptionsDeps> = {}): OptionsController 
   const send = deps.sendToBackground ?? defaultSendToBackground;
   const confirm =
     deps.confirm ?? ((message: string) => globalThis.confirm(message));
+  const activeGetModel = deps.getLanguageModel ?? getLanguageModel;
 
   const statusEl = document.getElementById("status");
   const modeLabel = document.getElementById("mode-label");
@@ -57,6 +76,20 @@ export function initOptions(deps: Partial<OptionsDeps> = {}): OptionsController 
     "developer-mode",
   ) as HTMLInputElement | null;
   const nanoStatus = document.getElementById("nano-status");
+  const nanoForceBasic = document.getElementById(
+    "nano-force-basic",
+  ) as HTMLInputElement | null;
+  const nanoSetup = document.getElementById(
+    "nano-setup",
+  ) as HTMLButtonElement | null;
+  const nanoEnable = document.getElementById(
+    "nano-enable",
+  ) as HTMLButtonElement | null;
+  const nanoProgress = document.getElementById("nano-download-progress");
+  const nanoProgressBar = document.getElementById("nano-download-progress-bar");
+  const nanoProgressLabel = document.getElementById(
+    "nano-download-progress-label",
+  );
   const debugSection = document.getElementById("debug-section");
   const debugLine = document.getElementById("debug-line");
   const clearHistoryButton = document.getElementById(
@@ -68,6 +101,10 @@ export function initOptions(deps: Partial<OptionsDeps> = {}): OptionsController 
   const clearAllButton = document.getElementById(
     "clear-all",
   ) as HTMLButtonElement | null;
+
+  let latestSettings: Settings | null = null;
+  let latestReadiness: NanoReadinessProbe | null = null;
+  let downloading = false;
 
   function setStatus(text: string, kind: "ok" | "error" | "info" = "info"): void {
     if (!statusEl) {
@@ -83,14 +120,62 @@ export function initOptions(deps: Partial<OptionsDeps> = {}): OptionsController 
     setHidden(statusEl, text.length === 0);
   }
 
-  function nanoCopy(settings: Settings): string {
-    if (settings.nanoPreference === "skipped") {
-      return "Nano setup skipped (Manual-first). Curated suggestions work without a download. Real Prompt API setup arrives in M2.";
+  function setProgressUi(fraction: number | null, visible: boolean): void {
+    setHidden(nanoProgress, !visible);
+    if (!visible || !nanoProgressBar) {
+      return;
     }
-    if (settings.nanoPreference === "basic") {
-      return "Nano preference: basic (coming in M2 — no download in this build).";
+    const pct = progressFractionToPercent(fraction);
+    if (pct === null) {
+      nanoProgressBar.dataset.indeterminate = "true";
+      nanoProgressBar.style.removeProperty("--progress");
+      nanoProgressBar.setAttribute("aria-valuenow", "0");
+    } else {
+      nanoProgressBar.dataset.indeterminate = "false";
+      nanoProgressBar.style.setProperty("--progress", `${pct}%`);
+      nanoProgressBar.setAttribute("aria-valuenow", String(pct));
     }
-    return "Nano preference: enabled (coming in M2 — no download in this build).";
+    if (nanoProgressLabel) {
+      nanoProgressLabel.textContent = formatDownloadProgress(fraction);
+    }
+  }
+
+  function renderNanoControls(settings: Settings): void {
+    if (nanoStatus) {
+      nanoStatus.textContent = describeNanoStatus({
+        preference: settings.nanoPreference,
+        readiness: latestReadiness,
+        forceDisabled: isForceDisabledEnv(),
+      });
+    }
+    if (nanoForceBasic) {
+      nanoForceBasic.checked = settings.nanoPreference === "basic";
+      nanoForceBasic.disabled = downloading || isForceDisabledEnv();
+    }
+
+    const state = latestReadiness?.state;
+    const canUseNano =
+      !isForceDisabledEnv() && settings.nanoPreference !== "basic";
+    const showDownload = canUseNano && state === "download";
+    const showEnable =
+      canUseNano &&
+      state === "ready" &&
+      settings.nanoPreference !== "enabled";
+
+    setHidden(nanoSetup, !showDownload);
+    setHidden(nanoEnable, !showEnable);
+    if (nanoSetup) {
+      nanoSetup.disabled = downloading;
+      nanoSetup.textContent = downloading
+        ? "Downloading…"
+        : "Download on-device model";
+    }
+    if (nanoEnable) {
+      nanoEnable.disabled = downloading;
+    }
+    if (!downloading) {
+      setProgressUi(null, false);
+    }
   }
 
   function languageOverrideFromUi(): string | null {
@@ -133,6 +218,7 @@ export function initOptions(deps: Partial<OptionsDeps> = {}): OptionsController 
   }
 
   function renderSettings(settings: Settings): void {
+    latestSettings = settings;
     if (destinationSelect) {
       destinationSelect.value = settings.defaultDestination;
     }
@@ -156,9 +242,8 @@ export function initOptions(deps: Partial<OptionsDeps> = {}): OptionsController 
         ? "Smart mode: available"
         : "Smart mode: coming soon (no host permission requested)";
     }
-    if (nanoStatus) {
-      nanoStatus.textContent = nanoCopy(settings);
-    }
+
+    renderNanoControls(settings);
 
     setHidden(debugSection, !settings.developerMode);
     if (debugLine) {
@@ -167,6 +252,7 @@ export function initOptions(deps: Partial<OptionsDeps> = {}): OptionsController 
         `destination: ${DESTINATION_LABELS[settings.defaultDestination]}`,
         `language: ${settings.languageOverride ?? "page"}`,
         `nano: ${settings.nanoPreference}`,
+        `availability: ${latestReadiness?.availability ?? "unknown"}`,
         `history: ${settings.historyMode}`,
         `developer: ${settings.developerMode}`,
         `settings schema: v${settings.schemaVersion}`,
@@ -182,6 +268,102 @@ export function initOptions(deps: Partial<OptionsDeps> = {}): OptionsController 
     }
     renderSettings(response.settings);
     return true;
+  }
+
+  async function refreshNanoReadiness(): Promise<void> {
+    if (isForceDisabledEnv()) {
+      latestReadiness = {
+        state: "unsupported",
+        availability: null,
+        apiPresent: false,
+      };
+      if (latestSettings) {
+        renderNanoControls(latestSettings);
+      }
+      return;
+    }
+    try {
+      latestReadiness = await probeNanoReadiness(activeGetModel);
+    } catch {
+      latestReadiness = {
+        state: "unsupported",
+        availability: null,
+        apiPresent: false,
+      };
+    }
+    if (latestSettings) {
+      renderNanoControls(latestSettings);
+      if (debugLine && latestSettings.developerMode) {
+        renderSettings(latestSettings);
+      }
+    }
+  }
+
+  async function runNanoSetup(): Promise<void> {
+    if (downloading || isForceDisabledEnv()) {
+      return;
+    }
+    const model = activeGetModel();
+    if (!model) {
+      setStatus(
+        "On-device AI is not available in this Chrome. Curated mode stays usable.",
+        "error",
+      );
+      await refreshNanoReadiness();
+      return;
+    }
+
+    const probe = await probeNanoReadiness(() => model);
+    if (probe.state === "ready") {
+      const ok = await saveSettingsPatch({ nanoPreference: "enabled" });
+      if (ok) {
+        setStatus("On-device AI enabled for this profile.", "ok");
+      }
+      await refreshNanoReadiness();
+      return;
+    }
+
+    if (probe.state === "unsupported") {
+      setStatus(
+        "This Chrome or device does not support on-device AI yet.",
+        "error",
+      );
+      await refreshNanoReadiness();
+      return;
+    }
+
+    downloading = true;
+    if (latestSettings) {
+      renderNanoControls(latestSettings);
+    }
+    setProgressUi(null, true);
+    setStatus("Downloading on-device model…", "info");
+
+    const result = await downloadNanoModel(model, {
+      onProgress: (fraction) => setProgressUi(fraction, true),
+    });
+    destroyNanoSession(result.session);
+    downloading = false;
+
+    if (result.session) {
+      setProgressUi(1, true);
+      const ok = await saveSettingsPatch({ nanoPreference: "enabled" });
+      await refreshNanoReadiness();
+      if (ok) {
+        setStatus("Download complete — on-device AI is enabled.", "ok");
+      }
+      setProgressUi(null, false);
+      return;
+    }
+
+    await refreshNanoReadiness();
+    setProgressUi(result.lastProgressFraction, Boolean(result.progressEvents));
+    setStatus(
+      result.timedOut
+        ? "Download timed out. You can retry, or stay on curated suggestions."
+        : `Download failed${result.error ? ` — ${result.error.message}` : ""}. Retry anytime.`,
+      "error",
+    );
   }
 
   function populateDestinations(): void {
@@ -203,6 +385,7 @@ export function initOptions(deps: Partial<OptionsDeps> = {}): OptionsController 
       return;
     }
     renderSettings(response.settings);
+    void refreshNanoReadiness();
   }
 
   destinationSelect?.addEventListener("change", () => {
@@ -243,6 +426,36 @@ export function initOptions(deps: Partial<OptionsDeps> = {}): OptionsController 
     void saveSettingsPatch({ developerMode: Boolean(developerMode.checked) });
   });
 
+  nanoForceBasic?.addEventListener("change", () => {
+    const forceBasic = Boolean(nanoForceBasic.checked);
+    void saveSettingsPatch({
+      nanoPreference: forceBasic ? "basic" : "skipped",
+    }).then((ok) => {
+      if (ok) {
+        setStatus(
+          forceBasic
+            ? "Basic private mode on — curated suggestions only."
+            : "Basic mode off. Use Set up to enable on-device AI.",
+          "ok",
+        );
+      }
+      void refreshNanoReadiness();
+    });
+  });
+
+  nanoSetup?.addEventListener("click", () => {
+    void runNanoSetup();
+  });
+
+  nanoEnable?.addEventListener("click", () => {
+    void saveSettingsPatch({ nanoPreference: "enabled" }).then((ok) => {
+      if (ok) {
+        setStatus("On-device AI enabled for this profile.", "ok");
+      }
+      void refreshNanoReadiness();
+    });
+  });
+
   clearHistoryButton?.addEventListener("click", () => {
     if (!confirm("Clear the latest prompt history on this device?")) {
       return;
@@ -279,7 +492,9 @@ export function initOptions(deps: Partial<OptionsDeps> = {}): OptionsController 
         setStatus(`Could not clear data — ${response.error}`, "error");
         return;
       }
+      latestReadiness = null;
       renderSettings(response.settings);
+      void refreshNanoReadiness();
       setStatus(
         "All local data cleared. Defaults restored — open the side panel to run setup again.",
         "ok",
