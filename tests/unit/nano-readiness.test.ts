@@ -1,0 +1,83 @@
+import { describe, expect, it } from "vitest";
+
+import {
+  describeNanoStatus,
+  didNanoFallBackToCurated,
+  engineIdForNanoPreference,
+  formatDownloadProgress,
+  readinessFromAvailability,
+} from "../../extension/src/domain/suggestions/nano-readiness";
+
+describe("nano-readiness helpers", () => {
+  it("maps availability to UI states", () => {
+    expect(readinessFromAvailability("available", true)).toBe("ready");
+    expect(readinessFromAvailability("downloadable", true)).toBe("download");
+    expect(readinessFromAvailability("downloading", true)).toBe("download");
+    expect(readinessFromAvailability("unavailable", true)).toBe("unsupported");
+    expect(readinessFromAvailability(null, false)).toBe("unsupported");
+  });
+
+  it("prefers nano only when preference is enabled", () => {
+    expect(engineIdForNanoPreference("enabled")).toBe("nano");
+    expect(engineIdForNanoPreference("basic")).toBe("curated");
+    expect(engineIdForNanoPreference("skipped")).toBe("curated");
+  });
+
+  it("detects silent curated fallback after Nano selection", () => {
+    expect(
+      didNanoFallBackToCurated({
+        selectedEngineId: "nano",
+        resultEngineId: "curated",
+      }),
+    ).toBe(true);
+    expect(
+      didNanoFallBackToCurated({
+        selectedEngineId: "nano",
+        resultEngineId: "nano",
+      }),
+    ).toBe(false);
+    expect(
+      didNanoFallBackToCurated({
+        selectedEngineId: "curated",
+        resultEngineId: "curated",
+      }),
+    ).toBe(false);
+  });
+
+  it("formats download progress", () => {
+    expect(formatDownloadProgress(null)).toMatch(/Downloading/i);
+    expect(formatDownloadProgress(0)).toMatch(/Starting/i);
+    expect(formatDownloadProgress(0.42)).toContain("42%");
+  });
+
+  it("describes readable settings status", () => {
+    expect(
+      describeNanoStatus({
+        preference: "basic",
+        readiness: null,
+      }),
+    ).toMatch(/Basic private mode/i);
+
+    expect(
+      describeNanoStatus({
+        preference: "enabled",
+        readiness: {
+          state: "ready",
+          availability: "available",
+          apiPresent: true,
+        },
+      }),
+    ).toMatch(/ready/i);
+
+    expect(
+      describeNanoStatus({
+        preference: "skipped",
+        readiness: {
+          state: "unsupported",
+          availability: "unavailable",
+          apiPresent: false,
+        },
+      }),
+    ).toMatch(/does not support/i);
+  });
+});

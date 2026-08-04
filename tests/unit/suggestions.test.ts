@@ -9,6 +9,7 @@ import {
   SUGGESTION_ENGINE_FLAG,
   createSuggestionEngine,
   selectSuggestionEngine,
+  selectSuggestionEngineForPreference,
   validateNanoActionOutput,
 } from "../../extension/src/domain/suggestions";
 import type { LanguageModelLike } from "../../extension/src/domain/suggestions/nano-prompt-api";
@@ -362,5 +363,18 @@ describe("engine selection", () => {
     vi.stubEnv("NANO_FORCE_DISABLED", "1");
     const selected = await selectSuggestionEngine("nano");
     expect(selected.id).toBe("curated");
+  });
+
+  it("honors nanoPreference for product selection", async () => {
+    expect((await selectSuggestionEngineForPreference("basic")).id).toBe(
+      "curated",
+    );
+    expect((await selectSuggestionEngineForPreference("skipped")).id).toBe(
+      "curated",
+    );
+    // Nano unavailable in unit env → curated floor when preference is enabled.
+    expect((await selectSuggestionEngineForPreference("enabled")).id).toBe(
+      "curated",
+    );
   });
 });

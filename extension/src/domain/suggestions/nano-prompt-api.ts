@@ -21,9 +21,31 @@ export type LanguageModelSessionLike = {
   destroy?(): void;
 };
 
+export type DownloadProgressEventLike = {
+  loaded: number;
+  total?: number;
+};
+
+export type CreateMonitorLike = {
+  addEventListener(
+    type: "downloadprogress",
+    listener: (event: DownloadProgressEventLike) => void,
+  ): void;
+};
+
+export type LanguageModelCreateOptions = {
+  expectedInputs?: object;
+  expectedOutputs?: object;
+  initialPrompts?: Array<{ role: string; content: string }>;
+  temperature?: number;
+  topK?: number;
+  signal?: AbortSignal;
+  monitor?: (monitor: CreateMonitorLike) => void;
+};
+
 export type LanguageModelLike = {
   availability(options?: object): Promise<LanguageModelAvailability>;
-  create(options?: object): Promise<LanguageModelSessionLike>;
+  create(options?: LanguageModelCreateOptions): Promise<LanguageModelSessionLike>;
 };
 
 const AVAILABILITY_VALUES = new Set<string>([
@@ -38,6 +60,9 @@ export const EN_TEXT_EXPECTATIONS = {
   expectedInputs: [{ type: "text" as const, languages: ["en"] }],
   expectedOutputs: [{ type: "text" as const, languages: ["en"] }],
 };
+
+/** Onboarding / settings model download may take minutes; never block forever. */
+export const NANO_DOWNLOAD_TIMEOUT_MS = 5 * 60 * 1000;
 
 type AiScope = {
   LanguageModel?: LanguageModelLike;
@@ -133,6 +158,80 @@ export async function createNanoSession(
       }),
     options.timeoutMs,
   );
+}
+
+export type DownloadNanoModelResult = {
+  session: LanguageModelSessionLike | null;
+  progressEvents: number;
+  lastProgressFraction: number | null;
+  timedOut: boolean;
+  error: Error | null;
+};
+
+/**
+ * User-activated `create()` that surfaces `downloadprogress` for onboarding /
+ * settings. Callers must destroy the session when done probing readiness.
+ */
+export async function downloadNanoModel(
+  model: LanguageModelLike,
+  options: {
+    timeoutMs?: number;
+    onProgress?: (fraction: number) => void;
+  } = {},
+): Promise<DownloadNanoModelResult> {
+  const timeoutMs = options.timeoutMs ?? NANO_DOWNLOAD_TIMEOUT_MS;
+  let progressEvents = 0;
+  let lastProgressFraction: number | null = null;
+
+  try {
+    const session = await withTimeout(
+      (signal) =>
+        model.create({
+          ...EN_TEXT_EXPECTATIONS,
+          signal,
+          monitor(monitor) {
+            monitor.addEventListener("downloadprogress", (event) => {
+              progressEvents += 1;
+              const fraction =
+                typeof event.total === "number" && event.total > 0
+                  ? event.loaded / event.total
+                  : event.loaded;
+              lastProgressFraction = fraction;
+              options.onProgress?.(fraction);
+            });
+          },
+        }),
+      timeoutMs,
+    );
+    return {
+      session,
+      progressEvents,
+      lastProgressFraction,
+      timedOut: false,
+      error: null,
+    };
+  } catch (error) {
+    return {
+      session: null,
+      progressEvents,
+      lastProgressFraction,
+      timedOut: error instanceof NanoTimeoutError,
+      error: error instanceof Error ? error : new Error(String(error)),
+    };
+  }
+}
+
+export function destroyNanoSession(
+  session: LanguageModelSessionLike | null | undefined,
+): void {
+  if (!session || typeof session.destroy !== "function") {
+    return;
+  }
+  try {
+    session.destroy();
+  } catch {
+    // Destroying an already-destroyed session must never fail the UI.
+  }
 }
 
 export async function promptNano(

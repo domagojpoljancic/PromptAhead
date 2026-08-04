@@ -3,9 +3,11 @@
  * selection always degrades to curated rather than failing.
  */
 
+import type { NanoPreference } from "../../shared/storage/schema";
 import { CuratedSuggestionEngine } from "./curated";
 import { MockNanoSuggestionEngine } from "./mock-nano";
 import { NanoSuggestionEngine } from "./nano";
+import { engineIdForNanoPreference } from "./nano-readiness";
 import {
   type SuggestionEngine,
   type SuggestionEngineId,
@@ -66,8 +68,22 @@ export async function selectSuggestionEngine(
   id: SuggestionEngineId = SUGGESTION_ENGINE_FLAG,
 ): Promise<SuggestionEngine> {
   const engine = createSuggestionEngine(id);
-  if (engine.id === "curated" || (await engine.isAvailable())) {
+  if (engine.id === "curated" || engine.id === "mock-nano") {
+    return engine;
+  }
+  if (await engine.isAvailable()) {
     return engine;
   }
   return new CuratedSuggestionEngine();
+}
+
+/**
+ * Product selection: honor `nanoPreference`, then env override, then availability.
+ * `basic` / `skipped` → curated. `enabled` → Nano when available.
+ */
+export async function selectSuggestionEngineForPreference(
+  preference: NanoPreference,
+): Promise<SuggestionEngine> {
+  const preferred = engineIdForNanoPreference(preference);
+  return selectSuggestionEngine(preferred);
 }
