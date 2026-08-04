@@ -7,6 +7,7 @@ import {
   DESTINATION_IDS,
   DESTINATION_LABELS,
   type DestinationId,
+  type NanoPreference,
 } from "../shared/storage/schema";
 import {
   destinationLabel,
@@ -14,9 +15,13 @@ import {
   type OpenLLMResult,
 } from "../domain/destinations";
 import {
-  selectSuggestionEngine as defaultSelectSuggestionEngine,
+  NANO_FALLBACK_COPY,
+  NANO_THINKING_COPY,
+  didNanoFallBackToCurated,
+  selectSuggestionEngineForPreference as defaultSelectSuggestionEngineForPreference,
   type SuggestedAction,
   type SuggestionEngine,
+  type SuggestionEngineId,
   type SuggestionResult,
 } from "../domain/suggestions";
 import {
@@ -48,7 +53,9 @@ type FallbackKind = "extraction" | "suggestions" | "prompt" | "handoff";
 
 export type SidePanelDeps = {
   sendToBackground: typeof defaultSendToBackground;
-  selectSuggestionEngine: () => Promise<SuggestionEngine>;
+  selectSuggestionEngine: (
+    preference: NanoPreference,
+  ) => Promise<SuggestionEngine>;
   openLLMWithFallback: (options: {
     prompt: string;
     destination: DestinationId;
@@ -91,7 +98,7 @@ export async function initSidePanel(
 ): Promise<SidePanelController> {
   const send = deps.sendToBackground ?? defaultSendToBackground;
   const selectEngine =
-    deps.selectSuggestionEngine ?? defaultSelectSuggestionEngine;
+    deps.selectSuggestionEngine ?? defaultSelectSuggestionEngineForPreference;
   const openLLM = deps.openLLMWithFallback ?? defaultOpenLLMWithFallback;
   const openOptions = deps.openOptionsPage ?? defaultOpenOptionsPage;
   const maybeOnboarding =
@@ -108,6 +115,7 @@ export async function initSidePanel(
   const contextTitle = document.getElementById("context-title");
   const contextUrl = document.getElementById("context-url");
   const refreshButton = document.getElementById("refresh-context");
+  const understandingMessage = document.getElementById("understanding-message");
 
   const stepElements: Record<
     WorkflowCardStep | "empty" | "stale",
@@ -139,6 +147,9 @@ export async function initSidePanel(
   const fallbackChoose = document.getElementById("fallback-choose");
   const emptyMessage = document.getElementById("empty-message");
   const staleMessage = document.getElementById("stale-message");
+  const nanoFallback = document.getElementById("nano-fallback");
+  const nanoFallbackCopy = document.getElementById("nano-fallback-copy");
+  const nanoRetryButton = document.getElementById("nano-retry");
   const contextPreviewBody = document.getElementById("context-preview-body");
   const includeTitleUrl = document.getElementById("include-title-url");
   const includePageBody = document.getElementById("include-page-body");
@@ -153,12 +164,14 @@ export async function initSidePanel(
   let selectedAction: SuggestedAction | null = null;
   let builtPrompt = "";
   let defaultDestination: DestinationId = "copy";
+  let nanoPreference: NanoPreference = "skipped";
   let inclusion: ContextInclusion = { ...DEFAULT_CONTEXT_INCLUSION };
   let currentStep: PanelStep = "understanding";
   let lastFallback: FallbackKind | null = null;
   /** Dedupes GET_LATEST vs PAGE_CONTEXT_UPDATED for the same capture. */
   let lastAcceptedKey: string | null = null;
   let acceptingKey: string | null = null;
+  let lastSelectedEngineId: SuggestionEngineId | null = null;
 
   function setText(element: HTMLElement | null, text: string): void {
     if (element) {
@@ -332,7 +345,17 @@ export async function initSidePanel(
     return item;
   }
 
-  function renderSuggestions(result: SuggestionResult): void {
+  function setNanoFallbackVisible(visible: boolean): void {
+    setHidden(nanoFallback, !visible);
+    if (visible) {
+      setText(nanoFallbackCopy, NANO_FALLBACK_COPY);
+    }
+  }
+
+  function renderSuggestions(
+    result: SuggestionResult,
+    options: { showNanoFallback?: boolean } = {},
+  ): void {
     suggestions = result;
     primaryActions?.replaceChildren(...result.primary.map(renderActionButton));
     moreActions?.replaceChildren(...result.more.map(renderActionButton));
@@ -341,6 +364,16 @@ export async function initSidePanel(
       showMoreButton.hidden = result.more.length === 0;
       showMoreButton.textContent = "More…";
     }
+    setNanoFallbackVisible(Boolean(options.showNanoFallback));
+  }
+
+  async function resolveNanoPreference(): Promise<NanoPreference> {
+    const response = await send({ type: "GET_SETTINGS" });
+    if (response.ok) {
+      nanoPreference = response.settings.nanoPreference;
+      defaultDestination = response.settings.defaultDestination;
+    }
+    return nanoPreference;
   }
 
   function clearWorkflowData(): void {
@@ -350,6 +383,8 @@ export async function initSidePanel(
     builtPrompt = "";
     inclusion = { ...DEFAULT_CONTEXT_INCLUSION };
     lastAcceptedKey = null;
+    lastSelectedEngineId = null;
+    setNanoFallbackVisible(false);
     if (userNoteInput instanceof HTMLTextAreaElement) {
       userNoteInput.value = "";
     }
@@ -402,20 +437,58 @@ export async function initSidePanel(
     );
   }
 
-  async function loadSuggestions(ctx: PageContext): Promise<void> {
-    setText(statusLine, "Building suggestions…");
+  async function loadSuggestions(
+    ctx: PageContext,
+    options: { forceNanoRetry?: boolean } = {},
+  ): Promise<void> {
+    const preference = await resolveNanoPreference();
+    const preferNano = options.forceNanoRetry || preference === "enabled";
+    setText(
+      understandingMessage,
+      preferNano
+        ? "Asking on-device AI for page-specific directions…"
+        : "Capturing compact context and ranking directions…",
+    );
+    setText(
+      statusLine,
+      preferNano ? NANO_THINKING_COPY : "Building suggestions…",
+    );
     try {
-      const engine = await selectEngine();
-      const result = await engine.suggestActions({ pageContext: ctx });
-      renderSuggestions(result);
-      showStep("choose");
-      setText(
-        statusLine,
-        `Page context captured (${engine.id}) — nothing leaves this device.`,
+      const engine = await selectEngine(
+        options.forceNanoRetry ? "enabled" : preference,
       );
+      lastSelectedEngineId = engine.id;
+      const result = await engine.suggestActions({ pageContext: ctx });
+      const fellBack = didNanoFallBackToCurated({
+        selectedEngineId: engine.id,
+        resultEngineId: result.engineId,
+      });
+      renderSuggestions(result, { showNanoFallback: fellBack });
+      showStep("choose");
+      if (fellBack) {
+        setText(statusLine, NANO_FALLBACK_COPY);
+      } else {
+        setText(
+          statusLine,
+          `Page context captured (${result.engineId}) — nothing leaves this device.`,
+        );
+      }
     } catch (error) {
       const message =
         error instanceof Error ? error.message : "Could not build suggestions";
+      if (preferNano) {
+        try {
+          const curated = await selectEngine("basic");
+          const result = await curated.suggestActions({ pageContext: ctx });
+          lastSelectedEngineId = "nano";
+          renderSuggestions(result, { showNanoFallback: true });
+          showStep("choose");
+          setText(statusLine, NANO_FALLBACK_COPY);
+          return;
+        } catch {
+          // fall through to hard fallback
+        }
+      }
       renderFallback("suggestions", `${message}. You can retry.`, {
         canChoose: false,
       });
@@ -505,7 +578,8 @@ export async function initSidePanel(
 
     setText(statusLine, "Building prompt…");
     try {
-      const engine = await selectEngine();
+      const preference = await resolveNanoPreference();
+      const engine = await selectEngine(preference);
       builtPrompt = await engine.generatePrompt({
         pageContext: filtered,
         action: selectedAction,
@@ -705,14 +779,17 @@ export async function initSidePanel(
     const {
       mode,
       defaultDestination: destination,
+      nanoPreference: preference,
       schemaVersion,
     } = response.settings;
     defaultDestination = destination;
+    nanoPreference = preference;
     setText(
       debugLine,
       [
         `mode: ${mode}`,
         `destination: ${DESTINATION_LABELS[destination]}`,
+        `nano: ${preference}`,
         `settings schema: v${schemaVersion}`,
       ].join(" · "),
     );
@@ -813,7 +890,9 @@ export async function initSidePanel(
 
   on(document.getElementById("start-over"), "click", () => {
     if (pageContext && suggestions) {
-      renderSuggestions(suggestions);
+      const showNanoFallback =
+        lastSelectedEngineId === "nano" && suggestions.engineId === "curated";
+      renderSuggestions(suggestions, { showNanoFallback });
       showStep("choose");
       setText(statusLine, "Choose another direction.");
     }
@@ -828,6 +907,14 @@ export async function initSidePanel(
       showStep("choose");
       setText(statusLine, "Choose a direction.");
     }
+  });
+
+  on(nanoRetryButton, "click", () => {
+    if (!pageContext) {
+      return;
+    }
+    showStep("understanding");
+    void loadSuggestions(pageContext, { forceNanoRetry: true });
   });
 
   for (const control of [

@@ -100,11 +100,37 @@
         </div>
       </section>
 
-      <section class="settings__section">
-        <h2>Nano</h2>
-        <p id="nano-status">
-          On-device Gemini Nano setup is skipped in this milestone. Curated suggestions
-          work without a download.
+      <section class="settings__section" id="nano-section">
+        <h2>On-device AI (Nano)</h2>
+        <p id="nano-status" class="nano-status">
+          Checking on-device AI…
+        </p>
+        <label class="choice">
+          <input type="checkbox" id="nano-force-basic" />
+          <span>Force basic private mode (curated suggestions only)</span>
+        </label>
+        <div class="button-row" id="nano-actions">
+          <button type="button" class="btn" id="nano-setup" hidden>
+            Set up on-device AI
+          </button>
+          <button type="button" class="btn" id="nano-enable" hidden>
+            Prefer on-device AI
+          </button>
+        </div>
+        <div class="nano-progress" id="nano-download-progress" hidden>
+          <div
+            class="nano-progress__bar"
+            id="nano-download-progress-bar"
+            role="progressbar"
+            aria-valuemin="0"
+            aria-valuemax="100"
+            aria-valuenow="0"
+          ></div>
+          <p class="nano-progress__label" id="nano-download-progress-label"></p>
+        </div>
+        <p class="hint">
+          Gemini Nano runs on this device through Chrome. PromptAhead never sends
+          page content to a PromptAhead server.
         </p>
       </section>
 
