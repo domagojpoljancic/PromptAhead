@@ -1,32 +1,33 @@
 # PromptAhead
 
-> **WIP — M1 Manual core complete in-repo.** Product path is buildable, covered by Vitest/Playwright/CI, and real-Chrome smoke is recorded in [`docs/test-plan.md`](docs/test-plan.md). Next: Chrome Web Store packaging (M4); Nano (M2) and Smart mode (M3) still ahead.
+> **WIP — M2 Gemini Nano UX in progress.** Manual core (M1) is buildable and covered by Vitest/Playwright/CI. This branch adds the Nano suggestion engine plus onboarding / side-panel / settings UX. Hardware smoke for Nano remains a manual checklist. Smart mode (M3) and Chrome Web Store packaging (M4) are still ahead.
 
 **Your next question, already prepared.**
 
-Privacy-first Chrome extension (Manifest V3) that notices when you are genuinely interested in a page and helps you decide what to explore next. It builds an editable prompt for ChatGPT, Claude, Gemini, Perplexity, or any LLM you choose. No PromptAhead backend, accounts, or remote model calls in MVP — optional on-device Gemini Nano when available, curated fallback otherwise.
+Privacy-first Chrome extension (Manifest V3) that notices when you are genuinely interested in a page and helps you decide what to explore next. It builds an editable prompt for ChatGPT, Claude, Gemini, Perplexity, or any LLM you choose. No PromptAhead backend, accounts, or remote model calls in MVP — optional on-device Gemini Nano when available, curated fallback otherwise. **Page content never leaves the device via PromptAhead**; Nano runs only through Chrome’s on-device Prompt API.
 
 ## Status
 
 | Area | State |
 | --- | --- |
-| Product extension (`extension/`) | **Manual core** — gesture extract → Choose → Refine → Review → Prompt ready → Copy / Open-in |
-| Side panel | Workflow state machine; one step at a time; context inclusion; **calm stale** after navigate / access-lost refresh |
-| Onboarding + settings | Manual-first first-run overlay; options page for destination, history, clear-data, developer mode |
+| Product extension (`extension/`) | **Manual core** + **M2 Nano UX** (engine, onboarding readiness/download, panel Retry, settings controls) |
+| Side panel | Workflow state machine; Nano thinking + curated fallback + **Retry local AI** when preference is enabled |
+| Onboarding + settings | Manual-first first-run; Nano ready/download/unsupported + basic private mode; options Nano status / force basic / setup |
 | Destinations | Deep links with **app-first + web fallback**; Gemini / oversized prompts use **clipboard + open**; never auto-submit |
 | Automation | Vitest (unit + jsdom UI), Playwright (built MV3 + navigate→stale), GitHub Actions (`test:ci`, Node 20.19+) |
-| M1 acceptance | Manual §25 map + smoke notes in [`docs/test-plan.md`](docs/test-plan.md); remaining store/eval work tracked in Linear |
+| Nano CI | Curated path stays green with Nano forced off (`NANO_FORCE_DISABLED`); live hardware checklist in [`docs/nano-verification-checklist.md`](docs/nano-verification-checklist.md) |
+| M1 acceptance | Manual §25 map + smoke notes in [`docs/test-plan.md`](docs/test-plan.md) |
 | M0 spike harness (`spikes/`) | **Done** — S0.1–S0.7 implemented and run |
 | Spike results (`docs/technical-spikes.md`) | **Filled** — Chrome **150.0.0.0** (2026-08-01) |
 | Extraction | JSON-LD / Open Graph / semantic-HTML classification with size caps; 6 HTML fixtures; Readability deferred |
-| Suggestions + prompts | Curated + mock-Nano engines; injection-resistant `<SOURCE_DATA>` builder |
-| Product docs | Handoff + architecture / plan / privacy / test plan |
+| Suggestions + prompts | Curated + mock-Nano + real `NanoSuggestionEngine` (validate / repair / timeout / curated fallback) |
+| Product docs | Handoff + architecture / plan / privacy / test plan / Nano checklist |
 | Planning | Linear used as the product / issue tracker |
 
 ### Locked from M0
 
 - Manual: extract on toolbar / context-menu / shortcut; panel may re-fetch same tab until navigation; **`activeTab` only**
-- Nano (M2): host in **side panel**
+- Nano (M2): host in **side panel** (and options for readiness / download)
 - Smart invites (M3): **badge-first**; system notifications optional
 
 ## Quick start (product extension)
@@ -38,9 +39,9 @@ npm install
 npm run build
 ```
 
-Load **`extension/dist/`** unpacked on `chrome://extensions`. Open any normal `http(s)` page and click the toolbar icon (or context menu / `Alt+Shift+P`): PromptAhead extracts that page, opens the side panel, and offers curated directions.
+Load **`extension/dist/`** unpacked on `chrome://extensions`. Open any normal `http(s)` page and click the toolbar icon (or context menu / `Alt+Shift+P`): PromptAhead extracts that page, opens the side panel, and offers curated (or on-device Nano) directions when enabled.
 
-First run shows a short, skippable onboarding (Manual default; Smart deferred). Build a prompt, edit it, then:
+First run shows a short, skippable onboarding (Manual default; optional Nano download; always **Continue with basic private mode**). Build a prompt, edit it, then:
 
 - **Copy** — clipboard only
 - **Open in ChatGPT / Claude / Perplexity** — deep link (native app scheme when available, then web URL with `q=` prefill)
@@ -85,7 +86,7 @@ PromptAhead/
 └── README.md
 ```
 
-See [`docs/architecture.md`](docs/architecture.md) for the full folder layout. Automated vs manual release checks: [`docs/test-plan.md`](docs/test-plan.md).
+See [`docs/architecture.md`](docs/architecture.md) for the full folder layout. Automated vs manual release checks: [`docs/test-plan.md`](docs/test-plan.md). Nano hardware smoke: [`docs/nano-verification-checklist.md`](docs/nano-verification-checklist.md).
 
 ## Docs
 
@@ -95,7 +96,8 @@ See [`docs/architecture.md`](docs/architecture.md) for the full folder layout. A
 | [`docs/architecture.md`](docs/architecture.md) | Stack + folder layout |
 | [`docs/implementation-plan.md`](docs/implementation-plan.md) | Milestones M0–M4 |
 | [`docs/technical-spikes.md`](docs/technical-spikes.md) | M0 spike report (Chrome results) |
-| [`docs/privacy-threat-model.md`](docs/privacy-threat-model.md) | Privacy / threat model |
+| [`docs/privacy-threat-model.md`](docs/privacy-threat-model.md) | Privacy / threat model (on-device Nano) |
+| [`docs/nano-verification-checklist.md`](docs/nano-verification-checklist.md) | Manual Nano smoke checklist |
 | [`docs/test-plan.md`](docs/test-plan.md) | Test plan (automated + manual) |
 
 `docs/promptahead-prd.md` is currently an identical copy of the handoff (legacy alias). Prefer the handoff path in links.
@@ -106,7 +108,7 @@ See [`docs/architecture.md`](docs/architecture.md) for the full folder layout. A
 - Main-content extraction beyond the thin `main`/`article` heuristic; Mozilla Readability license call still open
 - Sensitive-page heuristics (banking/medical pages are not blocked yet)
 - Smart mode / host-permission product UI (M3)
-- Real Gemini Nano integration (M2)
+- Hardware-verified Nano smoke results (fill [`docs/nano-verification-checklist.md`](docs/nano-verification-checklist.md) on supported Chrome)
 
 ## Contributing / development notes
 
