@@ -26,6 +26,7 @@ import {
 import {
   captureTabContext,
   clearPageContextCache,
+  readLastGestureTabId,
   readLatestPageContext,
 } from "./page-context-store";
 
@@ -33,12 +34,15 @@ type ResolvedTab = { id: number; url?: string };
 
 async function resolveTab(explicitTabId?: number): Promise<ResolvedTab | null> {
   const tab = await getActiveTab();
-  if (typeof explicitTabId === "number") {
-    // The panel knows the tab it was opened for; the query only adds the URL,
-    // and only when `activeTab` still covers that tab.
-    return { id: explicitTabId, url: tab?.id === explicitTabId ? tab.url : undefined };
+  const resolvedId =
+    explicitTabId ?? readLastGestureTabId() ?? tab?.id ?? undefined;
+  if (resolvedId === undefined) {
+    return null;
   }
-  return tab?.id === undefined ? null : { id: tab.id, url: tab.url };
+  return {
+    id: resolvedId,
+    url: tab?.id === resolvedId ? tab.url : undefined,
+  };
 }
 
 export async function handleBackgroundRequest(

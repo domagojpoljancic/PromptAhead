@@ -5,6 +5,8 @@
 import type { NanoPreference } from "../../shared/storage/schema";
 import type { SuggestionEngineId } from "./types";
 import {
+  createNanoSession,
+  destroyNanoSession,
   getLanguageModel,
   isPromptApiPresent,
   probeAvailability,
@@ -60,8 +62,31 @@ export async function probeNanoReadiness(
   }
 
   const availability = await probeAvailability(model);
+  const state = readinessFromAvailability(availability, true);
+
+  // Warm the on-device model once when Chrome reports ready so the first
+  // post-onboarding suggestion is less likely to hit create timeouts (DOM-31).
+  if (state === "ready") {
+    let session: Awaited<ReturnType<typeof createNanoSession>> | null = null;
+    try {
+      session = await createNanoSession(model, {
+        systemPrompt: "Reply with OK.",
+        timeoutMs: 30_000,
+      });
+    } catch {
+      // availability() can race ahead of a cold create — treat as downloadable.
+      return {
+        state: "download",
+        availability: availability ?? "downloadable",
+        apiPresent: true,
+      };
+    } finally {
+      destroyNanoSession(session);
+    }
+  }
+
   return {
-    state: readinessFromAvailability(availability, true),
+    state,
     availability,
     apiPresent: true,
   };

@@ -82,11 +82,22 @@ export function isPromptApiPresent(): boolean {
   );
 }
 
+/** Bound for onboarding / settings / engine selection — never block the UI forever. */
+export const NANO_AVAILABILITY_TIMEOUT_MS = 5_000;
+
 export async function probeAvailability(
   model: LanguageModelLike = getLanguageModel()!,
+  timeoutMs: number = NANO_AVAILABILITY_TIMEOUT_MS,
 ): Promise<LanguageModelAvailability | null> {
   try {
-    const value = await model.availability(EN_TEXT_EXPECTATIONS);
+    const value = await withTimeout(
+      (signal) => {
+        // Prompt API may ignore AbortSignal on availability(); withTimeout still caps wait.
+        void signal;
+        return model.availability(EN_TEXT_EXPECTATIONS);
+      },
+      timeoutMs,
+    );
     return AVAILABILITY_VALUES.has(value) ? value : null;
   } catch {
     return null;

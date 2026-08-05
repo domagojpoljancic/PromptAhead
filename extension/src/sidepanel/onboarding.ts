@@ -43,6 +43,24 @@ let downloading = false;
 let onComplete: (() => void) | undefined;
 let activeSend: typeof defaultSendToBackground = defaultSendToBackground;
 let activeGetModel: () => LanguageModelLike | undefined = getLanguageModel;
+/** True from gate open until overlay dismissed or onboarding skipped. */
+let onboardingGateActive = false;
+
+/**
+ * Workflow must not warm while first-run is pending or visible — including the
+ * window before the overlay is shown (DOM-31).
+ */
+export function isOnboardingBlocking(): boolean {
+  return onboardingGateActive || isOnboardingVisible();
+}
+
+function beginOnboardingGate(): void {
+  onboardingGateActive = true;
+}
+
+function endOnboardingGate(): void {
+  onboardingGateActive = false;
+}
 
 function setText(element: HTMLElement | null, text: string): void {
   if (element) {
@@ -244,6 +262,7 @@ async function persistCompletion(input: {
     return false;
   }
 
+  endOnboardingGate();
   showOverlay(false);
   onComplete?.();
   return true;
@@ -368,27 +387,60 @@ function wireControls(): void {
   });
 }
 
+const ONBOARDING_WAKE_ATTEMPTS = 8;
+const ONBOARDING_WAKE_BASE_MS = 120;
+
+async function wakeBackgroundForOnboarding(): Promise<void> {
+  for (let attempt = 0; attempt < ONBOARDING_WAKE_ATTEMPTS; attempt += 1) {
+    const ping = await activeSend({ type: "PING" });
+    if (ping.ok) {
+      return;
+    }
+    const delay = ONBOARDING_WAKE_BASE_MS * (attempt + 1);
+    await new Promise((resolve) => setTimeout(resolve, delay));
+  }
+}
+
+async function fetchOnboardingState() {
+  await wakeBackgroundForOnboarding();
+  let last = await activeSend({ type: "GET_ONBOARDING" });
+  for (
+    let attempt = 1;
+    attempt < ONBOARDING_WAKE_ATTEMPTS && !last.ok;
+    attempt += 1
+  ) {
+    const delay = ONBOARDING_WAKE_BASE_MS * (attempt + 1);
+    await new Promise((resolve) => setTimeout(resolve, delay));
+    last = await activeSend({ type: "GET_ONBOARDING" });
+  }
+  return last;
+}
+
 /**
  * Shows the first-run overlay when `onboarding.completed === false`.
- * Returns true when the overlay is shown (caller may still warm the workflow).
+ * Returns true when the overlay is shown — caller should defer workflow warm-up
+ * until `afterComplete` (or until this returns false).
  */
 export async function maybeStartOnboarding(
   afterComplete?: () => void,
   deps: Partial<OnboardingDeps> = {},
 ): Promise<boolean> {
+  beginOnboardingGate();
   activeSend = deps.sendToBackground ?? defaultSendToBackground;
   activeGetModel = deps.getLanguageModel ?? getLanguageModel;
   onComplete = afterComplete;
   wireControls();
 
-  const response = await activeSend({ type: "GET_ONBOARDING" });
+  const response = await fetchOnboardingState();
   if (!response.ok) {
+    endOnboardingGate();
     setText(statusLineEl(), `Background unreachable — ${response.error}`);
     showOverlay(false);
     return false;
   }
 
   if (response.onboarding.completed) {
+    endOnboardingGate();
     showOverlay(false);
     return false;
   }
@@ -416,10 +468,12 @@ export function isOnboardingVisible(): boolean {
 export async function refreshOnboardingAfterClear(
   deps: Partial<OnboardingDeps> = {},
 ): Promise<void> {
+  beginOnboardingGate();
   activeSend = deps.sendToBackground ?? defaultSendToBackground;
   activeGetModel = deps.getLanguageModel ?? getLanguageModel;
   const response = await activeSend({ type: "GET_ONBOARDING" });
   if (!response.ok || response.onboarding.completed) {
+    endOnboardingGate();
     showOverlay(false);
     return;
   }
@@ -442,6 +496,7 @@ export function resetOnboardingForTests(): void {
   chosenDestination = "copy";
   nanoState = "checking";
   downloading = false;
+  onboardingGateActive = false;
   onComplete = undefined;
   activeSend = defaultSendToBackground;
   activeGetModel = getLanguageModel;

@@ -34,6 +34,7 @@ import {
   type ContextInclusion,
 } from "./context-inclusion";
 import {
+  isOnboardingBlocking,
   maybeStartOnboarding as defaultMaybeStartOnboarding,
   refreshOnboardingAfterClear as defaultRefreshOnboardingAfterClear,
 } from "./onboarding";
@@ -172,6 +173,25 @@ export async function initSidePanel(
   let lastAcceptedKey: string | null = null;
   let acceptingKey: string | null = null;
   let lastSelectedEngineId: SuggestionEngineId | null = null;
+  /** Bumps when onboarding completes or a new accept starts — stale loads bail out. */
+  let suggestionGeneration = 0;
+
+  function resetWorkflowAfterOnboarding(): void {
+    suggestionGeneration += 1;
+    acceptingKey = null;
+    lastAcceptedKey = null;
+    pageContext = null;
+    boundTabId = null;
+    suggestions = null;
+    selectedAction = null;
+    builtPrompt = "";
+    lastSelectedEngineId = null;
+    clearWorkflowData();
+    setNanoFallbackVisible(false);
+    showStep("empty");
+    setText(emptyMessage, "Reading this page…");
+    setText(statusLine, "Reading this page…");
+  }
 
   function setText(element: HTMLElement | null, text: string): void {
     if (element) {
@@ -441,7 +461,11 @@ export async function initSidePanel(
     ctx: PageContext,
     options: { forceNanoRetry?: boolean } = {},
   ): Promise<void> {
+    const generation = suggestionGeneration;
     const preference = await resolveNanoPreference();
+    if (generation !== suggestionGeneration) {
+      return;
+    }
     const preferNano = options.forceNanoRetry || preference === "enabled";
     setText(
       understandingMessage,
@@ -457,8 +481,14 @@ export async function initSidePanel(
       const engine = await selectEngine(
         options.forceNanoRetry ? "enabled" : preference,
       );
+      if (generation !== suggestionGeneration) {
+        return;
+      }
       lastSelectedEngineId = engine.id;
       const result = await engine.suggestActions({ pageContext: ctx });
+      if (generation !== suggestionGeneration) {
+        return;
+      }
       const fellBack = didNanoFallBackToCurated({
         selectedEngineId: engine.id,
         resultEngineId: result.engineId,
@@ -474,12 +504,21 @@ export async function initSidePanel(
         );
       }
     } catch (error) {
+      if (generation !== suggestionGeneration) {
+        return;
+      }
       const message =
         error instanceof Error ? error.message : "Could not build suggestions";
       if (preferNano) {
         try {
           const curated = await selectEngine("basic");
+          if (generation !== suggestionGeneration) {
+            return;
+          }
           const result = await curated.suggestActions({ pageContext: ctx });
+          if (generation !== suggestionGeneration) {
+            return;
+          }
           lastSelectedEngineId = "nano";
           renderSuggestions(result, { showNanoFallback: true });
           showStep("choose");
@@ -506,6 +545,9 @@ export async function initSidePanel(
     ctx: PageContext,
     tabId?: number,
   ): Promise<void> {
+    if (isOnboardingBlocking()) {
+      return;
+    }
     const key = contextKey(ctx, tabId);
     if (
       key === lastAcceptedKey &&
@@ -519,6 +561,7 @@ export async function initSidePanel(
       return;
     }
     acceptingKey = key;
+    const generation = suggestionGeneration;
 
     pageContext = ctx;
     if (typeof tabId === "number") {
@@ -532,9 +575,13 @@ export async function initSidePanel(
     setText(statusLine, "Understanding this page…");
     try {
       await loadSuggestions(ctx);
-      lastAcceptedKey = key;
+      if (generation === suggestionGeneration) {
+        lastAcceptedKey = key;
+      }
     } finally {
-      acceptingKey = null;
+      if (acceptingKey === key) {
+        acceptingKey = null;
+      }
     }
   }
 
@@ -698,10 +745,19 @@ export async function initSidePanel(
   }
 
   async function loadLatestContext(): Promise<void> {
+    if (isOnboardingBlocking()) {
+      return;
+    }
     showStep("understanding");
     setText(statusLine, "Reading this page…");
 
-    const response = await send({ type: "GET_LATEST_PAGE_CONTEXT" });
+    const response = await send({
+      type: "GET_LATEST_PAGE_CONTEXT",
+      ...(boundTabId !== null ? { tabId: boundTabId } : {}),
+    });
+    if (isOnboardingBlocking()) {
+      return;
+    }
     if (!response.ok) {
       renderEmpty(`Background unreachable — ${response.error}`);
       return;
@@ -800,6 +856,9 @@ export async function initSidePanel(
       return;
     }
     if (message.type === "PAGE_CONTEXT_UPDATED") {
+      if (isOnboardingBlocking()) {
+        return;
+      }
       // Toolbar / shortcut re-capture while the panel is already open.
       void acceptPageContext(message.pageContext, message.tabId);
       return;
@@ -950,12 +1009,15 @@ export async function initSidePanel(
     );
   });
 
-  removers.push(addMessageListener(handleBackgroundEvent));
-
-  await maybeOnboarding(() => {
+  const onboardingShown = await maybeOnboarding(() => {
+    resetWorkflowAfterOnboarding();
     void renderDebugLine();
+    void loadLatestContext();
   }, { sendToBackground: send });
-  void loadLatestContext();
+  if (!onboardingShown) {
+    void loadLatestContext();
+  }
+  removers.push(addMessageListener(handleBackgroundEvent));
   void renderDebugLine();
 
   return {

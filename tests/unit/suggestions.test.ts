@@ -8,6 +8,7 @@ import {
   PRIMARY_ACTION_COUNT,
   SUGGESTION_ENGINE_FLAG,
   createSuggestionEngine,
+  probeAvailability,
   selectSuggestionEngine,
   selectSuggestionEngineForPreference,
   validateNanoActionOutput,
@@ -73,10 +74,18 @@ function createFakeModel(options: {
   prompts?: string[];
   failCreate?: boolean;
   hangMs?: number;
+  hangAvailabilityMs?: number;
 }): LanguageModelLike {
   const prompts = [...(options.prompts ?? [validActionsJson()])];
   return {
-    availability: async () => options.availability ?? "available",
+    availability: async () => {
+      if (options.hangAvailabilityMs) {
+        await new Promise((resolve) =>
+          setTimeout(resolve, options.hangAvailabilityMs),
+        );
+      }
+      return options.availability ?? "available";
+    },
     create: async () => {
       if (options.failCreate) {
         throw new Error("create failed");
@@ -97,6 +106,14 @@ function createFakeModel(options: {
     },
   };
 }
+
+describe("probeAvailability", () => {
+  it("returns null when availability() hangs past the budget", async () => {
+    const model = createFakeModel({ hangAvailabilityMs: 50 });
+    const result = await probeAvailability(model, 5);
+    expect(result).toBeNull();
+  });
+});
 
 describe("CuratedSuggestionEngine", () => {
   const engine = new CuratedSuggestionEngine();

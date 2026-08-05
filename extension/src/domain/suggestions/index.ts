@@ -31,6 +31,7 @@ export {
   getLanguageModel,
   isPromptApiPresent,
   probeAvailability,
+  NANO_AVAILABILITY_TIMEOUT_MS,
   NANO_DOWNLOAD_TIMEOUT_MS,
   type LanguageModelAvailability,
   type LanguageModelLike,

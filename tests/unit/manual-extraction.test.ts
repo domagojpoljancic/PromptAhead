@@ -68,6 +68,19 @@ describe("Manual-mode extraction path", () => {
     expect(latest.pageContext?.pageType).toBe("product");
   });
 
+  it("prefers the last gesture tab when the panel asks without tabId", async () => {
+    mockWithPage({
+      activeTab: { id: 99, url: "https://other.example/" },
+    });
+    registerBackgroundRouter();
+
+    await captureTabContext(TAB_ID, PRODUCT_URL);
+    const latest = await sendToBackground({ type: "GET_LATEST_PAGE_CONTEXT" });
+
+    expect(latest.ok && latest.tabId).toBe(TAB_ID);
+    expect(latest.ok && latest.pageContext?.title).toBe("Aurora 14 Laptop");
+  });
+
   it("forgets a tab once it navigates or closes", async () => {
     mockWithPage();
 

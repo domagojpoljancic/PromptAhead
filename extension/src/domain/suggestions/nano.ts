@@ -32,9 +32,9 @@ import type {
 } from "./types";
 
 /** Handoff / M2 hard budget for action generation prompts. */
-export const NANO_PROMPT_TIMEOUT_MS = 10_000;
-/** Session create may include a short warm-up; keep under the same product feel. */
-export const NANO_CREATE_TIMEOUT_MS = 15_000;
+export const NANO_PROMPT_TIMEOUT_MS = 20_000;
+/** Session create may include model warm-up on first hardware run. */
+export const NANO_CREATE_TIMEOUT_MS = 30_000;
 
 export type NanoSuggestionEngineOptions = {
   /** Injected for tests; defaults to the realm `LanguageModel`. */

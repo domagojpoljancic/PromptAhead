@@ -102,6 +102,8 @@ function createSend(store: Store) {
 
   const send = vi.fn(async (request: BackgroundRequest) => {
     switch (request.type) {
+      case "PING":
+        return { ok: true as const, type: "PING" as const, pong: true };
       case "GET_SETTINGS":
         return { ok: true as const, type: "GET_SETTINGS" as const, settings: store.settings };
       case "SET_SETTINGS":
@@ -368,6 +370,8 @@ describe("side panel click-through", () => {
     await boot({ onboardingIncomplete: true });
     expect(isVisible("#onboarding")).toBe(true);
     expect(document.body.classList.contains("onboarding-active")).toBe(true);
+    // Workflow must not warm under the overlay (DOM-31 hang).
+    expect(isVisible("#choose")).toBe(false);
 
     click('[data-step="welcome"] [data-onboarding-action="next"]');
     await flush();
@@ -481,6 +485,22 @@ describe("side panel click-through", () => {
     store.onboarding = { ...DEFAULT_ONBOARDING };
     pushEvent({ type: "PAGE_CONTEXT_CLEARED", tabId: -1, reason: "cleared" });
     await flush();
+    expect(isVisible("#onboarding")).toBe(true);
+  });
+
+  it("ignores PAGE_CONTEXT_UPDATED while first-run onboarding is active", async () => {
+    const { pushEvent } = await boot({ onboardingIncomplete: true });
+    expect(isVisible("#onboarding")).toBe(true);
+    expect(isVisible("#choose")).toBe(false);
+
+    pushEvent({
+      type: "PAGE_CONTEXT_UPDATED",
+      tabId: 7,
+      pageContext: samplePage,
+    });
+    await flush();
+
+    expect(isVisible("#choose")).toBe(false);
     expect(isVisible("#onboarding")).toBe(true);
   });
 });
