@@ -8,9 +8,11 @@ import {
   PRIMARY_ACTION_COUNT,
   SUGGESTION_ENGINE_FLAG,
   createSuggestionEngine,
+  parseNanoActionJson,
   probeAvailability,
   selectSuggestionEngine,
   selectSuggestionEngineForPreference,
+  textExpectationsForLanguage,
   validateNanoActionOutput,
 } from "../../extension/src/domain/suggestions";
 import type { LanguageModelLike } from "../../extension/src/domain/suggestions/nano-prompt-api";
@@ -115,6 +117,18 @@ describe("probeAvailability", () => {
   });
 });
 
+describe("textExpectationsForLanguage", () => {
+  it("includes page language and falls back to en", () => {
+    expect(textExpectationsForLanguage("hr").expectedInputs[0]?.languages).toEqual([
+      "hr",
+      "en",
+    ]);
+    expect(textExpectationsForLanguage("en-US").expectedInputs[0]?.languages).toEqual([
+      "en",
+    ]);
+  });
+});
+
 describe("CuratedSuggestionEngine", () => {
   const engine = new CuratedSuggestionEngine();
 
@@ -136,7 +150,7 @@ describe("CuratedSuggestionEngine", () => {
       expect(action.pageType).toBe(pageContext.pageType);
       expect(action.title.length).toBeGreaterThan(0);
       expect(action.title.length).toBeLessThanOrEqual(60);
-      expect(action.description.length).toBeLessThanOrEqual(140);
+      expect(action.description.length).toBeLessThanOrEqual(90);
       expect(action.task.length).toBeGreaterThan(0);
       expect(action.outputSpec.length).toBeGreaterThan(0);
     }
@@ -258,7 +272,7 @@ describe("validateNanoActionOutput", () => {
     }
     expect(validated.result.primary[0]!.title.length).toBeLessThanOrEqual(60);
     expect(validated.result.primary[0]!.description.length).toBeLessThanOrEqual(
-      140,
+      90,
     );
   });
 });
@@ -315,7 +329,8 @@ describe("NanoSuggestionEngine", () => {
     const engine = new NanoSuggestionEngine({
       getModel: () =>
         createFakeModel({
-          prompts: ["nope", "still-nope"],
+          // unconstrained + repair + optional constrained pass
+          prompts: ["nope", "still-nope", "also-nope"],
         }),
       createTimeoutMs: 1_000,
       promptTimeoutMs: 1_000,
@@ -353,6 +368,19 @@ describe("NanoSuggestionEngine", () => {
     });
     expect(prompt).toContain("<SOURCE_DATA>");
     expect(prompt).toContain(article.title);
+  });
+});
+
+describe("parseNanoActionJson", () => {
+  it("parses JSON embedded in surrounding commentary", () => {
+    const raw = `Sure! Here you go:
+\`\`\`json
+${validActionsJson(4)}
+\`\`\`
+Thanks!`;
+    expect(parseNanoActionJson(raw)).toEqual(
+      JSON.parse(validActionsJson(4)),
+    );
   });
 });
 

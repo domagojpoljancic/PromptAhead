@@ -18,6 +18,14 @@ export type LanguageModelSessionLike = {
       omitResponseConstraintInput?: boolean;
     },
   ): Promise<string>;
+  promptStreaming?(
+    input: string,
+    options?: {
+      signal?: AbortSignal;
+      responseConstraint?: object;
+      omitResponseConstraintInput?: boolean;
+    },
+  ): AsyncIterable<string>;
   destroy?(): void;
 };
 
@@ -55,11 +63,27 @@ const AVAILABILITY_VALUES = new Set<string>([
   "available",
 ]);
 
-/** Same expectations for availability() and create() (M0 finding). */
+/** Same expectations for availability() and create() (M0 finding). Always pass languages. */
 export const EN_TEXT_EXPECTATIONS = {
   expectedInputs: [{ type: "text" as const, languages: ["en"] }],
   expectedOutputs: [{ type: "text" as const, languages: ["en"] }],
 };
+
+/**
+ * Chrome warns when create()/availability() omit languages. Prefer the page
+ * language when known; fall back to English.
+ */
+export function textExpectationsForLanguage(
+  language?: string | null,
+): typeof EN_TEXT_EXPECTATIONS {
+  const tag = (language ?? "").trim().toLowerCase();
+  const primary = /^[a-z]{2,3}/.exec(tag)?.[0] ?? "en";
+  const languages = primary === "en" ? ["en"] : [primary, "en"];
+  return {
+    expectedInputs: [{ type: "text" as const, languages }],
+    expectedOutputs: [{ type: "text" as const, languages }],
+  };
+}
 
 /** Onboarding / settings model download may take minutes; never block forever. */
 export const NANO_DOWNLOAD_TIMEOUT_MS = 5 * 60 * 1000;
@@ -121,8 +145,10 @@ export async function withTimeout<T>(
 ): Promise<T> {
   const controller = new AbortController();
   let timer: ReturnType<typeof setTimeout> | undefined;
+  let timedOut = false;
   const timeout = new Promise<never>((_, reject) => {
     timer = setTimeout(() => {
+      timedOut = true;
       controller.abort();
       reject(new NanoTimeoutError());
     }, timeoutMs);
@@ -131,15 +157,19 @@ export async function withTimeout<T>(
     return await Promise.race([run(controller.signal), timeout]);
   } catch (error) {
     if (
+      timedOut ||
       error instanceof NanoTimeoutError ||
       (error instanceof DOMException && error.name === "AbortError") ||
-      (error instanceof Error && error.name === "TimeoutError")
+      (error instanceof Error && error.name === "TimeoutError") ||
+      (error instanceof Error && /signal is aborted/i.test(error.message))
     ) {
-      throw error instanceof NanoTimeoutError
-        ? error
-        : new NanoTimeoutError(
-            error instanceof Error ? error.message : "Gemini Nano timed out",
-          );
+      throw new NanoTimeoutError(
+        timedOut || error instanceof NanoTimeoutError
+          ? "Gemini Nano timed out"
+          : error instanceof Error
+            ? error.message
+            : "Gemini Nano timed out",
+      );
     }
     throw error;
   } finally {
@@ -156,12 +186,15 @@ export async function createNanoSession(
     timeoutMs: number;
     temperature?: number;
     topK?: number;
+    /** BCP-47 / page language — silences “No output language was specified”. */
+    language?: string | null;
   },
 ): Promise<LanguageModelSessionLike> {
+  const expectations = textExpectationsForLanguage(options.language);
   return withTimeout(
     (signal) =>
       model.create({
-        ...EN_TEXT_EXPECTATIONS,
+        ...expectations,
         initialPrompts: [{ role: "system", content: options.systemPrompt }],
         temperature: options.temperature ?? 0.4,
         topK: options.topK ?? 3,
@@ -266,4 +299,37 @@ export async function promptNano(
       }),
     options.timeoutMs,
   );
+}
+
+/**
+ * Collect a streaming prompt into one string. Prefer {@link promptNano} for
+ * structured JSON — streaming is kept for diagnostics / future UX only.
+ */
+export async function promptNanoStreaming(
+  session: LanguageModelSessionLike,
+  input: string,
+  options: {
+    timeoutMs: number;
+    responseConstraint?: object;
+  },
+): Promise<string> {
+  if (typeof session.promptStreaming !== "function") {
+    return promptNano(session, input, options);
+  }
+  return withTimeout(async (signal) => {
+    const stream = session.promptStreaming!(input, {
+      signal,
+      ...(options.responseConstraint
+        ? {
+            responseConstraint: options.responseConstraint,
+            omitResponseConstraintInput: true,
+          }
+        : {}),
+    });
+    let text = "";
+    for await (const chunk of stream) {
+      text += chunk;
+    }
+    return text;
+  }, options.timeoutMs);
 }

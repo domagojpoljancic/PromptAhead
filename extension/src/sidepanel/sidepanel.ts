@@ -15,10 +15,14 @@ import {
   type OpenLLMResult,
 } from "../domain/destinations";
 import {
-  NANO_FALLBACK_COPY,
   NANO_THINKING_COPY,
+  copyForNanoPanelNotice,
   didNanoFallBackToCurated,
+  nanoPanelNoticeForPreference,
+  nanoPanelNoticeFromFailureReason,
+  probeNanoReadiness,
   selectSuggestionEngineForPreference as defaultSelectSuggestionEngineForPreference,
+  type NanoPanelNotice,
   type SuggestedAction,
   type SuggestionEngine,
   type SuggestionEngineId,
@@ -50,6 +54,17 @@ const PAGE_TYPE_LABELS: Record<PageContext["pageType"], string> = {
   generic: "Page",
 };
 
+/** Compact wall-clock for the side-panel debug strip. */
+function formatElapsed(ms: number): string {
+  if (!Number.isFinite(ms) || ms < 0) {
+    return "?ms";
+  }
+  if (ms < 1000) {
+    return `${Math.round(ms)}ms`;
+  }
+  return `${(ms / 1000).toFixed(1)}s`;
+}
+
 type FallbackKind = "extraction" | "suggestions" | "prompt" | "handoff";
 
 export type SidePanelDeps = {
@@ -65,6 +80,8 @@ export type SidePanelDeps = {
   addMessageListener: (listener: (message: unknown) => void) => () => void;
   maybeStartOnboarding: typeof defaultMaybeStartOnboarding;
   refreshOnboardingAfterClear: typeof defaultRefreshOnboardingAfterClear;
+  /** Injected so tests can simulate missing / downloadable Nano without Chrome AI. */
+  probeNanoReadiness: typeof probeNanoReadiness;
 };
 
 export type SidePanelController = {
@@ -108,6 +125,7 @@ export async function initSidePanel(
     deps.refreshOnboardingAfterClear ?? defaultRefreshOnboardingAfterClear;
   const addMessageListener =
     deps.addMessageListener ?? defaultAddMessageListener;
+  const probeReadiness = deps.probeNanoReadiness ?? probeNanoReadiness;
 
   const statusLine = document.getElementById("status");
   const debugLine = document.getElementById("debug-line");
@@ -151,6 +169,7 @@ export async function initSidePanel(
   const nanoFallback = document.getElementById("nano-fallback");
   const nanoFallbackCopy = document.getElementById("nano-fallback-copy");
   const nanoRetryButton = document.getElementById("nano-retry");
+  const nanoOpenSettingsButton = document.getElementById("nano-open-settings");
   const contextPreviewBody = document.getElementById("context-preview-body");
   const includeTitleUrl = document.getElementById("include-title-url");
   const includePageBody = document.getElementById("include-page-body");
@@ -175,6 +194,7 @@ export async function initSidePanel(
   let lastSelectedEngineId: SuggestionEngineId | null = null;
   /** Bumps when onboarding completes or a new accept starts — stale loads bail out. */
   let suggestionGeneration = 0;
+  let nanoPanelNotice: NanoPanelNotice = "none";
 
   function resetWorkflowAfterOnboarding(): void {
     suggestionGeneration += 1;
@@ -365,16 +385,29 @@ export async function initSidePanel(
     return item;
   }
 
-  function setNanoFallbackVisible(visible: boolean): void {
+  function setNanoPanelNotice(notice: NanoPanelNotice): void {
+    nanoPanelNotice = notice;
+    const visible = notice !== "none";
     setHidden(nanoFallback, !visible);
-    if (visible) {
-      setText(nanoFallbackCopy, NANO_FALLBACK_COPY);
+    if (!visible) {
+      return;
     }
+    setText(nanoFallbackCopy, copyForNanoPanelNotice(notice));
+    const needsDownload = notice === "needs-download";
+    setHidden(nanoOpenSettingsButton, !needsDownload);
+    if (nanoRetryButton instanceof HTMLButtonElement) {
+      // Download path: Settings owns the user-activated create()/progress UI.
+      setHidden(nanoRetryButton, needsDownload);
+    }
+  }
+
+  function setNanoFallbackVisible(visible: boolean): void {
+    setNanoPanelNotice(visible ? "fallback" : "none");
   }
 
   function renderSuggestions(
     result: SuggestionResult,
-    options: { showNanoFallback?: boolean } = {},
+    options: { nanoNotice?: NanoPanelNotice } = {},
   ): void {
     suggestions = result;
     primaryActions?.replaceChildren(...result.primary.map(renderActionButton));
@@ -384,7 +417,7 @@ export async function initSidePanel(
       showMoreButton.hidden = result.more.length === 0;
       showMoreButton.textContent = "More…";
     }
-    setNanoFallbackVisible(Boolean(options.showNanoFallback));
+    setNanoPanelNotice(options.nanoNotice ?? "none");
   }
 
   async function resolveNanoPreference(): Promise<NanoPreference> {
@@ -467,17 +500,57 @@ export async function initSidePanel(
       return;
     }
     const preferNano = options.forceNanoRetry || preference === "enabled";
+
+    // Prefer a live readiness probe when the user wants Nano — Chrome can still
+    // report "available" after uninstall while create()/prompt fail (DOM-31).
+    let preflightNotice: NanoPanelNotice = "none";
+    if (preferNano) {
+      try {
+        const readiness = await probeReadiness();
+        if (generation !== suggestionGeneration) {
+          return;
+        }
+        preflightNotice = nanoPanelNoticeForPreference({
+          preference: "enabled",
+          readiness,
+        });
+      } catch {
+        preflightNotice = "unsupported";
+      }
+    }
+
+    const willTryNano = preferNano && preflightNotice === "none";
     setText(
       understandingMessage,
-      preferNano
+      willTryNano
         ? "Asking on-device AI for page-specific directions…"
         : "Capturing compact context and ranking directions…",
     );
     setText(
       statusLine,
-      preferNano ? NANO_THINKING_COPY : "Building suggestions…",
+      willTryNano ? NANO_THINKING_COPY : "Building suggestions…",
     );
     try {
+      if (preferNano && preflightNotice !== "none") {
+        const curated = await selectEngine("basic");
+        if (generation !== suggestionGeneration) {
+          return;
+        }
+        lastSelectedEngineId = "nano";
+        const result = await curated.suggestActions({ pageContext: ctx });
+        if (generation !== suggestionGeneration) {
+          return;
+        }
+        renderSuggestions(result, { nanoNotice: preflightNotice });
+        showStep("choose");
+        setText(statusLine, copyForNanoPanelNotice(preflightNotice));
+        setText(
+          debugLine,
+          `nano blocked · ${preflightNotice}`,
+        );
+        return;
+      }
+
       const engine = await selectEngine(
         options.forceNanoRetry ? "enabled" : preference,
       );
@@ -489,19 +562,57 @@ export async function initSidePanel(
       if (generation !== suggestionGeneration) {
         return;
       }
+      let notice: NanoPanelNotice = "none";
       const fellBack = didNanoFallBackToCurated({
         selectedEngineId: engine.id,
         resultEngineId: result.engineId,
       });
-      renderSuggestions(result, { showNanoFallback: fellBack });
-      showStep("choose");
       if (fellBack) {
-        setText(statusLine, NANO_FALLBACK_COPY);
+        // Re-classify after a silent Nano failure — uninstall often surfaces here.
+        try {
+          const readiness = await probeReadiness();
+          notice = nanoPanelNoticeForPreference({
+            preference: "enabled",
+            readiness,
+          });
+        } catch {
+          notice = "fallback";
+        }
+        if (notice === "none") {
+          notice = nanoPanelNoticeFromFailureReason(
+            result.debug?.nanoFailureReason,
+          );
+        }
+      }
+      renderSuggestions(result, { nanoNotice: notice });
+      showStep("choose");
+      if (notice !== "none") {
+        setText(statusLine, copyForNanoPanelNotice(notice));
+        const parts = [
+          result.debug?.elapsedMs !== undefined
+            ? `nano ${formatElapsed(result.debug.elapsedMs)}`
+            : null,
+          result.debug?.nanoFailureReason
+            ? `failure: ${result.debug.nanoFailureReason}`
+            : `notice: ${notice}`,
+        ].filter(Boolean);
+        if (parts.length > 0) {
+          setText(debugLine, parts.join(" · "));
+        }
       } else {
         setText(
           statusLine,
           `Page context captured (${result.engineId}) — nothing leaves this device.`,
         );
+        if (
+          result.engineId === "nano" &&
+          result.debug?.elapsedMs !== undefined
+        ) {
+          setText(
+            debugLine,
+            `nano ok · ${formatElapsed(result.debug.elapsedMs)}`,
+          );
+        }
       }
     } catch (error) {
       if (generation !== suggestionGeneration) {
@@ -520,9 +631,22 @@ export async function initSidePanel(
             return;
           }
           lastSelectedEngineId = "nano";
-          renderSuggestions(result, { showNanoFallback: true });
+          let notice: NanoPanelNotice = "fallback";
+          try {
+            const readiness = await probeReadiness();
+            const mapped = nanoPanelNoticeForPreference({
+              preference: "enabled",
+              readiness,
+            });
+            if (mapped !== "none") {
+              notice = mapped;
+            }
+          } catch {
+            // keep fallback
+          }
+          renderSuggestions(result, { nanoNotice: notice });
           showStep("choose");
-          setText(statusLine, NANO_FALLBACK_COPY);
+          setText(statusLine, copyForNanoPanelNotice(notice));
           return;
         } catch {
           // fall through to hard fallback
@@ -949,9 +1073,13 @@ export async function initSidePanel(
 
   on(document.getElementById("start-over"), "click", () => {
     if (pageContext && suggestions) {
-      const showNanoFallback =
-        lastSelectedEngineId === "nano" && suggestions.engineId === "curated";
-      renderSuggestions(suggestions, { showNanoFallback });
+      const notice: NanoPanelNotice =
+        lastSelectedEngineId === "nano" && suggestions.engineId === "curated"
+          ? nanoPanelNotice === "none"
+            ? "fallback"
+            : nanoPanelNotice
+          : "none";
+      renderSuggestions(suggestions, { nanoNotice: notice });
       showStep("choose");
       setText(statusLine, "Choose another direction.");
     }
@@ -974,6 +1102,10 @@ export async function initSidePanel(
     }
     showStep("understanding");
     void loadSuggestions(pageContext, { forceNanoRetry: true });
+  });
+
+  on(nanoOpenSettingsButton, "click", () => {
+    void openOptions();
   });
 
   for (const control of [
