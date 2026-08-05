@@ -509,6 +509,32 @@ describe("side panel click-through", () => {
     expect(openOptionsPage).toHaveBeenCalled();
   });
 
+  it("points to Settings when Nano times out despite a ready probe", async () => {
+    store.settings = { ...DEFAULT_SETTINGS, nanoPreference: "enabled" };
+    const timedOutNano: SuggestionEngine = {
+      id: "nano",
+      isAvailable: async () => true,
+      suggestActions: async () => ({
+        engineId: "curated",
+        primary: [primaryAction],
+        more: [moreAction],
+        debug: { nanoFailureReason: "Gemini Nano timed out" },
+      }),
+      generatePrompt: async () => "TASK",
+    };
+    const { openOptionsPage } = await boot({
+      engine: timedOutNano,
+      nanoReadiness: "ready",
+    });
+    expect(isVisible("#choose")).toBe(true);
+    expect(isVisible("#nano-fallback")).toBe(true);
+    expect(textOf("#nano-fallback-copy")).toMatch(/isn.t ready|stuck/i);
+    expect(isVisible("#nano-open-settings")).toBe(true);
+    expect(isVisible("#nano-retry")).toBe(false);
+    click("#nano-open-settings");
+    expect(openOptionsPage).toHaveBeenCalled();
+  });
+
   it("re-shows onboarding after clear-all event", async () => {
     const { pushEvent } = await boot();
     store.onboarding = { ...DEFAULT_ONBOARDING };

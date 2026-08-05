@@ -6,6 +6,7 @@ import {
   engineIdForNanoPreference,
   formatDownloadProgress,
   nanoPanelNoticeForPreference,
+  nanoPanelNoticeFromFailureReason,
   readinessFromAvailability,
 } from "../../extension/src/domain/suggestions/nano-readiness";
 
@@ -113,5 +114,24 @@ describe("nano-readiness helpers", () => {
         },
       }),
     ).toBe("none");
+  });
+
+  it("maps suggest failure reasons to panel notices", () => {
+    expect(nanoPanelNoticeFromFailureReason(undefined)).toBe("fallback");
+    expect(nanoPanelNoticeFromFailureReason("Gemini Nano timed out")).toBe(
+      "needs-download",
+    );
+    expect(nanoPanelNoticeFromFailureReason("The signal is aborted.")).toBe(
+      "needs-download",
+    );
+    expect(nanoPanelNoticeFromFailureReason("nano.create: create failed")).toBe(
+      "needs-download",
+    );
+    expect(nanoPanelNoticeFromFailureReason("nano.prompt: hung")).toBe(
+      "needs-download",
+    );
+    expect(nanoPanelNoticeFromFailureReason("No valid Nano actions")).toBe(
+      "fallback",
+    );
   });
 });
