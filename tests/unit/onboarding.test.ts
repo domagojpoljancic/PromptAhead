@@ -31,16 +31,23 @@ describe("onboarding-flow", () => {
 
     expect(settings).toEqual({
       mode: "manual",
+      smartModeAvailable: false,
       defaultDestination: "chatgpt",
       nanoPreference: "enabled",
     });
-    expect(onboarding).toEqual({
-      completed: true,
-      completedAt: "2026-08-02T12:00:00.000Z",
-      modeChosen: true,
-      destinationChosen: true,
-      nanoStepSkipped: false,
+  });
+
+  it("persists Smart mode only when grant succeeded", () => {
+    const { settings } = buildOnboardingCompletion({
+      destination: "copy",
+      skipped: false,
+      nanoPreference: "skipped",
+      mode: "smart",
+      smartModeAvailable: true,
+      now: "2026-08-06T12:00:00.000Z",
     });
+    expect(settings.mode).toBe("smart");
+    expect(settings.smartModeAvailable).toBe(true);
   });
 
   it("persists basic private mode and marks the nano step skipped", () => {

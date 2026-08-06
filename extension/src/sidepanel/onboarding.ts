@@ -3,6 +3,11 @@
  */
 
 import {
+  SMART_PERMISSION_EDUCATION,
+  requestSmartHostPermission,
+  type PermissionsApi,
+} from "../domain/smart";
+import {
   destroyNanoSession,
   downloadNanoModel,
   formatDownloadProgress,
@@ -19,6 +24,7 @@ import {
   isDestinationId,
   type DestinationId,
   type NanoPreference,
+  type PromptAheadMode,
 } from "../shared/storage/schema";
 import {
   buildOnboardingCompletion,
@@ -33,16 +39,22 @@ export type OnboardingDeps = {
   sendToBackground: typeof defaultSendToBackground;
   /** Injected for tests — defaults to realm LanguageModel. */
   getLanguageModel: () => LanguageModelLike | undefined;
+  permissionsApi?: PermissionsApi;
 };
 
 let wired = false;
 let currentStep: OnboardingStepId = "welcome";
 let chosenDestination: DestinationId = "copy";
+/** Smart is visually preselected (handoff §8); grant only after explicit continue. */
+let chosenMode: PromptAheadMode = "smart";
+let smartGranted = false;
+let modeBusy = false;
 let nanoState: NanoReadinessState = "checking";
 let downloading = false;
 let onComplete: (() => void) | undefined;
 let activeSend: typeof defaultSendToBackground = defaultSendToBackground;
 let activeGetModel: () => LanguageModelLike | undefined = getLanguageModel;
+let activePermissions: PermissionsApi | undefined;
 
 function setText(element: HTMLElement | null, text: string): void {
   if (element) {
@@ -111,6 +123,58 @@ function nanoProgressLabelEl(): HTMLElement | null {
   return document.getElementById("onboarding-nano-progress-label");
 }
 
+function modeContinueEl(): HTMLButtonElement | null {
+  return document.getElementById(
+    "onboarding-mode-continue",
+  ) as HTMLButtonElement | null;
+}
+
+function fillSmartEducation(): void {
+  const summary = document.getElementById("onboarding-mode-summary");
+  if (summary && !summary.dataset.filled) {
+    summary.textContent = SMART_PERMISSION_EDUCATION.summary;
+    summary.dataset.filled = "1";
+  }
+  const bullets = document.getElementById("onboarding-smart-bullets");
+  if (bullets && bullets.childElementCount === 0) {
+    for (const text of SMART_PERMISSION_EDUCATION.bullets) {
+      const li = document.createElement("li");
+      li.textContent = text;
+      bullets.append(li);
+    }
+  }
+  setText(
+    document.getElementById("onboarding-smart-honesty"),
+    SMART_PERMISSION_EDUCATION.inviteHonesty,
+  );
+}
+
+function renderModeChoiceUi(): void {
+  const root = document.getElementById("onboarding-mode-choices");
+  if (root) {
+    for (const button of root.querySelectorAll<HTMLButtonElement>(
+      "[data-mode-choice]",
+    )) {
+      const mode = button.dataset.modeChoice;
+      const active = mode === chosenMode;
+      button.classList.toggle("onboarding__choice--active", active);
+      button.setAttribute("aria-pressed", active ? "true" : "false");
+    }
+  }
+  setHidden(
+    document.getElementById("onboarding-smart-education"),
+    chosenMode !== "smart",
+  );
+  const continueBtn = modeContinueEl();
+  if (continueBtn) {
+    continueBtn.disabled = modeBusy;
+    continueBtn.textContent =
+      chosenMode === "smart"
+        ? "Continue and allow website access"
+        : "Continue with Manual";
+  }
+}
+
 function showOverlay(visible: boolean): void {
   setHidden(overlayEl(), !visible);
   document.body.classList.toggle("onboarding-active", visible);
@@ -127,6 +191,10 @@ function showStep(step: OnboardingStepId): void {
     setHidden(panel, id !== step);
   }
   setText(statusLineEl(), "");
+  if (step === "mode") {
+    fillSmartEducation();
+    renderModeChoiceUi();
+  }
   if (step === "nano") {
     void refreshNanoStep();
   }
@@ -220,10 +288,15 @@ async function persistCompletion(input: {
     chosenDestination = destinationSelect.value;
   }
 
+  const mode: PromptAheadMode =
+    input.skipped || !smartGranted ? "manual" : chosenMode === "smart" ? "smart" : "manual";
+
   const { onboarding, settings } = buildOnboardingCompletion({
     destination: chosenDestination,
     skipped: input.skipped,
     nanoPreference: input.nanoPreference,
+    mode,
+    smartModeAvailable: mode === "smart",
   });
 
   const settingsResponse = await activeSend({
@@ -247,6 +320,39 @@ async function persistCompletion(input: {
   showOverlay(false);
   onComplete?.();
   return true;
+}
+
+async function continueFromModeStep(): Promise<void> {
+  if (modeBusy) {
+    return;
+  }
+  if (chosenMode === "manual") {
+    smartGranted = false;
+    showStep("destination");
+    return;
+  }
+
+  modeBusy = true;
+  renderModeChoiceUi();
+  setText(statusLineEl(), "Waiting for Chrome’s permission dialog…");
+  const outcome = await requestSmartHostPermission(activePermissions);
+  modeBusy = false;
+  renderModeChoiceUi();
+
+  if (!outcome.granted) {
+    smartGranted = false;
+    setText(
+      statusLineEl(),
+      outcome.error
+        ? `Permission not granted — ${outcome.error}. Choose Manual or try again.`
+        : "Permission declined. Choose Manual or try again.",
+    );
+    return;
+  }
+
+  smartGranted = true;
+  setText(statusLineEl(), "");
+  showStep("destination");
 }
 
 async function startNanoDownload(): Promise<void> {
@@ -320,9 +426,27 @@ function wireControls(): void {
     if (!(target instanceof HTMLElement)) {
       return;
     }
+
+    const modeChoice = target.closest<HTMLElement>("[data-mode-choice]")
+      ?.dataset.modeChoice;
+    if (modeChoice === "smart" || modeChoice === "manual") {
+      if (modeBusy) {
+        return;
+      }
+      chosenMode = modeChoice;
+      renderModeChoiceUi();
+      setText(statusLineEl(), "");
+      return;
+    }
+
     const action = target.closest<HTMLElement>("[data-onboarding-action]")
       ?.dataset.onboardingAction;
     if (!action) {
+      return;
+    }
+
+    if (action === "mode-continue") {
+      void continueFromModeStep();
       return;
     }
 
@@ -337,7 +461,7 @@ function wireControls(): void {
     }
 
     if (action === "back") {
-      if (downloading) {
+      if (downloading || modeBusy) {
         return;
       }
       const previous = previousOnboardingStep(currentStep);
@@ -348,6 +472,8 @@ function wireControls(): void {
     }
 
     if (action === "skip") {
+      smartGranted = false;
+      chosenMode = "manual";
       void persistCompletion({ skipped: true, nanoPreference: "skipped" });
       return;
     }
@@ -378,8 +504,10 @@ export async function maybeStartOnboarding(
 ): Promise<boolean> {
   activeSend = deps.sendToBackground ?? defaultSendToBackground;
   activeGetModel = deps.getLanguageModel ?? getLanguageModel;
+  activePermissions = deps.permissionsApi;
   onComplete = afterComplete;
   wireControls();
+  fillSmartEducation();
 
   const response = await activeSend({ type: "GET_ONBOARDING" });
   if (!response.ok) {
@@ -440,9 +568,13 @@ export function resetOnboardingForTests(): void {
   wired = false;
   currentStep = "welcome";
   chosenDestination = "copy";
+  chosenMode = "smart";
+  smartGranted = false;
+  modeBusy = false;
   nanoState = "checking";
   downloading = false;
   onComplete = undefined;
   activeSend = defaultSendToBackground;
   activeGetModel = getLanguageModel;
+  activePermissions = undefined;
 }

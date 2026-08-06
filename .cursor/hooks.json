@@ -1,0 +1,24 @@
+{
+  "version": 1,
+  "hooks": {
+    "postToolUse": [
+      {
+        "command": ".cursor/hooks/remind-stuck-watch.sh",
+        "matcher": "Task",
+        "timeout": 10
+      }
+    ],
+    "subagentStart": [
+      {
+        "command": ".cursor/hooks/subagent-watch-start.sh",
+        "timeout": 10
+      }
+    ],
+    "subagentStop": [
+      {
+        "command": ".cursor/hooks/subagent-watch-stop.sh",
+        "timeout": 10
+      }
+    ]
+  }
+}

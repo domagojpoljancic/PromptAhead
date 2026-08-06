@@ -32,7 +32,12 @@ blob-report/
 .vscode/
 *.swp
 
-# Cursor local / secrets (commit shared agent rules only)
+# Cursor local / secrets (commit shared agent rules + hooks only)
 .cursor/*
 !.cursor/rules/
 !.cursor/rules/**
+!.cursor/hooks.json
+!.cursor/hooks/
+!.cursor/hooks/**
+# Local runtime watch state (never commit)
+.cursor/stuck-agent-watch.json

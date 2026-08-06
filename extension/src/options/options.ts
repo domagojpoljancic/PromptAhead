@@ -1,4 +1,13 @@
 import {
+  SMART_PERMISSION_EDUCATION,
+  hasSmartHostPermission,
+  requestSmartHostPermission,
+  revokeSmartHostPermission,
+  settingsAfterSmartGrant,
+  settingsAfterSmartRevoke,
+  type PermissionsApi,
+} from "../domain/smart";
+import {
   describeNanoStatus,
   destroyNanoSession,
   downloadNanoModel,
@@ -25,6 +34,8 @@ export type OptionsDeps = {
   sendToBackground: typeof defaultSendToBackground;
   confirm: (message: string) => boolean;
   getLanguageModel: () => LanguageModelLike | undefined;
+  /** Injected for tests — defaults to `chrome.permissions`. */
+  permissionsApi?: PermissionsApi;
 };
 
 export type OptionsController = {
@@ -58,10 +69,26 @@ export function initOptions(deps: Partial<OptionsDeps> = {}): OptionsController 
   const confirm =
     deps.confirm ?? ((message: string) => globalThis.confirm(message));
   const activeGetModel = deps.getLanguageModel ?? getLanguageModel;
+  const permissionsApi = deps.permissionsApi;
 
   const statusEl = document.getElementById("status");
   const modeLabel = document.getElementById("mode-label");
   const smartStatus = document.getElementById("smart-status");
+  const smartEducationSummary = document.getElementById(
+    "smart-education-summary",
+  );
+  const smartEducationBullets = document.getElementById(
+    "smart-education-bullets",
+  );
+  const smartEducationHonesty = document.getElementById(
+    "smart-education-honesty",
+  );
+  const smartEnable = document.getElementById(
+    "smart-enable",
+  ) as HTMLButtonElement | null;
+  const smartRevoke = document.getElementById(
+    "smart-revoke",
+  ) as HTMLButtonElement | null;
   const destinationSelect = document.getElementById(
     "destination",
   ) as HTMLSelectElement | null;
@@ -105,6 +132,43 @@ export function initOptions(deps: Partial<OptionsDeps> = {}): OptionsController 
   let latestSettings: Settings | null = null;
   let latestReadiness: NanoReadinessProbe | null = null;
   let downloading = false;
+  let smartBusy = false;
+  let hostGranted = false;
+
+  function fillSmartEducation(): void {
+    if (smartEducationSummary) {
+      smartEducationSummary.textContent = SMART_PERMISSION_EDUCATION.summary;
+    }
+    if (smartEducationBullets && smartEducationBullets.childElementCount === 0) {
+      for (const bullet of SMART_PERMISSION_EDUCATION.bullets) {
+        const li = document.createElement("li");
+        li.textContent = bullet;
+        smartEducationBullets.append(li);
+      }
+    }
+    if (smartEducationHonesty) {
+      smartEducationHonesty.textContent = SMART_PERMISSION_EDUCATION.inviteHonesty;
+    }
+  }
+
+  function renderSmartControls(settings: Settings): void {
+    if (modeLabel) {
+      modeLabel.textContent = settings.mode === "smart" ? "Smart" : "Manual";
+    }
+    if (smartStatus) {
+      smartStatus.textContent = hostGranted
+        ? "Website access: granted (Smart available)"
+        : "Website access: not granted — Manual stays fully usable";
+    }
+    setHidden(smartEnable, hostGranted);
+    setHidden(smartRevoke, !hostGranted);
+    if (smartEnable) {
+      smartEnable.disabled = smartBusy;
+    }
+    if (smartRevoke) {
+      smartRevoke.disabled = smartBusy;
+    }
+  }
 
   function setStatus(text: string, kind: "ok" | "error" | "info" = "info"): void {
     if (!statusEl) {
@@ -234,14 +298,7 @@ export function initOptions(deps: Partial<OptionsDeps> = {}): OptionsController 
       developerMode.checked = settings.developerMode;
     }
 
-    if (modeLabel) {
-      modeLabel.textContent = settings.mode === "smart" ? "Smart" : "Manual";
-    }
-    if (smartStatus) {
-      smartStatus.textContent = settings.smartModeAvailable
-        ? "Smart mode: available"
-        : "Smart mode: coming soon (no host permission requested)";
-    }
+    renderSmartControls(settings);
 
     renderNanoControls(settings);
 
@@ -366,6 +423,99 @@ export function initOptions(deps: Partial<OptionsDeps> = {}): OptionsController 
     );
   }
 
+  async function refreshHostPermission(): Promise<void> {
+    hostGranted = await hasSmartHostPermission(permissionsApi);
+    if (latestSettings) {
+      renderSmartControls(latestSettings);
+      // Heal storage if Chrome grant/revoke drifted from settings flags.
+      if (hostGranted && !latestSettings.smartModeAvailable) {
+        await saveSettingsPatch(settingsAfterSmartGrant());
+      } else if (!hostGranted && latestSettings.mode === "smart") {
+        await saveSettingsPatch(settingsAfterSmartRevoke());
+      }
+    }
+  }
+
+  async function enableSmartMode(): Promise<void> {
+    if (smartBusy) {
+      return;
+    }
+    if (
+      !confirm(
+        "Chrome will ask for website access next. PromptAhead uses it only for local Smart features on this device. Continue?",
+      )
+    ) {
+      return;
+    }
+    smartBusy = true;
+    if (latestSettings) {
+      renderSmartControls(latestSettings);
+    }
+    setStatus("Waiting for Chrome’s permission dialog…", "info");
+    const outcome = await requestSmartHostPermission(permissionsApi);
+    smartBusy = false;
+    if (!outcome.granted) {
+      hostGranted = false;
+      if (latestSettings) {
+        renderSmartControls(latestSettings);
+      }
+      setStatus(
+        outcome.error
+          ? `Smart mode not enabled — ${outcome.error}`
+          : "Permission declined. Manual mode stays fully usable.",
+        "error",
+      );
+      return;
+    }
+    hostGranted = true;
+    const ok = await saveSettingsPatch(settingsAfterSmartGrant());
+    if (ok) {
+      setStatus("Smart mode enabled. You can revoke anytime below.", "ok");
+    }
+  }
+
+  async function revokeSmartMode(): Promise<void> {
+    if (smartBusy) {
+      return;
+    }
+    if (
+      !confirm(
+        "Revoke website access and switch to Manual? You can still analyze pages by clicking the PromptAhead icon.",
+      )
+    ) {
+      return;
+    }
+    smartBusy = true;
+    if (latestSettings) {
+      renderSmartControls(latestSettings);
+    }
+    const outcome = await revokeSmartHostPermission(permissionsApi);
+    smartBusy = false;
+    hostGranted = outcome.granted;
+    const ok = await saveSettingsPatch(settingsAfterSmartRevoke());
+    if (latestSettings) {
+      renderSmartControls({
+        ...latestSettings,
+        ...settingsAfterSmartRevoke(),
+      });
+    }
+    if (!outcome.ok) {
+      setStatus(
+        outcome.error
+          ? `Revoke incomplete — ${outcome.error}. Manual mode is still set.`
+          : "Revoke incomplete. Manual mode is still set.",
+        "error",
+      );
+      return;
+    }
+    if (ok) {
+      setStatus(
+        "Website access revoked. Manual toolbar/gesture flow still works.",
+        "ok",
+      );
+    }
+  }
+
   function populateDestinations(): void {
     if (!destinationSelect || destinationSelect.options.length > 0) {
       return;
@@ -386,7 +536,16 @@ export function initOptions(deps: Partial<OptionsDeps> = {}): OptionsController 
     }
     renderSettings(response.settings);
     void refreshNanoReadiness();
+    void refreshHostPermission();
   }
+
+  smartEnable?.addEventListener("click", () => {
+    void enableSmartMode();
+  });
+
+  smartRevoke?.addEventListener("click", () => {
+    void revokeSmartMode();
+  });
 
   destinationSelect?.addEventListener("change", () => {
     const value = destinationSelect.value;
@@ -493,8 +652,10 @@ export function initOptions(deps: Partial<OptionsDeps> = {}): OptionsController 
         return;
       }
       latestReadiness = null;
+      hostGranted = false;
       renderSettings(response.settings);
       void refreshNanoReadiness();
+      void refreshHostPermission();
       setStatus(
         "All local data cleared. Defaults restored — open the side panel to run setup again.",
         "ok",
@@ -502,6 +663,7 @@ export function initOptions(deps: Partial<OptionsDeps> = {}): OptionsController 
     });
   });
 
+  fillSmartEducation();
   populateDestinations();
   void loadSettings();
 

@@ -373,7 +373,8 @@ describe("side panel click-through", () => {
     await flush();
     expect(isVisible('[data-step="mode"]')).toBe(true);
 
-    click('[data-step="mode"] [data-onboarding-action="next"]');
+    click('[data-mode-choice="manual"]');
+    click('[data-step="mode"] [data-onboarding-action="mode-continue"]');
     await flush();
     const dest = document.getElementById(
       "onboarding-destination",
@@ -392,6 +393,7 @@ describe("side panel click-through", () => {
     expect(store.onboarding.completed).toBe(true);
     expect(store.settings.defaultDestination).toBe("chatgpt");
     expect(store.settings.nanoPreference).toBe("basic");
+    expect(store.settings.mode).toBe("manual");
     expect(store.onboarding.nanoStepSkipped).toBe(true);
     expect(isVisible("#choose")).toBe(true);
   });
@@ -442,7 +444,8 @@ describe("side panel click-through", () => {
 
     click('[data-step="welcome"] [data-onboarding-action="next"]');
     await flush();
-    click('[data-step="mode"] [data-onboarding-action="next"]');
+    click('[data-mode-choice="manual"]');
+    click('[data-step="mode"] [data-onboarding-action="mode-continue"]');
     await flush();
     click('[data-step="destination"] [data-onboarding-action="next"]');
     await flush();
@@ -586,6 +589,49 @@ describe("options click-through", () => {
     await flush();
     expect(store.settings.nanoPreference).toBe("enabled");
     expect(textOf("#status")).toMatch(/enabled/i);
+  });
+
+  it("grants then revokes Smart host permission from Settings", async () => {
+    const { send } = createSend(store);
+    const state = { granted: false };
+    const permissionsApi = {
+      contains: async () => state.granted,
+      request: async () => {
+        state.granted = true;
+        return true;
+      },
+      remove: async () => {
+        state.granted = false;
+        return true;
+      },
+    };
+    initOptions({
+      sendToBackground: send,
+      confirm: () => true,
+      permissionsApi,
+    });
+    await flush();
+    await flush();
+
+    expect(textOf("#smart-education-summary")).toMatch(/optional access/i);
+    expect(textOf("#smart-education-honesty")).toMatch(/badge first/i);
+    expect(isVisible("#smart-enable")).toBe(true);
+
+    click("#smart-enable");
+    await flush();
+    await flush();
+    expect(store.settings.mode).toBe("smart");
+    expect(store.settings.smartModeAvailable).toBe(true);
+    expect(isVisible("#smart-revoke")).toBe(true);
+    expect(textOf("#mode-label")).toBe("Smart");
+
+    click("#smart-revoke");
+    await flush();
+    await flush();
+    expect(store.settings.mode).toBe("manual");
+    expect(store.settings.smartModeAvailable).toBe(false);
+    expect(isVisible("#smart-enable")).toBe(true);
+    expect(textOf("#status")).toMatch(/revoked/i);
   });
 
   it("clears history when confirmed", async () => {

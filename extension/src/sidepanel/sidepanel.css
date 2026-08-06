@@ -369,12 +369,16 @@ body.onboarding-active .shell {
 .onboarding__choice {
   display: grid;
   gap: 0.25rem;
+  width: 100%;
   padding: 0.75rem 0.875rem;
   border: 1px solid var(--border);
   border-radius: 0.375rem;
   background: var(--bg);
+  font: inherit;
+  text-align: left;
   font-size: 0.8125rem;
   color: var(--muted);
+  cursor: pointer;
 }
 
 .onboarding__choice strong {
@@ -388,6 +392,27 @@ body.onboarding-active .shell {
 
 .onboarding__choice--disabled {
   opacity: 0.65;
+  cursor: not-allowed;
+}
+
+.onboarding__smart-education {
+  margin: 0 0 1rem;
+  display: grid;
+  gap: 0.5rem;
+}
+
+.onboarding__smart-list {
+  margin: 0;
+  padding-left: 1.25rem;
+  color: var(--muted);
+  font-size: 0.8125rem;
+  display: grid;
+  gap: 0.25rem;
+}
+
+.onboarding__copy--muted {
+  color: var(--muted);
+  font-size: 0.8125rem;
 }
 
 .onboarding__status {

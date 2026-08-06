@@ -30,27 +30,55 @@
 
           <section class="onboarding__step" data-step="mode" hidden>
             <h2 class="onboarding__heading">How you’ll use it</h2>
-            <p class="onboarding__copy">
-              Manual mode is active: click the toolbar icon when you want PromptAhead.
-              Smart mode (engagement-based invites) is coming later — no website access
-              is requested today.
+            <p class="onboarding__copy" id="onboarding-mode-summary">
+              Choose Manual or Smart. Smart needs optional website access — Chrome
+              will ask only after you confirm below.
             </p>
-            <ul class="onboarding__choices">
-              <li class="onboarding__choice onboarding__choice--active">
-                <strong>Manual</strong>
-                <span>You decide when to open the panel. Uses activeTab only.</span>
+            <ul class="onboarding__choices" id="onboarding-mode-choices">
+              <li>
+                <button
+                  type="button"
+                  class="onboarding__choice onboarding__choice--active"
+                  data-mode-choice="smart"
+                  aria-pressed="true"
+                >
+                  <strong>Smart — recommended</strong>
+                  <span
+                    >Notices when you’re reading or shopping and can offer help.
+                    Requires optional website access.</span
+                  >
+                </button>
               </li>
-              <li class="onboarding__choice onboarding__choice--disabled">
-                <strong>Smart</strong>
-                <span>Coming soon — optional host access, deferred to a later milestone.</span>
+              <li>
+                <button
+                  type="button"
+                  class="onboarding__choice"
+                  data-mode-choice="manual"
+                  aria-pressed="false"
+                >
+                  <strong>Manual</strong>
+                  <span
+                    >You decide when to open the panel. Uses temporary page access
+                    only after you click PromptAhead.</span
+                  >
+                </button>
               </li>
             </ul>
+            <div id="onboarding-smart-education" class="onboarding__smart-education">
+              <ul id="onboarding-smart-bullets" class="onboarding__smart-list"></ul>
+              <p class="onboarding__copy onboarding__copy--muted" id="onboarding-smart-honesty"></p>
+            </div>
             <div class="actions">
               <button type="button" class="btn btn--back" data-onboarding-action="back">
                 ← Back
               </button>
-              <button type="button" class="btn btn--primary" data-onboarding-action="next">
-                Continue
+              <button
+                type="button"
+                class="btn btn--primary"
+                data-onboarding-action="mode-continue"
+                id="onboarding-mode-continue"
+              >
+                Continue and allow website access
               </button>
               <button type="button" class="btn btn--ghost" data-onboarding-action="skip">
                 Skip
@@ -146,7 +174,7 @@
       <p class="eyebrow">PromptAhead</p>
       <h1>Your next question, prepared</h1>
       <p class="lede">
-        Manual mode — page context stays on this device. Choose a direction, refine,
+        Manual by default — page context stays on this device. Choose a direction, refine,
         then copy a portable prompt.
       </p>
     </header>

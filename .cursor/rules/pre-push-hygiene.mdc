@@ -15,6 +15,7 @@ Before any `git push`, creating a PR, or merging to `main`, run this checklist. 
 4. Quick-start commands and paths must match `package.json` scripts (`build`, `test`, `test:e2e`, `test:ci`, spikes, etc.).
 5. Link important docs; do not dump full PRD into the README.
 6. Prefer product language over internal tracker IDs in the public README (tracker details stay in Linear / commit messages).
+7. Keep a dedicated **Cursor practices** section listing shared `.cursor/rules/*.mdc` (and notable project skills) — short bullets for what each enforces (e.g. Linear sync, pre-push hygiene, stuck-agent watchdog, test-coverage expectations). Add or update entries when a new rule/practice is introduced; remove entries that no longer exist.
 
 ## 2. Repo alignment
 

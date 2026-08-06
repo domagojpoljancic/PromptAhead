@@ -1,11 +1,12 @@
 /**
- * Pure onboarding step helpers — Manual-first, Nano skippable, no host perms.
+ * Pure onboarding step helpers — Manual or Smart (after host grant), Nano skippable.
  */
 
 import type {
   DestinationId,
   NanoPreference,
   OnboardingPatch,
+  PromptAheadMode,
   SettingsPatch,
 } from "../shared/storage/schema";
 import type { NanoReadinessState } from "../domain/suggestions/nano-readiness";
@@ -51,6 +52,8 @@ export function buildOnboardingCompletion(input: {
   destination: DestinationId;
   skipped: boolean;
   nanoPreference: NanoPreference;
+  mode?: PromptAheadMode;
+  smartModeAvailable?: boolean;
   nanoStepSkipped?: boolean;
   now?: string;
 }): { onboarding: OnboardingPatch; settings: SettingsPatch } {
@@ -60,10 +63,13 @@ export function buildOnboardingCompletion(input: {
     (input.skipped ||
       input.nanoPreference === "skipped" ||
       input.nanoPreference === "basic");
+  const mode = input.mode ?? "manual";
+  const smartModeAvailable = input.smartModeAvailable ?? mode === "smart";
 
   return {
     settings: {
-      mode: "manual",
+      mode,
+      smartModeAvailable,
       defaultDestination: input.destination,
       nanoPreference: input.nanoPreference,
     },

@@ -5,8 +5,10 @@ export default defineManifest({
   name: "PromptAhead",
   version: "0.1.0",
   description:
-    "Privacy-first prompt helper — Manual mode shell (Milestone 1 scaffold).",
+    "Privacy-first prompt helper — Manual by default; optional Smart host access.",
   permissions: ["sidePanel", "activeTab", "scripting", "storage", "contextMenus"],
+  // Runtime grant/revoke only (S0.6). Never listed under host_permissions.
+  optional_host_permissions: ["<all_urls>"],
   background: {
     service_worker: "src/background/service-worker.ts",
     type: "module",
