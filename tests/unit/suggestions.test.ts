@@ -354,6 +354,9 @@ describe("NanoSuggestionEngine", () => {
     const result = await engine.suggestActions({ pageContext: article });
     expect(Date.now() - started).toBeLessThan(2_000);
     expect(result.engineId).toBe("curated");
+    expect(result.debug?.nanoFailureReason).toMatch(
+      /timed out|nano\.(create|prompt)/i,
+    );
   });
 
   it("generatePrompt seals SOURCE_DATA via the deterministic builder", async () => {
