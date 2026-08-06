@@ -414,6 +414,78 @@ describe("side panel click-through", () => {
     expect(isVisible("#choose")).toBe(true);
   });
 
+  it("grants Smart host permission from onboarding before leaving the mode step", async () => {
+    resetOnboardingForTests();
+    mountExtensionHtml("sidepanel/index.html");
+    store = {
+      settings: { ...DEFAULT_SETTINGS },
+      onboarding: { ...DEFAULT_ONBOARDING },
+      history: [],
+      latest: { pageContext: samplePage, tabId: 7 },
+    };
+    const { send, listeners } = createSend(store);
+    const state = { granted: false };
+    const permissionsApi = {
+      contains: async () => state.granted,
+      request: async () => {
+        state.granted = true;
+        return true;
+      },
+      remove: async () => {
+        state.granted = false;
+        return true;
+      },
+    };
+
+    controller = await initSidePanel({
+      sendToBackground: send,
+      selectSuggestionEngine: async () => mockEngine(),
+      openLLMWithFallback: async () => ({
+        copied: true,
+        openedUrl: null,
+        mode: "copy-only",
+        usedModel: null,
+      }),
+      openOptionsPage: vi.fn(),
+      addMessageListener: (listener) => {
+        listeners.push(listener);
+        return () => undefined;
+      },
+      maybeStartOnboarding: async (afterComplete, deps) => {
+        const { maybeStartOnboarding } = await import(
+          "../../extension/src/sidepanel/onboarding"
+        );
+        return maybeStartOnboarding(afterComplete, {
+          ...deps,
+          permissionsApi,
+        });
+      },
+    });
+    await flush();
+
+    click('[data-step="welcome"] [data-onboarding-action="next"]');
+    await flush();
+    expect(isVisible("#onboarding-smart-education")).toBe(true);
+    expect(textOf("#onboarding-smart-honesty")).toMatch(/badge first/i);
+    expect(textOf("#onboarding-mode-continue")).toMatch(/website access/i);
+
+    click('[data-step="mode"] [data-onboarding-action="mode-continue"]');
+    await flush();
+    await flush();
+    expect(isVisible('[data-step="destination"]')).toBe(true);
+
+    click('[data-step="destination"] [data-onboarding-action="next"]');
+    await flush();
+    expect(isVisible('[data-step="nano"]')).toBe(true);
+    await flush();
+    click('[data-step="nano"] [data-onboarding-action="nano-basic"]');
+    await flush();
+
+    expect(store.onboarding.completed).toBe(true);
+    expect(store.settings.mode).toBe("smart");
+    expect(store.settings.smartModeAvailable).toBe(true);
+  });
+
   it("enables Nano from onboarding when LanguageModel is ready", async () => {
     resetOnboardingForTests();
     mountExtensionHtml("sidepanel/index.html");
