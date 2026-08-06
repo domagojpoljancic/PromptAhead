@@ -36,7 +36,8 @@ export type ActionCategory =
 
 /** Handoff §30 caps, applied to every engine so the UI never has to clip. */
 export const MAX_ACTION_TITLE_CHARS = 60;
-export const MAX_ACTION_DESCRIPTION_CHARS = 140;
+/** Short enough for the narrow side panel — one scannable line of why. */
+export const MAX_ACTION_DESCRIPTION_CHARS = 90;
 /** Handoff §15: three ranked directions, everything else behind "More…". */
 export const PRIMARY_ACTION_COUNT = 3;
 
@@ -62,6 +63,19 @@ export type SuggestionResult = {
   primary: SuggestedAction[];
   /** Revealed by "More…". */
   more: SuggestedAction[];
+  /**
+   * Optional debugging metadata surfaced by the UI layer.
+   * Never include page content or prompt text.
+   */
+  debug?: {
+    /**
+     * When the Nano engine falls back to curated, this explains why at a
+     * coarse level (timeout / invalid JSON / schema mismatch).
+     */
+    nanoFailureReason?: string;
+    /** Wall-clock ms for the Nano suggest path (create + prompt + validate). */
+    elapsedMs?: number;
+  };
 };
 
 export type PromptGenerationInput = {

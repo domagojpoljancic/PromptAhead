@@ -8,6 +8,8 @@ Manual smoke on supported Chrome hardware. Fill Chrome version after you run it.
 
 > Hardware boxes stay unchecked until you run them on a real Chrome with Prompt API / Gemini Nano. Automated CI keeps Nano forced off (`NANO_FORCE_DISABLED=1` where applicable) and asserts curated paths.
 
+**Chrome note:** `chrome://on-device-internals` Model Status can show an empty/stuck bar even when `window.LanguageModel` is loaded and `create()` / `prompt()` work. Prefer a DevTools probe (`typeof LanguageModel`, `availability()`, short `prompt()`) over the internals UI alone.
+
 ## Setup
 
 - [ ] Load unpacked `extension/dist/` in Chrome (Developer mode)

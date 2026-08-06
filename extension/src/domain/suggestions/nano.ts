@@ -32,9 +32,9 @@ import type {
 } from "./types";
 
 /** Handoff / M2 hard budget for action generation prompts. */
-export const NANO_PROMPT_TIMEOUT_MS = 10_000;
-/** Session create may include a short warm-up; keep under the same product feel. */
-export const NANO_CREATE_TIMEOUT_MS = 15_000;
+export const NANO_PROMPT_TIMEOUT_MS = 45_000;
+/** Session create may include model warm-up on first hardware run. */
+export const NANO_CREATE_TIMEOUT_MS = 60_000;
 
 export type NanoSuggestionEngineOptions = {
   /** Injected for tests; defaults to the realm `LanguageModel`. */
@@ -89,10 +89,44 @@ export class NanoSuggestionEngine implements SuggestionEngine {
   }
 
   async suggestActions(input: ActionGenerationInput): Promise<SuggestionResult> {
+    const started = Date.now();
     try {
-      return await this.suggestWithNano(input);
-    } catch {
-      return this.curated.suggestActions(input);
+      const result = await this.suggestWithNano(input);
+      const elapsedMs = Date.now() - started;
+      try {
+        console.info(`[PromptAhead] Nano suggest ok in ${elapsedMs}ms`);
+      } catch {
+        // Ignore logging failures.
+      }
+      return {
+        ...result,
+        debug: {
+          ...result.debug,
+          elapsedMs,
+        },
+      };
+    } catch (error) {
+      // Nano should never block the product: fall back to curated actions,
+      // but retain a coarse failure reason for on-device debugging.
+      const elapsedMs = Date.now() - started;
+      const curatedResult = await this.curated.suggestActions(input);
+      const reason =
+        error instanceof Error ? error.message : "Nano failed (unknown error)";
+      try {
+        console.warn(
+          `[PromptAhead] Nano failed after ${elapsedMs}ms:`,
+          reason,
+        );
+      } catch {
+        // Ignore logging failures.
+      }
+      return {
+        ...curatedResult,
+        debug: {
+          nanoFailureReason: reason,
+          elapsedMs,
+        },
+      };
     }
   }
 
@@ -116,9 +150,10 @@ export class NanoSuggestionEngine implements SuggestionEngine {
       throw new Error("LanguageModel is not available");
     }
 
+    const language = input.pageContext.language || "en";
     const sourceDataBlock = renderSourceData(input.pageContext).text;
     const userPayload = buildNanoActionUserPayload({
-      language: input.pageContext.language || "en",
+      language,
       pageType: input.pageContext.pageType,
       preferredCategories: input.preferredCategories,
       sourceDataBlock,
@@ -126,14 +161,23 @@ export class NanoSuggestionEngine implements SuggestionEngine {
 
     let session: LanguageModelSessionLike | null = null;
     try {
-      session = await createNanoSession(model, {
-        systemPrompt: NANO_ACTION_SYSTEM_PROMPT,
-        timeoutMs: this.createTimeoutMs,
-      });
+      try {
+        session = await createNanoSession(model, {
+          systemPrompt: NANO_ACTION_SYSTEM_PROMPT,
+          timeoutMs: this.createTimeoutMs,
+          language,
+        });
+      } catch (error) {
+        const reason =
+          error instanceof Error ? error.message : "nano.create failed";
+        throw new Error(`nano.create: ${reason}`);
+      }
 
-      const first = await promptNano(session, userPayload, {
-        timeoutMs: this.promptTimeoutMs,
-        responseConstraint: NANO_ACTION_LIST_SCHEMA,
+      // Prefer unconstrained prompt first — DOM-31 hardware showed plain
+      // session.prompt() works while responseConstraint can hang ~45s on some
+      // Chrome builds after model wipe/restore. Validate in-process either way.
+      const first = await this.promptActions(session, userPayload, {
+        preferConstraint: false,
       });
       const validated = validateNanoActionOutput(first, {
         pageType: input.pageContext.pageType,
@@ -143,11 +187,12 @@ export class NanoSuggestionEngine implements SuggestionEngine {
         return validated.result;
       }
 
-      // One repair attempt (handoff §30), then curated floor.
-      const repaired = await promptNano(session, buildNanoRepairPrompt(first), {
-        timeoutMs: this.promptTimeoutMs,
-        responseConstraint: NANO_ACTION_LIST_SCHEMA,
-      });
+      // One repair attempt (handoff §30), then optional constrained pass, then curated.
+      const repaired = await this.promptActions(
+        session,
+        buildNanoRepairPrompt(first),
+        { preferConstraint: false },
+      );
       const repairedValidated = validateNanoActionOutput(repaired, {
         pageType: input.pageContext.pageType,
         pageTitle: input.pageContext.title,
@@ -156,13 +201,53 @@ export class NanoSuggestionEngine implements SuggestionEngine {
         return repairedValidated.result;
       }
 
-      throw new Error(repairedValidated.reason);
+      try {
+        const constrained = await this.promptActions(session, userPayload, {
+          preferConstraint: true,
+        });
+        const constrainedValidated = validateNanoActionOutput(constrained, {
+          pageType: input.pageContext.pageType,
+          pageTitle: input.pageContext.title,
+        });
+        if (constrainedValidated.ok) {
+          return constrainedValidated.result;
+        }
+        throw new Error(constrainedValidated.reason);
+      } catch (error) {
+        throw new Error(
+          repairedValidated.reason ||
+            (error instanceof Error ? error.message : "No valid Nano actions"),
+        );
+      }
     } finally {
       try {
         session?.destroy?.();
       } catch {
         // ignore
       }
+    }
+  }
+
+  private async promptActions(
+    session: LanguageModelSessionLike,
+    userPayload: string,
+    options: { preferConstraint: boolean },
+  ): Promise<string> {
+    try {
+      return await promptNano(session, userPayload, {
+        timeoutMs: this.promptTimeoutMs,
+        ...(options.preferConstraint
+          ? { responseConstraint: NANO_ACTION_LIST_SCHEMA }
+          : {}),
+      });
+    } catch (error) {
+      const reason =
+        error instanceof Error ? error.message : "nano.prompt failed";
+      throw new Error(
+        options.preferConstraint
+          ? `nano.prompt(constraint): ${reason}`
+          : `nano.prompt: ${reason}`,
+      );
     }
   }
 }

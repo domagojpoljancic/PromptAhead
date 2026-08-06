@@ -1,6 +1,6 @@
 # PromptAhead
 
-> **WIP — M2 Gemini Nano UX in progress.** Manual core (M1) is buildable and covered by Vitest/Playwright/CI. This branch adds the Nano suggestion engine plus onboarding / side-panel / settings UX. Hardware smoke for Nano remains a manual checklist. Smart mode (M3) and Chrome Web Store packaging (M4) are still ahead.
+> **WIP — M2 Gemini Nano UX hardening.** Manual core (M1) is buildable and covered by Vitest/Playwright/CI. Nano engine + onboarding / panel / settings are in; this push hardens timeouts, failure notices, and on-device debug. Hardware smoke remains a manual checklist. Smart mode (M3) and Chrome Web Store packaging (M4) are still ahead.
 
 **Your next question, already prepared.**
 
@@ -11,11 +11,12 @@ Privacy-first Chrome extension (Manifest V3) that notices when you are genuinely
 | Area | State |
 | --- | --- |
 | Product extension (`extension/`) | **Manual core** + **M2 Nano UX** (engine, onboarding readiness/download, panel Retry, settings controls) |
-| Side panel | Workflow state machine; Nano thinking + curated fallback + **Retry local AI** when preference is enabled |
+| Side panel | Workflow state machine; Nano thinking + curated fallback + **Retry local AI**; calm Nano panel notices + elapsed debug |
 | Onboarding + settings | Manual-first first-run; Nano ready/download/unsupported + basic private mode; options Nano status / force basic / setup |
 | Destinations | Deep links with **app-first + web fallback**; Gemini / oversized prompts use **clipboard + open**; never auto-submit |
 | Automation | Vitest (unit + jsdom UI), Playwright (built MV3 + navigate→stale), GitHub Actions (`test:ci`, Node 20.19+) |
 | Nano CI | Curated path stays green with Nano forced off (`NANO_FORCE_DISABLED`); live hardware checklist in [`docs/nano-verification-checklist.md`](docs/nano-verification-checklist.md) |
+| Nano engine | Longer create/prompt budgets; prefer unconstrained prompt then constrain; retain failure reason on curated fallback |
 | M1 acceptance | Manual §25 map + smoke notes in [`docs/test-plan.md`](docs/test-plan.md) |
 | M0 spike harness (`spikes/`) | **Done** — S0.1–S0.7 implemented and run |
 | Spike results (`docs/technical-spikes.md`) | **Filled** — Chrome **150.0.0.0** (2026-08-01) |

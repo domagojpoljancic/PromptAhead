@@ -1,0 +1,34 @@
+---
+description: Ensure product changes get Vitest/Playwright coverage, CI discovery, and Linear updates
+alwaysApply: true
+---
+
+# Test coverage for product changes
+
+PromptAhead’s automated layers are **Vitest** (`tests/unit/**`) and **Playwright** (`tests/e2e/**`). CI already runs both via `npm run test:ci` on push/PR — put new tests in those trees so GitHub Actions picks them up. Do not invent a parallel CI job.
+
+## Milestone order (do not jump ahead)
+
+| When | Linear | Goal |
+| --- | --- | --- |
+| Late M1 | DOM-47 | Playwright: stale-after-navigate + one destination handoff |
+| Early M2 | DOM-48 → 49 → 50 → 51 | Nano unit contracts, then Nano-off curated Playwright |
+| M3 | DOM-56 | Smart invite / revoke / Manual regression (stable paths) |
+| M4 | DOM-52 → 54 → 55 → 53 | a11y checks, coverage gates, flake harden |
+
+Manual smoke stays on DOM-12 / DOM-31 / DOM-38 / DOM-45 — automation tickets do not replace those.
+
+## When shipping product code
+
+1. Diff product paths (`extension/`, messaging, destinations, Nano, Smart) vs matching tests.
+2. Check Linear for the row above (and any issue named in the branch/PR). Tick or comment progress; create a focused sub-issue only if scope is new.
+3. If behavior changed without coverage → **add** the thinnest Vitest and/or Playwright test that fails without the change.
+4. Prefer injected mocks (chrome, Prompt API, clipboard); never call live LLM sites or cloud models in CI.
+5. Run `npm run test` (and `npm run test:ci` when e2e/manifest touched). Fix failures before claiming Done.
+6. Update Linear checklists; move the automation ticket toward Done only when its **Done when** is met.
+
+## Push / cloud agent (scope + anti-recursion)
+
+1. **PR-first:** On feature/PR pushes, add tests on that branch (or open one follow-up PR). On `main`, never commit directly — open a follow-up PR only.
+2. **Cap:** One push → at most one thin Vitest file/suite *or* one Playwright path, tied to the diff and the matching Linear ticket. Do not “finish” whole parents (DOM-48 / DOM-56 / DOM-52) in one run.
+3. **Skip** when docs/rules-only, `[test-agent]` / `[skip test-agent]`, or already test-only. No force-push to `main`.

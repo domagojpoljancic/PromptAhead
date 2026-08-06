@@ -5,6 +5,8 @@
 import type { NanoPreference } from "../../shared/storage/schema";
 import type { SuggestionEngineId } from "./types";
 import {
+  createNanoSession,
+  destroyNanoSession,
   getLanguageModel,
   isPromptApiPresent,
   probeAvailability,
@@ -60,8 +62,31 @@ export async function probeNanoReadiness(
   }
 
   const availability = await probeAvailability(model);
+  const state = readinessFromAvailability(availability, true);
+
+  // Warm the on-device model once when Chrome reports ready so the first
+  // post-onboarding suggestion is less likely to hit create timeouts (DOM-31).
+  if (state === "ready") {
+    let session: Awaited<ReturnType<typeof createNanoSession>> | null = null;
+    try {
+      session = await createNanoSession(model, {
+        systemPrompt: "Reply with OK.",
+        timeoutMs: 60_000,
+      });
+    } catch {
+      // availability() can race ahead of a cold create — treat as downloadable.
+      return {
+        state: "download",
+        availability: availability ?? "downloadable",
+        apiPresent: true,
+      };
+    } finally {
+      destroyNanoSession(session);
+    }
+  }
+
   return {
-    state: readinessFromAvailability(availability, true),
+    state,
     availability,
     apiPresent: true,
   };
@@ -94,7 +119,77 @@ export function didNanoFallBackToCurated(input: {
 export const NANO_FALLBACK_COPY =
   "Tiny brain needed a nap. Using the reliable classics instead.";
 
+/** Model missing / uninstall / stalled Chrome internals — curated floor + download CTA. */
+export const NANO_NEEDS_DOWNLOAD_COPY =
+  "On-device AI isn’t ready (missing or stuck). Using reliable classics — open Settings to download/repair, or Force basic private mode.";
+
+export const NANO_UNSUPPORTED_COPY =
+  "On-device AI isn’t available on this Chrome. Using reliable classics instead.";
+
 export const NANO_THINKING_COPY = "Local AI is thinking…";
+
+export type NanoPanelNotice =
+  | "none"
+  | "fallback"
+  | "needs-download"
+  | "unsupported";
+
+/**
+ * When preference is enabled, map live readiness to a panel notice so we don’t
+ * pretend the model is ready after uninstall / broken Chrome internals state.
+ */
+export function nanoPanelNoticeForPreference(input: {
+  preference: NanoPreference;
+  readiness: NanoReadinessProbe | null;
+}): NanoPanelNotice {
+  if (input.preference !== "enabled") {
+    return "none";
+  }
+  if (!input.readiness) {
+    return "none";
+  }
+  switch (input.readiness.state) {
+    case "ready":
+      return "none";
+    case "download":
+      return "needs-download";
+    case "unsupported":
+      return "unsupported";
+  }
+}
+
+export function copyForNanoPanelNotice(notice: NanoPanelNotice): string {
+  switch (notice) {
+    case "needs-download":
+      return NANO_NEEDS_DOWNLOAD_COPY;
+    case "unsupported":
+      return NANO_UNSUPPORTED_COPY;
+    case "fallback":
+      return NANO_FALLBACK_COPY;
+    case "none":
+      return "";
+  }
+}
+
+/**
+ * After a Nano suggest failure, prefer “needs download” when Chrome’s model
+ * looks installed but create/prompt stalls (common after Uninstall mid-session).
+ */
+export function nanoPanelNoticeFromFailureReason(
+  reason: string | undefined,
+): NanoPanelNotice {
+  if (!reason) {
+    return "fallback";
+  }
+  if (
+    /timed out/i.test(reason) ||
+    /signal is aborted/i.test(reason) ||
+    /nano\.(create|prompt)/i.test(reason)
+  ) {
+    return "needs-download";
+  }
+  return "fallback";
+}
 
 export function formatDownloadProgress(fraction: number | null): string {
   if (fraction === null || !Number.isFinite(fraction) || fraction < 0) {

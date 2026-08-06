@@ -5,6 +5,7 @@ import {
   didNanoFallBackToCurated,
   engineIdForNanoPreference,
   formatDownloadProgress,
+  nanoPanelNoticeForPreference,
   readinessFromAvailability,
 } from "../../extension/src/domain/suggestions/nano-readiness";
 
@@ -79,5 +80,38 @@ describe("nano-readiness helpers", () => {
         },
       }),
     ).toMatch(/does not support/i);
+  });
+
+  it("maps preference + readiness to panel notices", () => {
+    expect(
+      nanoPanelNoticeForPreference({
+        preference: "enabled",
+        readiness: {
+          state: "download",
+          availability: "downloadable",
+          apiPresent: true,
+        },
+      }),
+    ).toBe("needs-download");
+    expect(
+      nanoPanelNoticeForPreference({
+        preference: "enabled",
+        readiness: {
+          state: "ready",
+          availability: "available",
+          apiPresent: true,
+        },
+      }),
+    ).toBe("none");
+    expect(
+      nanoPanelNoticeForPreference({
+        preference: "basic",
+        readiness: {
+          state: "download",
+          availability: "downloadable",
+          apiPresent: true,
+        },
+      }),
+    ).toBe("none");
   });
 });

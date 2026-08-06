@@ -16,6 +16,8 @@ export type LatestPageContext = {
 };
 
 const latestByTab = new Map<number, LatestPageContext>();
+/** Tab from the most recent toolbar / menu / shortcut gesture (panel may not be active tab). */
+let lastGestureTabId: number | null = null;
 /**
  * The panel usually asks for context before the gesture's extraction has
  * finished, so readers await the in-flight run instead of seeing "none yet".
@@ -44,10 +46,36 @@ export function clearPageContextCache(): void {
   latestByTab.clear();
   inFlightByTab.clear();
   currentRunByTab.clear();
+  lastGestureTabId = null;
 }
 
+export function readLastGestureTabId(): number | null {
+  return lastGestureTabId;
+}
+
+/** Bound extraction so GET_LATEST cannot await a hung page script forever. */
+export const EXTRACTION_TIMEOUT_MS = 30_000;
+
 export async function readLatestPageContext(tabId: number): Promise<LatestPageContext> {
-  await inFlightByTab.get(tabId);
+  const inFlight = inFlightByTab.get(tabId);
+  if (inFlight) {
+    const outcome = await Promise.race([
+      inFlight,
+      new Promise<ExtractionOutcome>((resolve) => {
+        setTimeout(
+          () =>
+            resolve({
+              ok: false,
+              error: "Reading this page took too long. Click Refresh or try again.",
+            }),
+          EXTRACTION_TIMEOUT_MS,
+        );
+      }),
+    ]);
+    if (!outcome.ok) {
+      return { pageContext: null, error: outcome.error };
+    }
+  }
   return latestByTab.get(tabId) ?? { pageContext: null };
 }
 
@@ -60,6 +88,7 @@ export function captureTabContext(
   tabId: number,
   knownUrl?: string,
 ): Promise<ExtractionOutcome> {
+  lastGestureTabId = tabId;
   const token = {};
   currentRunByTab.set(tabId, token);
 
