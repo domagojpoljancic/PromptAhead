@@ -8,6 +8,7 @@ import {
   formatDownloadProgress,
   nanoPanelNoticeForPreference,
   nanoPanelNoticeFromFailureReason,
+  probeNanoReadiness,
   readinessFromAvailability,
 } from "../../extension/src/domain/suggestions/nano-readiness";
 
