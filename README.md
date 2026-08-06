@@ -1,6 +1,6 @@
 # PromptAhead
 
-> **WIP — M3 Smart permissions starting; M2 Nano still open for hardware smoke.** Manual core (M1) is buildable and covered by Vitest/Playwright/CI. Nano UX is in-repo; Smart host-permission education + grant/revoke is on this branch (untested). Chrome Web Store packaging (M4) is still ahead.
+> **WIP — M3 Smart permissions starting; M2 Nano still open for hardware smoke.** Manual core (M1) is buildable and covered by Vitest/Playwright/CI. Nano UX (engine, timeouts, panel notices, onboarding gate) is on `main`; Smart host-permission education + grant/revoke is on this branch (untested). Chrome Web Store packaging (M4) is still ahead.
 
 **Your next question, already prepared.**
 
@@ -11,11 +11,12 @@ Privacy-first Chrome extension (Manifest V3) that notices when you are genuinely
 | Area | State |
 | --- | --- |
 | Product extension (`extension/`) | **Manual core** + **M2 Nano UX** + **M3 Smart permissions (WIP)** — education copy, grant/revoke helpers, Settings/onboarding hooks |
-| Side panel | Workflow state machine; Nano thinking + curated fallback + **Retry local AI**; Smart permission education surfaces (WIP) |
-| Onboarding + settings | Manual-first first-run; Nano ready/download/unsupported; Settings Smart grant/revoke + education (WIP, untested) |
+| Side panel | Workflow state machine; Nano thinking + curated fallback + **Retry local AI**; calm Nano panel notices + Smart permission education (WIP) |
+| Onboarding + settings | Manual-first first-run; Nano ready/download/unsupported + onboarding gate; Settings Smart grant/revoke + education (WIP, untested) |
 | Destinations | Deep links with **app-first + web fallback**; Gemini / oversized prompts use **clipboard + open**; never auto-submit |
 | Automation | Vitest (unit + jsdom UI), Playwright (built MV3 + navigate→stale), GitHub Actions (`test:ci`, Node 20.19+) |
 | Nano CI | Curated path stays green with Nano forced off (`NANO_FORCE_DISABLED`); live hardware checklist in [`docs/nano-verification-checklist.md`](docs/nano-verification-checklist.md) |
+| Nano engine | Longer create/prompt budgets; prefer unconstrained prompt then constrain; retain failure reason on curated fallback |
 | M1 acceptance | Manual §25 map + smoke notes in [`docs/test-plan.md`](docs/test-plan.md) |
 | M0 spike harness (`spikes/`) | **Done** — S0.1–S0.7 implemented and run |
 | Spike results (`docs/technical-spikes.md`) | **Filled** — Chrome **150.0.0.0** (2026-08-01) |

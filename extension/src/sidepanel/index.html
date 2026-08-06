@@ -199,9 +199,14 @@
         <p class="workflow__hint">Three ranked suggestions for this page type.</p>
         <div class="nano-fallback" id="nano-fallback" hidden>
           <p class="nano-fallback__copy" id="nano-fallback-copy"></p>
-          <button type="button" class="btn btn--ghost" id="nano-retry">
-            Retry local AI
-          </button>
+          <div class="nano-fallback__actions">
+            <button type="button" class="btn btn--ghost" id="nano-retry">
+              Retry local AI
+            </button>
+            <button type="button" class="btn btn--ghost" id="nano-open-settings" hidden>
+              Open Settings
+            </button>
+          </div>
         </div>
         <ul class="action-list" id="primary-actions"></ul>
         <button type="button" class="btn btn--ghost" id="show-more" hidden>

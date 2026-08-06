@@ -40,12 +40,37 @@ function isPlainObject(value: unknown): value is Record<string, unknown> {
 /** Strip optional ```json fences some models still emit. */
 export function stripJsonFences(raw: string): string {
   const trimmed = raw.trim();
-  const fenced = /^```(?:json)?\s*([\s\S]*?)\s*```$/i.exec(trimmed);
+  const fenced = /```(?:json)?\s*([\s\S]*?)\s*```/i.exec(trimmed);
   return fenced?.[1]?.trim() ?? trimmed;
 }
 
 export function parseNanoActionJson(raw: string): unknown {
-  return JSON.parse(stripJsonFences(raw));
+  const cleaned = stripJsonFences(raw);
+  try {
+    return JSON.parse(cleaned);
+  } catch (initialError) {
+    // Some models emit commentary around the JSON; attempt to extract the
+    // first JSON object that contains an `actions` field.
+    const extracted = extractJsonObjectContainingActions(raw);
+    if (extracted !== null) {
+      return JSON.parse(extracted);
+    }
+    throw initialError;
+  }
+}
+
+function extractJsonObjectContainingActions(raw: string): string | null {
+  const firstBrace = raw.indexOf("{");
+  const lastBrace = raw.lastIndexOf("}");
+  if (firstBrace < 0 || lastBrace <= firstBrace) {
+    return null;
+  }
+  const candidate = raw.slice(firstBrace, lastBrace + 1).trim();
+  // Cheap guard to avoid parsing unrelated blobs.
+  if (!candidate.includes('"actions"') && !candidate.includes("'actions'")) {
+    return null;
+  }
+  return candidate;
 }
 
 function normalizeWhitespace(value: string): string {

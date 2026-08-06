@@ -102,6 +102,8 @@ function createSend(store: Store) {
 
   const send = vi.fn(async (request: BackgroundRequest) => {
     switch (request.type) {
+      case "PING":
+        return { ok: true as const, type: "PING" as const, pong: true };
       case "GET_SETTINGS":
         return { ok: true as const, type: "GET_SETTINGS" as const, settings: store.settings };
       case "SET_SETTINGS":
@@ -234,6 +236,7 @@ describe("side panel click-through", () => {
     onboardingIncomplete?: boolean;
     engine?: SuggestionEngine;
     openLLM?: SidePanelDepsOpen;
+    nanoReadiness?: "ready" | "download" | "unsupported";
   } = {}) {
     if (overrides.onboardingIncomplete) {
       store.onboarding = { ...DEFAULT_ONBOARDING };
@@ -248,12 +251,23 @@ describe("side panel click-through", () => {
         mode: "copy-only" as const,
         usedModel: null,
       }));
+    const readinessState = overrides.nanoReadiness ?? "ready";
 
     controller = await initSidePanel({
       sendToBackground: send,
       selectSuggestionEngine: async () => overrides.engine ?? mockEngine(),
       openLLMWithFallback: openLLM,
       openOptionsPage,
+      probeNanoReadiness: async () => ({
+        state: readinessState,
+        availability:
+          readinessState === "ready"
+            ? "available"
+            : readinessState === "download"
+              ? "downloadable"
+              : "unavailable",
+        apiPresent: readinessState !== "unsupported",
+      }),
       addMessageListener: (listener) => {
         listeners.push(listener);
         return () => {
@@ -368,6 +382,8 @@ describe("side panel click-through", () => {
     await boot({ onboardingIncomplete: true });
     expect(isVisible("#onboarding")).toBe(true);
     expect(document.body.classList.contains("onboarding-active")).toBe(true);
+    // Workflow must not warm under the overlay (DOM-31 hang).
+    expect(isVisible("#choose")).toBe(false);
 
     click('[data-step="welcome"] [data-onboarding-action="next"]');
     await flush();
@@ -426,6 +442,11 @@ describe("side panel click-through", () => {
         usedModel: null,
       }),
       openOptionsPage: vi.fn(),
+      probeNanoReadiness: async () => ({
+        state: "ready",
+        availability: "available",
+        apiPresent: true,
+      }),
       addMessageListener: (listener) => {
         listeners.push(listener);
         return () => undefined;
@@ -472,11 +493,49 @@ describe("side panel click-through", () => {
       }),
       generatePrompt: async () => "TASK",
     };
-    await boot({ engine: nanoThenCurated });
+    await boot({ engine: nanoThenCurated, nanoReadiness: "ready" });
     expect(isVisible("#choose")).toBe(true);
     expect(isVisible("#nano-fallback")).toBe(true);
     expect(textOf("#nano-fallback-copy")).toMatch(/tiny brain/i);
     expect(textOf("#status")).toMatch(/tiny brain/i);
+  });
+
+  it("points to Settings when Nano model needs download after uninstall", async () => {
+    store.settings = { ...DEFAULT_SETTINGS, nanoPreference: "enabled" };
+    const { openOptionsPage } = await boot({ nanoReadiness: "download" });
+    expect(isVisible("#choose")).toBe(true);
+    expect(isVisible("#nano-fallback")).toBe(true);
+    expect(textOf("#nano-fallback-copy")).toMatch(/isn.t ready|isn.t installed|stuck/i);
+    expect(isVisible("#nano-open-settings")).toBe(true);
+    expect(isVisible("#nano-retry")).toBe(false);
+    click("#nano-open-settings");
+    expect(openOptionsPage).toHaveBeenCalled();
+  });
+
+  it("points to Settings when Nano times out despite a ready probe", async () => {
+    store.settings = { ...DEFAULT_SETTINGS, nanoPreference: "enabled" };
+    const timedOutNano: SuggestionEngine = {
+      id: "nano",
+      isAvailable: async () => true,
+      suggestActions: async () => ({
+        engineId: "curated",
+        primary: [primaryAction],
+        more: [moreAction],
+        debug: { nanoFailureReason: "Gemini Nano timed out" },
+      }),
+      generatePrompt: async () => "TASK",
+    };
+    const { openOptionsPage } = await boot({
+      engine: timedOutNano,
+      nanoReadiness: "ready",
+    });
+    expect(isVisible("#choose")).toBe(true);
+    expect(isVisible("#nano-fallback")).toBe(true);
+    expect(textOf("#nano-fallback-copy")).toMatch(/isn.t ready|stuck/i);
+    expect(isVisible("#nano-open-settings")).toBe(true);
+    expect(isVisible("#nano-retry")).toBe(false);
+    click("#nano-open-settings");
+    expect(openOptionsPage).toHaveBeenCalled();
   });
 
   it("re-shows onboarding after clear-all event", async () => {
@@ -484,6 +543,22 @@ describe("side panel click-through", () => {
     store.onboarding = { ...DEFAULT_ONBOARDING };
     pushEvent({ type: "PAGE_CONTEXT_CLEARED", tabId: -1, reason: "cleared" });
     await flush();
+    expect(isVisible("#onboarding")).toBe(true);
+  });
+
+  it("ignores PAGE_CONTEXT_UPDATED while first-run onboarding is active", async () => {
+    const { pushEvent } = await boot({ onboardingIncomplete: true });
+    expect(isVisible("#onboarding")).toBe(true);
+    expect(isVisible("#choose")).toBe(false);
+
+    pushEvent({
+      type: "PAGE_CONTEXT_UPDATED",
+      tabId: 7,
+      pageContext: samplePage,
+    });
+    await flush();
+
+    expect(isVisible("#choose")).toBe(false);
     expect(isVisible("#onboarding")).toBe(true);
   });
 });

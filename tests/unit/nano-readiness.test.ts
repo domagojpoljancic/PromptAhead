@@ -1,12 +1,35 @@
 import { describe, expect, it } from "vitest";
 
+import type { LanguageModelLike } from "../../extension/src/domain/suggestions/nano-prompt-api";
 import {
   describeNanoStatus,
   didNanoFallBackToCurated,
   engineIdForNanoPreference,
   formatDownloadProgress,
+  nanoPanelNoticeForPreference,
+  nanoPanelNoticeFromFailureReason,
+  probeNanoReadiness,
   readinessFromAvailability,
 } from "../../extension/src/domain/suggestions/nano-readiness";
+
+
+function fakeModel(options: {
+  availability?: "available" | "unavailable" | "downloadable";
+  failCreate?: boolean;
+}): LanguageModelLike {
+  return {
+    availability: async () => options.availability ?? "available",
+    create: async () => {
+      if (options.failCreate) {
+        throw new Error("create failed");
+      }
+      return {
+        prompt: async () => "OK",
+        destroy: () => undefined,
+      };
+    },
+  };
+}
 
 describe("nano-readiness helpers", () => {
   it("maps availability to UI states", () => {
@@ -15,6 +38,16 @@ describe("nano-readiness helpers", () => {
     expect(readinessFromAvailability("downloading", true)).toBe("download");
     expect(readinessFromAvailability("unavailable", true)).toBe("unsupported");
     expect(readinessFromAvailability(null, false)).toBe("unsupported");
+  });
+
+
+  it("treats available + failed warm create as download", async () => {
+    const probe = await probeNanoReadiness(() =>
+      fakeModel({ availability: "available", failCreate: true }),
+    );
+    expect(probe.state).toBe("download");
+    expect(probe.apiPresent).toBe(true);
+    expect(probe.availability).toBe("available");
   });
 
   it("prefers nano only when preference is enabled", () => {
@@ -79,5 +112,57 @@ describe("nano-readiness helpers", () => {
         },
       }),
     ).toMatch(/does not support/i);
+  });
+
+  it("maps preference + readiness to panel notices", () => {
+    expect(
+      nanoPanelNoticeForPreference({
+        preference: "enabled",
+        readiness: {
+          state: "download",
+          availability: "downloadable",
+          apiPresent: true,
+        },
+      }),
+    ).toBe("needs-download");
+    expect(
+      nanoPanelNoticeForPreference({
+        preference: "enabled",
+        readiness: {
+          state: "ready",
+          availability: "available",
+          apiPresent: true,
+        },
+      }),
+    ).toBe("none");
+    expect(
+      nanoPanelNoticeForPreference({
+        preference: "basic",
+        readiness: {
+          state: "download",
+          availability: "downloadable",
+          apiPresent: true,
+        },
+      }),
+    ).toBe("none");
+  });
+
+  it("maps suggest failure reasons to panel notices", () => {
+    expect(nanoPanelNoticeFromFailureReason(undefined)).toBe("fallback");
+    expect(nanoPanelNoticeFromFailureReason("Gemini Nano timed out")).toBe(
+      "needs-download",
+    );
+    expect(nanoPanelNoticeFromFailureReason("The signal is aborted.")).toBe(
+      "needs-download",
+    );
+    expect(nanoPanelNoticeFromFailureReason("nano.create: create failed")).toBe(
+      "needs-download",
+    );
+    expect(nanoPanelNoticeFromFailureReason("nano.prompt: hung")).toBe(
+      "needs-download",
+    );
+    expect(nanoPanelNoticeFromFailureReason("No valid Nano actions")).toBe(
+      "fallback",
+    );
   });
 });

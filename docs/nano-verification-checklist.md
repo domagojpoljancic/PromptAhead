@@ -8,6 +8,8 @@ Manual smoke on supported Chrome hardware. Keep in sync with Linear DOM-31.
 
 > Tick boxes only after a real Chrome run with Prompt API / Gemini Nano (or explicitly record Unsupported + basic private mode). Automated CI keeps Nano forced off (`NANO_FORCE_DISABLED=1` where applicable) and asserts curated paths.
 
+**Chrome note:** `chrome://on-device-internals` Model Status can show an empty/stuck bar even when `window.LanguageModel` is loaded and `create()` / `prompt()` work. Prefer a DevTools probe (`typeof LanguageModel`, `availability()`, short `prompt()`) over the internals UI alone.
+
 ## Setup
 
 - [x] Load unpacked `extension/dist/` in Chrome (Developer mode)
