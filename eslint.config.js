@@ -10,6 +10,7 @@ export default tseslint.config(
       "coverage/**",
       "extension/dist/**",
       "spikes/**",
+      ".worktrees/**",
     ],
   },
   eslint.configs.recommended,

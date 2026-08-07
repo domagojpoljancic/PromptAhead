@@ -41,3 +41,6 @@ blob-report/
 !.cursor/hooks/**
 # Local runtime watch state (never commit)
 .cursor/stuck-agent-watch.json
+
+# Agent git worktrees (local only)
+.worktrees/

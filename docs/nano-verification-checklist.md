@@ -6,7 +6,7 @@ Manual smoke on supported Chrome hardware. Keep in sync with Linear DOM-31.
 **Date:** 2026-08-06  
 **Hardware / OS:** Apple Silicon (arm64) / macOS
 
-> Tick boxes only after a real Chrome run with Prompt API / Gemini Nano (or explicitly record Unsupported + basic private mode). Automated CI keeps Nano forced off (`NANO_FORCE_DISABLED=1` where applicable) and asserts curated paths.
+> Tick boxes only after a real Chrome run with Prompt API / Gemini Nano (or explicitly record Unsupported + basic private mode). Automated CI keeps Nano forced off (`NANO_FORCE_DISABLED=1` where applicable) and Playwright asserts Settings force-basic → curated extract → prompt → copy. This checklist (DOM-31) is still the only place for real-hardware Nano smoke.
 
 **Chrome note:** `chrome://on-device-internals` Model Status can show an empty/stuck bar even when `window.LanguageModel` is loaded and `create()` / `prompt()` work. Prefer a DevTools probe (`typeof LanguageModel`, `availability()`, short `prompt()`) over the internals UI alone.
 
