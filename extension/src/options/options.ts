@@ -5,6 +5,7 @@ import {
   revokeSmartHostPermission,
   settingsAfterSmartGrant,
   settingsAfterSmartRevoke,
+  syncEngagementContentScripts,
   type PermissionsApi,
 } from "../domain/smart";
 import {
@@ -468,6 +469,7 @@ export function initOptions(deps: Partial<OptionsDeps> = {}): OptionsController 
       return;
     }
     hostGranted = true;
+    void syncEngagementContentScripts(true);
     const ok = await saveSettingsPatch(settingsAfterSmartGrant());
     if (ok) {
       setStatus("Smart mode enabled. You can revoke anytime below.", "ok");
@@ -492,6 +494,9 @@ export function initOptions(deps: Partial<OptionsDeps> = {}): OptionsController 
     const outcome = await revokeSmartHostPermission(permissionsApi);
     smartBusy = false;
     hostGranted = outcome.granted;
+    if (!outcome.granted) {
+      void syncEngagementContentScripts(false);
+    }
     const ok = await saveSettingsPatch(settingsAfterSmartRevoke());
     if (latestSettings) {
       renderSmartControls({

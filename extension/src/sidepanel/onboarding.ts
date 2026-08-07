@@ -5,6 +5,7 @@
 import {
   SMART_PERMISSION_EDUCATION,
   requestSmartHostPermission,
+  syncEngagementContentScripts,
   type PermissionsApi,
 } from "../domain/smart";
 import {
@@ -370,6 +371,7 @@ async function continueFromModeStep(): Promise<void> {
   }
 
   smartGranted = true;
+  void syncEngagementContentScripts(true);
   setText(statusLineEl(), "");
   showStep("destination");
 }
