@@ -1,6 +1,6 @@
 # PromptAhead
 
-> **WIP — M2 Gemini Nano UX hardening.** Manual core (M1) is buildable and covered by Vitest/Playwright/CI. Nano engine + onboarding / panel / settings are in; this push hardens timeouts, failure notices, and on-device debug. Hardware smoke remains a manual checklist. Smart mode (M3) and Chrome Web Store packaging (M4) are still ahead.
+> **WIP — M3 Smart permissions starting; M2 Nano still open for hardware smoke.** Manual core (M1) is buildable and covered by Vitest/Playwright/CI. Nano UX (engine, timeouts, panel notices, onboarding gate) is on `main`; Smart host-permission education + grant/revoke is on this branch (untested). Chrome Web Store packaging (M4) is still ahead.
 
 **Your next question, already prepared.**
 
@@ -10,9 +10,9 @@ Privacy-first Chrome extension (Manifest V3) that notices when you are genuinely
 
 | Area | State |
 | --- | --- |
-| Product extension (`extension/`) | **Manual core** + **M2 Nano UX** (engine, onboarding readiness/download, panel Retry, settings controls) |
-| Side panel | Workflow state machine; Nano thinking + curated fallback + **Retry local AI**; calm Nano panel notices + elapsed debug |
-| Onboarding + settings | Manual-first first-run; Nano ready/download/unsupported + basic private mode; options Nano status / force basic / setup |
+| Product extension (`extension/`) | **Manual core** + **M2 Nano UX** + **M3 Smart permissions (WIP)** — education copy, grant/revoke helpers, Settings/onboarding hooks |
+| Side panel | Workflow state machine; Nano thinking + curated fallback + **Retry local AI**; calm Nano panel notices + Smart permission education (WIP) |
+| Onboarding + settings | Manual-first first-run; Nano ready/download/unsupported + onboarding gate; Settings Smart grant/revoke + education (WIP, untested) |
 | Destinations | Deep links with **app-first + web fallback**; Gemini / oversized prompts use **clipboard + open**; never auto-submit |
 | Automation | Vitest (unit + jsdom UI), Playwright (built MV3 + navigate→stale), GitHub Actions (`test:ci`, Node 20.19+) |
 | Nano CI | Curated path stays green with Nano forced off (`NANO_FORCE_DISABLED`); live hardware checklist in [`docs/nano-verification-checklist.md`](docs/nano-verification-checklist.md) |
@@ -108,9 +108,22 @@ See [`docs/architecture.md`](docs/architecture.md) for the full folder layout. A
 - Chrome Web Store packaging / listing (M4)
 - Main-content extraction beyond the thin `main`/`article` heuristic; Mozilla Readability license call still open
 - Sensitive-page heuristics (banking/medical pages are not blocked yet)
-- Smart mode / host-permission product UI (M3)
+- Full Smart mode (engagement, invites, badge) — host-permission education/grant/revoke is WIP only
 - Hardware-verified Nano smoke results (fill [`docs/nano-verification-checklist.md`](docs/nano-verification-checklist.md) on supported Chrome)
+- Verified `npm run test:ci` on the latest Smart WIP commit (pushed untested by request)
 
 ## Contributing / development notes
 
 Solo WIP. Prefer small, verifiable milestones over expanding MVP scope. Open work via PR into `main`. Agents follow `.cursor/rules/pre-push-hygiene.mdc` on every push/PR.
+
+## Cursor practices
+
+Shared agent rules under `.cursor/rules/` (committed; local MCP/sync state stays gitignored):
+
+| Practice | Rule | What it does |
+| --- | --- | --- |
+| Pre-push hygiene | [`pre-push-hygiene.mdc`](.cursor/rules/pre-push-hygiene.mdc) | Refresh README (including this section), block secrets/junk, keep docs/branches aligned before push/PR |
+| Linear ⇆ Cursor sync | [`linear-sync.mdc`](.cursor/rules/linear-sync.mdc) | Pull Linear changes first (ask before absorbing); push status/checklists as work happens; issue sizing habits |
+| Stuck-agent watchdog | [`stuck-agent-watchdog.mdc`](.cursor/rules/stuck-agent-watchdog.mdc) + [`.cursor/hooks/`](.cursor/hooks/) | When launching background Tasks, arm a notify heartbeat so silent hangs get nudged within minutes |
+
+Also useful: project skill [`.cursor/skills/linear-workflow/SKILL.md`](.cursor/skills/linear-workflow/SKILL.md) for issue sizing / parent–sub-issue structure. CI + Vitest/Playwright (`npm run test:ci`) remain the automated quality gate; Linear tickets track milestone automation (e.g. Nano contracts, Smart e2e, a11y/coverage).

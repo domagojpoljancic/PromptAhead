@@ -16,14 +16,27 @@
     <main class="settings">
       <p class="banner" id="status" role="status" hidden></p>
 
-      <section class="settings__section">
+      <section class="settings__section" id="mode-section">
         <h2>Mode</h2>
         <p>
-          <strong id="mode-label">Manual</strong> is the working default. Smart mode
-          (engagement-based invites) is coming later and does not request website access
-          yet.
+          Current mode: <strong id="mode-label">Manual</strong>. Manual uses
+          <code>activeTab</code> only after you click PromptAhead. Smart can watch
+          pages you visit for engagement-based invites.
         </p>
-        <p class="hint" id="smart-status">Smart mode: coming soon</p>
+        <p class="hint" id="smart-status">Checking website access…</p>
+        <div id="smart-education" class="smart-education">
+          <p id="smart-education-summary"></p>
+          <ul id="smart-education-bullets" class="smart-education__list"></ul>
+          <p class="hint" id="smart-education-honesty"></p>
+        </div>
+        <div class="button-row" id="smart-actions">
+          <button type="button" class="btn" id="smart-enable">
+            Enable Smart mode
+          </button>
+          <button type="button" class="btn" id="smart-revoke" hidden>
+            Switch to Manual and revoke access
+          </button>
+        </div>
       </section>
 
       <section class="settings__section">

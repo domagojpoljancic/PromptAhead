@@ -47,7 +47,7 @@ export type NanoPreference = "skipped" | "enabled" | "basic";
 export type Settings = {
   schemaVersion: 1;
   mode: PromptAheadMode;
-  /** Smart mode is deferred to M3; the flag exists so the UI can explain why. */
+  /** True when optional Smart host permission (`<all_urls>`) is granted. */
   smartModeAvailable: boolean;
   defaultDestination: DestinationId;
   /** `null` means "follow the page language" (handoff §19). */
