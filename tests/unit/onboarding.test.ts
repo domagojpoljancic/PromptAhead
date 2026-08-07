@@ -22,7 +22,7 @@ describe("onboarding-flow", () => {
   });
 
   it("persists enabled Nano preference when the user opts in", () => {
-    const { onboarding, settings } = buildOnboardingCompletion({
+    const { settings } = buildOnboardingCompletion({
       destination: "chatgpt",
       skipped: false,
       nanoPreference: "enabled",
