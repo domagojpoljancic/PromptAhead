@@ -1,6 +1,9 @@
 import { describe, expect, it, vi } from "vitest";
 
 import {
+  ENGAGEMENT_CONTENT_SCRIPT_ID,
+  ENGAGEMENT_CONTENT_SCRIPT_JS,
+  ENGAGEMENT_CONTENT_SCRIPT_MATCHES,
   SMART_HOST_ORIGINS,
   SMART_PERMISSION_EDUCATION,
   hasSmartHostPermission,
@@ -8,7 +11,10 @@ import {
   revokeSmartHostPermission,
   settingsAfterSmartGrant,
   settingsAfterSmartRevoke,
+  smartOriginsGranted,
+  syncEngagementContentScripts,
   type PermissionsApi,
+  type ScriptingRegistrationApi,
 } from "../../extension/src/domain/smart";
 
 function mockPermissions(state: { granted: boolean }): PermissionsApi {
@@ -21,6 +27,25 @@ function mockPermissions(state: { granted: boolean }): PermissionsApi {
     remove: vi.fn(async () => {
       state.granted = false;
       return true;
+    }),
+  };
+}
+
+function mockScripting(state: { ids: string[] }): ScriptingRegistrationApi {
+  return {
+    getRegisteredContentScripts: vi.fn(async () =>
+      state.ids.map((id) => ({ id })),
+    ),
+    registerContentScripts: vi.fn(async (scripts) => {
+      for (const script of scripts) {
+        if (!state.ids.includes(script.id)) {
+          state.ids.push(script.id);
+        }
+      }
+    }),
+    unregisterContentScripts: vi.fn(async (filter) => {
+      const remove = new Set(filter?.ids ?? []);
+      state.ids = state.ids.filter((id) => !remove.has(id));
     }),
   };
 }
@@ -75,6 +100,57 @@ describe("smart host permissions", () => {
     expect(settingsAfterSmartRevoke()).toEqual({
       mode: "manual",
       smartModeAvailable: false,
+    });
+  });
+});
+
+describe("engagement content-script sync after Smart grant", () => {
+  it("detects Smart host origins in permission payloads", () => {
+    expect(smartOriginsGranted(["<all_urls>"])).toBe(true);
+    expect(smartOriginsGranted(["https://example.com/*"])).toBe(false);
+    expect(smartOriginsGranted(undefined)).toBe(false);
+  });
+
+  it("registers the engagement boot script when granted", async () => {
+    const state = { ids: [] as string[] };
+    const api = mockScripting(state);
+
+    await expect(syncEngagementContentScripts(true, api)).resolves.toEqual({
+      registered: true,
+    });
+    expect(api.registerContentScripts).toHaveBeenCalledWith([
+      {
+        id: ENGAGEMENT_CONTENT_SCRIPT_ID,
+        js: [...ENGAGEMENT_CONTENT_SCRIPT_JS],
+        matches: [...ENGAGEMENT_CONTENT_SCRIPT_MATCHES],
+        runAt: "document_idle",
+        persistAcrossSessions: true,
+      },
+    ]);
+    expect(state.ids).toEqual([ENGAGEMENT_CONTENT_SCRIPT_ID]);
+
+    // Idempotent — second grant must not re-register.
+    await syncEngagementContentScripts(true, api);
+    expect(api.registerContentScripts).toHaveBeenCalledTimes(1);
+  });
+
+  it("unregisters when host access is revoked", async () => {
+    const state = { ids: [ENGAGEMENT_CONTENT_SCRIPT_ID] };
+    const api = mockScripting(state);
+
+    await expect(syncEngagementContentScripts(false, api)).resolves.toEqual({
+      registered: false,
+    });
+    expect(api.unregisterContentScripts).toHaveBeenCalledWith({
+      ids: [ENGAGEMENT_CONTENT_SCRIPT_ID],
+    });
+    expect(state.ids).toEqual([]);
+  });
+
+  it("returns an error when scripting registration is unavailable", async () => {
+    await expect(syncEngagementContentScripts(true, undefined)).resolves.toMatchObject({
+      registered: false,
+      error: expect.stringMatching(/unavailable/i),
     });
   });
 });

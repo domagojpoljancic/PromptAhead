@@ -1,3 +1,4 @@
+// @vitest-environment jsdom
 import { describe, expect, it, vi } from "vitest";
 
 import {
@@ -7,6 +8,7 @@ import {
   createActiveTimeState,
   createEngagementSession,
   evaluateEngagementThreshold,
+  guessEngagementPageType,
   isEngagementEligibleUrl,
   isMeaningfulProductInteraction,
   classifyProductInteraction,
@@ -274,6 +276,29 @@ describe("engagement session (once per page)", () => {
         "url",
       ].sort(),
     );
+  });
+});
+
+describe("guessEngagementPageType", () => {
+  it("classifies article and product from light DOM hints", () => {
+    const article = document.implementation.createHTMLDocument("a");
+    article.body.innerHTML = "<article><h1>Story</h1></article>";
+    expect(guessEngagementPageType(article, "https://news.example.com/a")).toBe(
+      "article",
+    );
+
+    const product = document.implementation.createHTMLDocument("p");
+    product.head.innerHTML =
+      '<meta property="og:type" content="product" />';
+    expect(
+      guessEngagementPageType(product, "https://shop.example.com/item/1"),
+    ).toBe("product");
+  });
+
+  it("falls back to generic when unsure", () => {
+    const doc = document.implementation.createHTMLDocument("g");
+    doc.body.innerHTML = "<div>hello</div>";
+    expect(guessEngagementPageType(doc, "https://example.com/")).toBe("generic");
   });
 });
 

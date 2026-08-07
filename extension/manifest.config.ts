@@ -9,10 +9,20 @@ export default defineManifest({
   permissions: ["sidePanel", "activeTab", "scripting", "storage", "contextMenus"],
   // Runtime grant/revoke only (S0.6). Never listed under host_permissions.
   optional_host_permissions: ["<all_urls>"],
+  // Dummy match so CRXJS packages engagement-boot; real http(s) injection is
+  // registered at runtime after Smart host grant (see engagement-scripts.ts).
+  content_scripts: [
+    {
+      matches: ["https://promptahead.invalid/*"],
+      js: ["src/content/engagement-boot.ts"],
+      run_at: "document_idle",
+    },
+  ],
   background: {
     service_worker: "src/background/service-worker.ts",
     type: "module",
   },
+
   action: {
     default_title: "PromptAhead",
     default_icon: {

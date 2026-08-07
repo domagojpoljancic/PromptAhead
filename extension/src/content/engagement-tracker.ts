@@ -5,8 +5,8 @@
  * Does not extract page content and does not call Nano — on threshold it only
  * invokes the provided callback (SW invite wiring is DOM-34).
  *
- * Not registered in the manifest yet: always-on injection requires Smart host
- * permission (DOM-32). Callers inject this after grant.
+ * Booted from `engagement-boot.ts`, registered at runtime after Smart host
+ * grant (`syncEngagementContentScripts`).
  */
 
 import type { PageType } from "../shared/types/page-context";

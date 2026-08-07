@@ -1,3 +1,8 @@
+import {
+  hasSmartHostPermission,
+  smartOriginsGranted,
+  syncEngagementContentScripts,
+} from "../domain/smart";
 import { openSidePanel } from "../shared/chrome";
 import { broadcastBackgroundEvent } from "../shared/messaging";
 import { ensureDefaults } from "../shared/storage";
@@ -24,6 +29,12 @@ async function setupContextMenu(): Promise<void> {
   });
 }
 
+/** Register engagement tracker iff optional Smart host access is present. */
+async function syncEngagementRegistration(): Promise<void> {
+  const granted = await hasSmartHostPermission();
+  await syncEngagementContentScripts(granted);
+}
+
 /**
  * The single Manual entry point. Order matters and nothing may be awaited:
  * extraction is kicked off first so the injection request leaves while the
@@ -44,12 +55,28 @@ chrome.runtime.onInstalled.addListener(() => {
   configurePanelBehavior();
   void setupContextMenu();
   void ensureDefaults();
+  void syncEngagementRegistration();
 });
 
 chrome.runtime.onStartup.addListener(() => {
   configurePanelBehavior();
   void setupContextMenu();
   void ensureDefaults();
+  void syncEngagementRegistration();
+});
+
+// Smart grant/revoke from options or onboarding (S0.6) — keep content-script
+// registration in lockstep so engagement never runs without host access.
+chrome.permissions.onAdded.addListener((permissions) => {
+  if (smartOriginsGranted(permissions.origins)) {
+    void syncEngagementContentScripts(true);
+  }
+});
+
+chrome.permissions.onRemoved.addListener((permissions) => {
+  if (smartOriginsGranted(permissions.origins)) {
+    void syncEngagementContentScripts(false);
+  }
 });
 
 chrome.contextMenus.onClicked.addListener((info, tab) => {

@@ -52,3 +52,5 @@ export {
   type EngagementThresholds,
   type ProductThreshold,
 } from "./thresholds";
+
+export { guessEngagementPageType } from "./page-type-guess";
