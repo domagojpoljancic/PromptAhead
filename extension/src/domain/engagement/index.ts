@@ -3,7 +3,7 @@
  *
  * Pure helpers for thresholds, eligibility, scroll depth, product interactions,
  * and a once-per-page session. Content scripts drive the session; invitation
- * UX and daily caps live in DOM-34.
+ * state machine / caps live in `domain/invitation` (DOM-34).
  */
 
 export {
