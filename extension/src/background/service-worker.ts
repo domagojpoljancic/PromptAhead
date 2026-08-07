@@ -6,6 +6,11 @@ import {
 import { openSidePanel } from "../shared/chrome";
 import { broadcastBackgroundEvent } from "../shared/messaging";
 import { ensureDefaults } from "../shared/storage";
+import {
+  clearInviteForTab,
+  peekActiveInviteTabId,
+  tryAcceptInviteForTab,
+} from "./invite-controller";
 import { registerBackgroundRouter } from "./router";
 import { captureTabContext, forgetPageContext } from "./page-context-store";
 
@@ -49,6 +54,24 @@ function handleManualGesture(tab: chrome.tabs.Tab | undefined): void {
   void openSidePanel(tab.id);
 }
 
+/**
+ * Toolbar / shortcut / menu. Uses in-memory invite tab id so accept can open
+ * the panel inside the user gesture (no await before sidePanel.open).
+ */
+function handleGesture(tab: chrome.tabs.Tab | undefined): void {
+  if (!tab?.id) {
+    return;
+  }
+  if (peekActiveInviteTabId() === tab.id) {
+    // TODO(DOM-34 follow-up): dedicated Smart Nano-on-accept pipeline.
+    void tryAcceptInviteForTab(tab.id);
+    void captureTabContext(tab.id, tab.url);
+    void openSidePanel(tab.id);
+    return;
+  }
+  handleManualGesture(tab);
+}
+
 registerBackgroundRouter();
 
 chrome.runtime.onInstalled.addListener(() => {
@@ -83,18 +106,18 @@ chrome.contextMenus.onClicked.addListener((info, tab) => {
   if (info.menuItemId !== OPEN_PANEL_MENU_ID) {
     return;
   }
-  handleManualGesture(tab);
+  handleGesture(tab);
 });
 
 chrome.action.onClicked.addListener((tab) => {
-  handleManualGesture(tab);
+  handleGesture(tab);
 });
 
 chrome.commands.onCommand.addListener((command, tab) => {
   if (command !== "open-panel") {
     return;
   }
-  handleManualGesture(tab);
+  handleGesture(tab);
 });
 
 // Navigation revokes `activeTab`, so cached context for that tab is stale.
@@ -106,6 +129,7 @@ chrome.tabs.onUpdated.addListener((tabId, changeInfo) => {
     return;
   }
   forgetPageContext(tabId);
+  void clearInviteForTab(tabId);
   broadcastBackgroundEvent({
     type: "PAGE_CONTEXT_CLEARED",
     tabId,
@@ -115,6 +139,7 @@ chrome.tabs.onUpdated.addListener((tabId, changeInfo) => {
 
 chrome.tabs.onRemoved.addListener((tabId) => {
   forgetPageContext(tabId);
+  void clearInviteForTab(tabId);
   broadcastBackgroundEvent({
     type: "PAGE_CONTEXT_CLEARED",
     tabId,

@@ -1,8 +1,7 @@
 /**
  * Minimal in-memory stand-in for the Chrome APIs PromptAhead uses.
  * Covers `storage.local`, `runtime` message dispatch, `tabs.query`,
- * `sidePanel.open` and `scripting.executeScript` — enough for storage,
- * messaging and extraction round-trip tests.
+ * `sidePanel.open`, `scripting.executeScript`, and `action` badge APIs.
  */
 
 type MessageListener = (
@@ -22,6 +21,13 @@ export type ChromeMockOptions = {
   openSidePanel?: (options: { tabId: number }) => Promise<void>;
   /** Omit to emulate a tab PromptAhead has no `activeTab` grant for. */
   executeScript?: (details: InjectionDetails) => unknown;
+  /** Optional sender tab id attached to runtime.sendMessage. */
+  senderTabId?: number;
+};
+
+export type BadgeCall = {
+  kind: "text" | "background" | "title";
+  value: string;
 };
 
 export type ChromeMock = {
@@ -29,6 +35,10 @@ export type ChromeMock = {
   listeners: MessageListener[];
   sidePanelOpens: number[];
   injections: number[];
+  badgeCalls: BadgeCall[];
+  badgeText: string;
+  badgeBackground: string;
+  actionTitle: string;
   api: typeof chrome;
 };
 
@@ -59,6 +69,10 @@ export function createChromeMock(options: ChromeMockOptions = {}): ChromeMock {
   const listeners: MessageListener[] = [];
   const sidePanelOpens: number[] = [];
   const injections: number[] = [];
+  const badgeCalls: BadgeCall[] = [];
+  let badgeText = "";
+  let badgeBackground = "";
+  let actionTitle = "PromptAhead";
 
   const local = {
     get: async (keys?: string | string[] | null) => cloneKeys(keys, store),
@@ -87,7 +101,13 @@ export function createChromeMock(options: ChromeMockOptions = {}): ChromeMock {
         }
       };
 
-      const keepOpen = listeners.map((listener) => listener(message, {}, sendResponse));
+      const sender =
+        options.senderTabId !== undefined
+          ? { tab: { id: options.senderTabId } }
+          : {};
+      const keepOpen = listeners.map((listener) =>
+        listener(message, sender, sendResponse),
+      );
       if (!settled && !keepOpen.some(Boolean)) {
         reject(
           new Error("Could not establish connection. Receiving end does not exist."),
@@ -136,6 +156,21 @@ export function createChromeMock(options: ChromeMockOptions = {}): ChromeMock {
         return [{ frameId: 0, result: options.executeScript(details) }];
       },
     },
+    action: {
+      setBadgeText: async ({ text }: { text: string }) => {
+        badgeText = text;
+        badgeCalls.push({ kind: "text", value: text });
+      },
+      setBadgeBackgroundColor: async ({ color }: { color: string }) => {
+        badgeBackground = color;
+        badgeCalls.push({ kind: "background", value: color });
+      },
+      setTitle: async ({ title }: { title: string }) => {
+        actionTitle = title;
+        badgeCalls.push({ kind: "title", value: title });
+      },
+      getBadgeText: async () => badgeText,
+    },
   } as unknown as typeof chrome;
 
   return {
@@ -145,6 +180,16 @@ export function createChromeMock(options: ChromeMockOptions = {}): ChromeMock {
     listeners,
     sidePanelOpens,
     injections,
+    badgeCalls,
+    get badgeText() {
+      return badgeText;
+    },
+    get badgeBackground() {
+      return badgeBackground;
+    },
+    get actionTitle() {
+      return actionTitle;
+    },
     api,
   };
 }

@@ -4,7 +4,7 @@
  * or the page DOM directly — it asks the background for both.
  */
 
-import type { PageContext } from "../types/page-context";
+import type { PageContext, PageType } from "../types/page-context";
 import type {
   DestinationId,
   OnboardingPatch,
@@ -22,6 +22,8 @@ export type AddRecentPromptPayload = {
   prompt: string;
   destination: DestinationId;
 };
+
+export type InviteActionKind = "accept" | "dismiss" | "snooze" | "disable_domain";
 
 export type BackgroundRequest =
   /** Liveness probe — cheapest proof the router is wired up. */
@@ -42,7 +44,17 @@ export type BackgroundRequest =
   | { type: "GET_LATEST_PAGE_CONTEXT"; tabId?: number }
   /** Re-runs extraction on a tab the current gesture still has access to. */
   | { type: "EXTRACT_ACTIVE_TAB"; tabId?: number }
-  | { type: "OPEN_SIDE_PANEL"; tabId?: number };
+  | { type: "OPEN_SIDE_PANEL"; tabId?: number }
+  /** Content-script engagement threshold → SW invite machine (DOM-34). */
+  | {
+      type: "ENGAGEMENT_THRESHOLD";
+      pageType: PageType;
+      url: string;
+      reason: string;
+      tabId?: number;
+    }
+  /** Accept / dismiss / snooze / disable the active badge invite. */
+  | { type: "INVITE_ACTION"; action: InviteActionKind; tabId?: number };
 
 export type BackgroundRequestType = BackgroundRequest["type"];
 
@@ -66,6 +78,18 @@ type OkPayloads = {
   };
   EXTRACT_ACTIVE_TAB: { pageContext: PageContext; tabId: number };
   OPEN_SIDE_PANEL: { opened: true };
+  ENGAGEMENT_THRESHOLD: {
+    handled: boolean;
+    showBadge: boolean;
+    phase: string | null;
+    suppression: string | null;
+  };
+  INVITE_ACTION: {
+    handled: boolean;
+    clearBadge: boolean;
+    openPanelAndAnalyze: boolean;
+    phase: string | null;
+  };
 };
 
 export type BackgroundOk<K extends BackgroundRequestType = BackgroundRequestType> =
@@ -96,9 +120,20 @@ export const BACKGROUND_REQUEST_TYPES: readonly BackgroundRequestType[] = [
   "GET_LATEST_PAGE_CONTEXT",
   "EXTRACT_ACTIVE_TAB",
   "OPEN_SIDE_PANEL",
+  "ENGAGEMENT_THRESHOLD",
+  "INVITE_ACTION",
 ];
 
 const REQUEST_TYPES: ReadonlySet<string> = new Set(BACKGROUND_REQUEST_TYPES);
+
+const INVITE_ACTIONS: ReadonlySet<string> = new Set([
+  "accept",
+  "dismiss",
+  "snooze",
+  "disable_domain",
+]);
+
+const PAGE_TYPES: ReadonlySet<string> = new Set(["article", "product", "generic"]);
 
 function isPlainObject(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
@@ -130,6 +165,20 @@ export function isBackgroundRequest(value: unknown): value is BackgroundRequest 
     case "EXTRACT_ACTIVE_TAB":
     case "OPEN_SIDE_PANEL":
       return hasOptionalTabId(value);
+    case "ENGAGEMENT_THRESHOLD":
+      return (
+        typeof value.url === "string" &&
+        typeof value.reason === "string" &&
+        typeof value.pageType === "string" &&
+        PAGE_TYPES.has(value.pageType) &&
+        hasOptionalTabId(value)
+      );
+    case "INVITE_ACTION":
+      return (
+        typeof value.action === "string" &&
+        INVITE_ACTIONS.has(value.action) &&
+        hasOptionalTabId(value)
+      );
     default:
       return true;
   }

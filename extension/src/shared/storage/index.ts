@@ -4,6 +4,7 @@
  */
 
 import {
+  migrateInviteRuntime,
   migrateOnboarding,
   migrateRecentHistory,
   migrateSettings,
@@ -12,9 +13,11 @@ import {
 import {
   ALL_STORAGE_KEYS,
   DEFAULT_RECENT_HISTORY,
+  EMPTY_INVITE_RUNTIME,
   RECENT_HISTORY_LIMIT,
   STORAGE_KEYS,
   STORAGE_SCHEMA_VERSION,
+  type InviteRuntimeState,
   type OnboardingPatch,
   type OnboardingState,
   type PromptHistoryEntry,
@@ -25,7 +28,12 @@ import {
 } from "./schema";
 
 export * from "./schema";
-export { migrateOnboarding, migrateRecentHistory, migrateSettings } from "./migrations";
+export {
+  migrateInviteRuntime,
+  migrateOnboarding,
+  migrateRecentHistory,
+  migrateSettings,
+} from "./migrations";
 export type { MigrationResult } from "./migrations";
 
 function localArea(): chrome.storage.StorageArea {
@@ -95,6 +103,56 @@ export async function updateSettings(patch: SettingsPatch): Promise<Settings> {
 
 export async function readOnboarding(): Promise<OnboardingState> {
   return readMigrated(STORAGE_KEYS.onboarding, migrateOnboarding);
+}
+
+export async function readInviteRuntime(
+  dayKeyFallback: string = new Date().toISOString().slice(0, 10),
+): Promise<InviteRuntimeState> {
+  const { value, migrated } = migrateInviteRuntime(
+    await readRaw(STORAGE_KEYS.inviteRuntime),
+    dayKeyFallback,
+  );
+  if (migrated) {
+    await enqueueWrite(() => writeRaw(STORAGE_KEYS.inviteRuntime, value));
+  }
+  return value;
+}
+
+export async function writeInviteRuntime(
+  state: InviteRuntimeState,
+): Promise<InviteRuntimeState> {
+  const next: InviteRuntimeState = {
+    ...state,
+    schemaVersion: STORAGE_SCHEMA_VERSION,
+  };
+  await enqueueWrite(() => writeRaw(STORAGE_KEYS.inviteRuntime, next));
+  return next;
+}
+
+export async function updateInviteRuntime(
+  patch: Partial<Omit<InviteRuntimeState, "schemaVersion">>,
+  dayKeyFallback: string = new Date().toISOString().slice(0, 10),
+): Promise<InviteRuntimeState> {
+  return enqueueWrite(async () => {
+    const current = migrateInviteRuntime(
+      await readRaw(STORAGE_KEYS.inviteRuntime),
+      dayKeyFallback,
+    ).value;
+    const next: InviteRuntimeState = {
+      ...current,
+      ...patch,
+      schemaVersion: STORAGE_SCHEMA_VERSION,
+    };
+    await writeRaw(STORAGE_KEYS.inviteRuntime, next);
+    return next;
+  });
+}
+
+/** Wipe invite caps / active badge state (also covered by clear-all). */
+export async function clearInviteRuntime(): Promise<InviteRuntimeState> {
+  const empty = EMPTY_INVITE_RUNTIME(new Date().toISOString().slice(0, 10));
+  await enqueueWrite(() => writeRaw(STORAGE_KEYS.inviteRuntime, empty));
+  return empty;
 }
 
 export async function updateOnboarding(
