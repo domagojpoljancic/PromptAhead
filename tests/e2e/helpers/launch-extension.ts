@@ -108,8 +108,22 @@ export async function openExtensionPage(
   url: string,
 ): Promise<Page> {
   const page = await session.context.newPage();
-  await page.goto(url, { waitUntil: "domcontentloaded" });
-  return page;
+  // Chrome extension pages occasionally abort the first navigation (frame detach).
+  let lastError: unknown;
+  for (let attempt = 0; attempt < 3; attempt++) {
+    try {
+      await page.goto(url, { waitUntil: "domcontentloaded" });
+      return page;
+    } catch (error) {
+      lastError = error;
+      const message = error instanceof Error ? error.message : String(error);
+      if (!/ERR_ABORTED|frame was detached/i.test(message) || attempt === 2) {
+        throw error;
+      }
+      await page.waitForTimeout(250 * (attempt + 1));
+    }
+  }
+  throw lastError;
 }
 
 /** Typed ping through an open extension page (options / side panel). */
