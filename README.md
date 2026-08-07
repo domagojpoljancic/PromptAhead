@@ -1,6 +1,6 @@
 # PromptAhead
 
-> **WIP — M3 Smart mode in progress; M2 Nano hardware smoke still open.** Manual core (M1) is buildable and covered by Vitest/Playwright/CI. Nano UX and Smart host-permission education + grant/revoke are on `main`. Engagement thresholds register the content tracker after Smart host grant; invitation state machine + **badge-first SW wiring** (`chrome.action` apply / accept→panel / dismiss·snooze) are in flight — optional `chrome.notifications` still deferred. Chrome Web Store packaging (M4) is still ahead.
+> **WIP — M3 Smart mode in progress; M2 Nano hardware smoke still open.** Manual core (M1) is buildable and covered by Vitest/Playwright/CI. Nano UX and Smart host-permission education + grant/revoke are on `main`. Engagement thresholds register the content tracker after Smart host grant; invitation state machine + **badge-first SW wiring** (`chrome.action` apply / dismiss·snooze) and **accept → panel + extract** (suggest/Nano only after accept) are in flight — optional `chrome.notifications` still deferred. Chrome Web Store packaging (M4) is still ahead.
 
 **Your next question, already prepared.**
 
@@ -22,7 +22,7 @@ Privacy-first Chrome extension (Manifest V3) that notices when you are genuinely
 | Spike results (`docs/technical-spikes.md`) | **Filled** — Chrome **150.0.0.0** (2026-08-01) |
 | Extraction | JSON-LD / Open Graph / semantic-HTML classification with size caps; 6 HTML fixtures; Readability deferred |
 | Engagement | Domain + content tracker; runtime inject after Smart host grant; Vitest fixture threshold fire + jank smoke (passive/throttle) |
-| Invitation (Smart) | State machine + caps + badge-first copy; SW `chrome.action` apply from engagement threshold; accept→panel / dismiss·snooze clear badge (Vitest); optional `chrome.notifications` deferred |
+| Invitation (Smart) | State machine + caps + badge-first copy; SW badge on threshold (no extract); accept → panel + Manual extract/suggest path (Vitest); dismiss·snooze clear badge; optional `chrome.notifications` deferred |
 | Suggestions + prompts | Curated + mock-Nano + real `NanoSuggestionEngine` (validate / repair / timeout / curated fallback) |
 | Product docs | Handoff + architecture / plan / privacy / test plan / Nano checklist |
 | Planning | Linear used as the product / issue tracker |
@@ -110,7 +110,7 @@ See [`docs/architecture.md`](docs/architecture.md) for the full folder layout. A
 - Chrome Web Store packaging / listing (M4)
 - Main-content extraction beyond the thin `main`/`article` heuristic; Mozilla Readability license call still open
 - Sensitive-page heuristics (banking/medical pages are not blocked yet)
-- Full Smart mode (Nano-on-accept analysis, optional notifications, invite UI for dismiss/snooze) — badge/SW apply + accept→panel landed; notifications still deferred
+- Full Smart mode polish (optional notifications, dedicated invite dismiss UI) — badge/SW + accept→panel+extract landed; notifications / invite UI still deferred
 - Hardware Nano smoke beyond checklist rows — DOM-31 / [`docs/nano-verification-checklist.md`](docs/nano-verification-checklist.md); CI covers curated / Nano-off only
 
 ## Contributing / development notes
