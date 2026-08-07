@@ -24,6 +24,11 @@ import {
   updateSettings,
 } from "../shared/storage";
 import {
+  clearInviteForTab,
+  handleEngagementThreshold,
+  handleInviteAction,
+} from "./invite-controller";
+import {
   captureTabContext,
   clearPageContextCache,
   readLastGestureTabId,
@@ -31,6 +36,11 @@ import {
 } from "./page-context-store";
 
 type ResolvedTab = { id: number; url?: string };
+
+export type RequestContext = {
+  /** Tab that sent the message (content script), when known. */
+  senderTabId?: number;
+};
 
 async function resolveTab(explicitTabId?: number): Promise<ResolvedTab | null> {
   const tab = await getActiveTab();
@@ -47,6 +57,7 @@ async function resolveTab(explicitTabId?: number): Promise<ResolvedTab | null> {
 
 export async function handleBackgroundRequest(
   request: BackgroundRequest,
+  context: RequestContext = {},
 ): Promise<BackgroundResponse> {
   switch (request.type) {
     case "PING":
@@ -168,12 +179,64 @@ export async function handleBackgroundRequest(
         return { ok: false, type: "OPEN_SIDE_PANEL", error: describeError(error) };
       }
     }
+
+    case "ENGAGEMENT_THRESHOLD": {
+      const tabId = request.tabId ?? context.senderTabId;
+      if (tabId === undefined) {
+        return {
+          ok: false,
+          type: "ENGAGEMENT_THRESHOLD",
+          error: "No tab id for engagement threshold",
+        };
+      }
+      const outcome = await handleEngagementThreshold({
+        tabId,
+        pageUrl: request.url,
+        pageType: request.pageType,
+        reason: request.reason,
+      });
+      return {
+        ok: true,
+        type: "ENGAGEMENT_THRESHOLD",
+        handled: outcome.handled,
+        showBadge: outcome.showBadge,
+        phase: outcome.phase,
+        suppression: outcome.suppression,
+      };
+    }
+
+    case "INVITE_ACTION": {
+      const tabId = request.tabId ?? context.senderTabId;
+      const outcome = await handleInviteAction(request.action, tabId);
+      if (
+        outcome.handled &&
+        outcome.openPanelAndAnalyze &&
+        tabId !== undefined
+      ) {
+        // TODO(DOM-34 follow-up): full Nano-on-accept analysis pipeline.
+        // For now open the side panel so accept is immediately actionable.
+        try {
+          void captureTabContext(tabId);
+          await openSidePanel(tabId);
+        } catch {
+          // Gesture may be missing when called from a non-gesture message.
+        }
+      }
+      return {
+        ok: true,
+        type: "INVITE_ACTION",
+        handled: outcome.handled,
+        clearBadge: outcome.clearBadge,
+        openPanelAndAnalyze: outcome.openPanelAndAnalyze,
+        phase: outcome.phase,
+      };
+    }
   }
 }
 
 /** Wires the router into `chrome.runtime.onMessage` (service worker only). */
 export function registerBackgroundRouter(): void {
-  chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
+  chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     // Push events are for open pages (side panel); the worker ignores them.
     if (isBackgroundEvent(message)) {
       return false;
@@ -187,7 +250,11 @@ export function registerBackgroundRouter(): void {
       return false;
     }
 
-    handleBackgroundRequest(message)
+    const context: RequestContext = {
+      senderTabId: sender.tab?.id,
+    };
+
+    handleBackgroundRequest(message, context)
       .then(sendResponse)
       .catch((error: unknown) => {
         sendResponse({
@@ -201,3 +268,5 @@ export function registerBackgroundRouter(): void {
     return true;
   });
 }
+
+export { clearInviteForTab };

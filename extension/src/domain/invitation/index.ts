@@ -1,8 +1,9 @@
 /**
  * Smart-mode invitation domain (M3 / DOM-34).
  *
- * Pure state machine + caps + badge-first copy. Chrome action badge / panel
- * wiring and optional `chrome.notifications` live in a later slice.
+ * Pure state machine + caps + badge-first copy. Service worker applies
+ * chrome.action badges via background/invite-controller (optional
+ * chrome.notifications deferred).
  */
 
 export {

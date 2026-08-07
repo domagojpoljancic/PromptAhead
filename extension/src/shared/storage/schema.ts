@@ -10,6 +10,8 @@ export const STORAGE_KEYS = {
   recentHistory: "history.recent.v1",
   fullHistory: "history.full.v1",
   learningAggregates: "learning.aggregates.v1",
+  /** Smart invite quota / snooze / active badge tab (DOM-34). */
+  inviteRuntime: "invite.runtime.v1",
   devLogs: "dev.logs.v1",
   onboarding: "onboarding.v1",
 } as const;
@@ -89,6 +91,32 @@ export type LearningAggregates = {
   invitationsAccepted: number;
   invitationsDismissed: number;
 };
+
+/** Persisted Smart invite caps + which tab currently owns the badge. */
+export type ActiveInviteRecord = {
+  tabId: number;
+  pageUrl: string;
+  domain: string;
+  pageType: "article" | "product" | "generic";
+};
+
+export type InviteRuntimeState = {
+  schemaVersion: 1;
+  quotaDayKey: string;
+  invitesToday: number;
+  domainsInvitedToday: string[];
+  snoozeUntilDayKey: string | null;
+  activeInvite: ActiveInviteRecord | null;
+};
+
+export const EMPTY_INVITE_RUNTIME = (dayKey: string): InviteRuntimeState => ({
+  schemaVersion: STORAGE_SCHEMA_VERSION,
+  quotaDayKey: dayKey,
+  invitesToday: 0,
+  domainsInvitedToday: [],
+  snoozeUntilDayKey: null,
+  activeInvite: null,
+});
 
 /** Typed but unwritten until developer mode lands (handoff §20). */
 export type DevLogs = {

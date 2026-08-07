@@ -9,10 +9,13 @@ import {
   DEFAULT_ONBOARDING,
   DEFAULT_RECENT_HISTORY,
   DEFAULT_SETTINGS,
+  EMPTY_INVITE_RUNTIME,
   RECENT_HISTORY_LIMIT,
   STORAGE_SCHEMA_VERSION,
   isDestinationId,
+  type ActiveInviteRecord,
   type HistoryMode,
+  type InviteRuntimeState,
   type NanoPreference,
   type OnboardingState,
   type PromptAheadMode,
@@ -176,6 +179,68 @@ export function migrateOnboarding(raw: unknown): MigrationResult<OnboardingState
       record.nanoStepSkipped,
       DEFAULT_ONBOARDING.nanoStepSkipped,
     ),
+  };
+
+  return { value, migrated: version !== STORAGE_SCHEMA_VERSION };
+}
+
+function pickPageType(value: unknown): ActiveInviteRecord["pageType"] | null {
+  return value === "article" || value === "product" || value === "generic"
+    ? value
+    : null;
+}
+
+function migrateActiveInvite(raw: unknown): ActiveInviteRecord | null {
+  const record = asRecord(raw);
+  if (!record) {
+    return null;
+  }
+  const pageType = pickPageType(record.pageType);
+  if (
+    typeof record.tabId !== "number" ||
+    typeof record.pageUrl !== "string" ||
+    typeof record.domain !== "string" ||
+    !pageType
+  ) {
+    return null;
+  }
+  return {
+    tabId: record.tabId,
+    pageUrl: record.pageUrl,
+    domain: record.domain,
+    pageType,
+  };
+}
+
+export function migrateInviteRuntime(
+  raw: unknown,
+  dayKeyFallback: string = new Date().toISOString().slice(0, 10),
+): MigrationResult<InviteRuntimeState> {
+  const record = asRecord(raw);
+  if (!record) {
+    return { value: EMPTY_INVITE_RUNTIME(dayKeyFallback), migrated: false };
+  }
+
+  const version = readVersion(record);
+  if (version > STORAGE_SCHEMA_VERSION) {
+    return { value: EMPTY_INVITE_RUNTIME(dayKeyFallback), migrated: true };
+  }
+
+  const quotaDayKey = pickString(record.quotaDayKey, dayKeyFallback);
+  const invitesToday =
+    typeof record.invitesToday === "number" && record.invitesToday >= 0
+      ? Math.floor(record.invitesToday)
+      : 0;
+  const snooze =
+    typeof record.snoozeUntilDayKey === "string" ? record.snoozeUntilDayKey : null;
+
+  const value: InviteRuntimeState = {
+    schemaVersion: STORAGE_SCHEMA_VERSION,
+    quotaDayKey,
+    invitesToday,
+    domainsInvitedToday: pickStringArray(record.domainsInvitedToday, []),
+    snoozeUntilDayKey: snooze,
+    activeInvite: migrateActiveInvite(record.activeInvite),
   };
 
   return { value, migrated: version !== STORAGE_SCHEMA_VERSION };

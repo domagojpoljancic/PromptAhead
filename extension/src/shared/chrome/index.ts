@@ -1,5 +1,12 @@
 /** Thin, typed wrappers over the handful of Chrome APIs Manual mode needs. */
 
+export {
+  applyInviteBadge,
+  clearInviteBadge,
+  type ActionBadgeApi,
+  type InviteBadgePaint,
+} from "./badge";
+
 export function isExtensionContext(): boolean {
   return typeof chrome !== "undefined" && Boolean(chrome.runtime?.id);
 }
