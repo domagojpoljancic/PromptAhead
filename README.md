@@ -21,7 +21,7 @@ Privacy-first Chrome extension (Manifest V3) that notices when you are genuinely
 | M0 spike harness (`spikes/`) | **Done** — S0.1–S0.7 implemented and run |
 | Spike results (`docs/technical-spikes.md`) | **Filled** — Chrome **150.0.0.0** (2026-08-01) |
 | Extraction | JSON-LD / Open Graph / semantic-HTML classification with size caps; 6 HTML fixtures; Readability deferred |
-| Engagement | Domain + content tracker; runtime inject after Smart host grant (SW `permissions.onAdded` / install sync); invite/badge still TBD |
+| Engagement | Domain + content tracker; runtime inject after Smart host grant; Vitest fixture threshold fire + jank smoke (passive/throttle); invite/badge still TBD |
 | Suggestions + prompts | Curated + mock-Nano + real `NanoSuggestionEngine` (validate / repair / timeout / curated fallback) |
 | Product docs | Handoff + architecture / plan / privacy / test plan / Nano checklist |
 | Planning | Linear used as the product / issue tracker |
