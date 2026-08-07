@@ -3,7 +3,7 @@
  *
  * Registered at runtime via `chrome.scripting.registerContentScripts` after
  * optional host permission is granted — not always-on from the manifest.
- * Threshold fire only notifies (invite UX is DOM-34); no extraction / Nano.
+ * Threshold fire only notifies (SW invite machine wiring is DOM-34); no extraction / Nano.
  */
 
 import { guessEngagementPageType } from "../domain/engagement/page-type-guess";
