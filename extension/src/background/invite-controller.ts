@@ -3,6 +3,8 @@
  *
  * Engagement threshold → invitation state machine → chrome.action badge.
  * Accept / dismiss / snooze / disable clear the badge and persist caps.
+ * Analysis (extract + panel suggest/Nano) starts only when
+ * `openPanelAndAnalyze` is true after accept — never on threshold/badge.
  * Optional chrome.notifications deferred (badge-first; do not block on OS banners).
  */
 

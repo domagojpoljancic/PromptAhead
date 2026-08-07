@@ -28,6 +28,7 @@ import {
   handleEngagementThreshold,
   handleInviteAction,
 } from "./invite-controller";
+import { kickOffPanelAnalysis } from "./panel-analysis";
 import {
   captureTabContext,
   clearPageContextCache,
@@ -208,18 +209,17 @@ export async function handleBackgroundRequest(
     case "INVITE_ACTION": {
       const tabId = request.tabId ?? context.senderTabId;
       const outcome = await handleInviteAction(request.action, tabId);
+      // Accept only — threshold/badge never sets openPanelAndAnalyze.
       if (
         outcome.handled &&
         outcome.openPanelAndAnalyze &&
         tabId !== undefined
       ) {
-        // TODO(DOM-34 follow-up): full Nano-on-accept analysis pipeline.
-        // For now open the side panel so accept is immediately actionable.
+        const { panel } = kickOffPanelAnalysis(tabId);
         try {
-          void captureTabContext(tabId);
-          await openSidePanel(tabId);
+          await panel;
         } catch {
-          // Gesture may be missing when called from a non-gesture message.
+          // Gesture may be missing when accept arrives via a non-gesture message.
         }
       }
       return {

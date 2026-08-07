@@ -1,4 +1,4 @@
-import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import {
   applyInviteBadge,
@@ -15,6 +15,10 @@ import {
   rememberActiveInviteTab,
   tryAcceptInviteForTab,
 } from "../../extension/src/background/invite-controller";
+import { kickOffPanelAnalysis } from "../../extension/src/background/panel-analysis";
+import {
+  clearPageContextCache,
+} from "../../extension/src/background/page-context-store";
 import { handleBackgroundRequest } from "../../extension/src/background/router";
 import {
   STORAGE_KEYS,
@@ -25,15 +29,23 @@ import {
   uninstallChromeMock,
   type ChromeMock,
 } from "./helpers/chrome-mock";
+import { snapshotFromFixture } from "./helpers/fixture-dom";
 
 const FIXED_NOW = Date.parse("2026-08-07T12:00:00.000Z");
+const STORY_URL = "https://news.example.com/story";
+const TAB_ID = 42;
 
 let mock: ChromeMock;
 
 beforeEach(async () => {
+  clearPageContextCache();
   mock = installChromeMock({
-    activeTab: { id: 42, url: "https://news.example.com/story" },
-    senderTabId: 42,
+    activeTab: { id: TAB_ID, url: STORY_URL },
+    senderTabId: TAB_ID,
+    executeScript: () => ({
+      ok: true,
+      snapshot: snapshotFromFixture("article-jsonld", STORY_URL),
+    }),
   });
   rememberActiveInviteTab(null);
   await updateSettings({
@@ -45,8 +57,22 @@ beforeEach(async () => {
 });
 
 afterEach(() => {
+  clearPageContextCache();
   uninstallChromeMock();
 });
+
+async function showInviteBadge(): Promise<void> {
+  await handleEngagementThreshold(
+    {
+      tabId: TAB_ID,
+      pageUrl: STORY_URL,
+      pageType: "article",
+      reason: "article-threshold-met",
+    },
+    mock.api.action,
+    FIXED_NOW,
+  );
+}
 
 describe("applyInviteBadge / clearInviteBadge", () => {
   it("sets badge text, color, and title via chrome.action", async () => {
@@ -68,11 +94,11 @@ describe("applyInviteBadge / clearInviteBadge", () => {
 });
 
 describe("invite controller SW wiring", () => {
-  it("shows badge on threshold when Smart mode is on", async () => {
+  it("shows badge on threshold without starting extract or panel", async () => {
     const result = await handleEngagementThreshold(
       {
-        tabId: 42,
-        pageUrl: "https://news.example.com/story",
+        tabId: TAB_ID,
+        pageUrl: STORY_URL,
         pageType: "article",
         reason: "article-threshold-met",
       },
@@ -82,24 +108,28 @@ describe("invite controller SW wiring", () => {
 
     expect(result.handled).toBe(true);
     expect(result.showBadge).toBe(true);
+    expect(result.openPanelAndAnalyze).toBe(false);
     expect(result.phase).toBe("invitation_shown");
     expect(mock.badgeText).toBe("!");
     expect(mock.actionTitle).toMatch(/story further/i);
+    // Threshold/badge must never kick off Manual extract or side panel.
+    expect(mock.injections).toEqual([]);
+    expect(mock.sidePanelOpens).toEqual([]);
 
     const runtime = mock.storage[STORAGE_KEYS.inviteRuntime] as {
       invitesToday: number;
       activeInvite: { tabId: number } | null;
     };
     expect(runtime.invitesToday).toBe(1);
-    expect(runtime.activeInvite?.tabId).toBe(42);
+    expect(runtime.activeInvite?.tabId).toBe(TAB_ID);
   });
 
   it("skips invite when mode is Manual", async () => {
     await updateSettings({ mode: "manual", smartModeAvailable: false });
     const result = await handleEngagementThreshold(
       {
-        tabId: 42,
-        pageUrl: "https://news.example.com/story",
+        tabId: TAB_ID,
+        pageUrl: STORY_URL,
         pageType: "article",
         reason: "article-threshold-met",
       },
@@ -109,54 +139,53 @@ describe("invite controller SW wiring", () => {
     expect(result.handled).toBe(false);
     expect(result.showBadge).toBe(false);
     expect(mock.badgeText).toBe("");
+    expect(mock.injections).toEqual([]);
+    expect(mock.sidePanelOpens).toEqual([]);
   });
 
-  it("accept clears badge and requests panel open", async () => {
-    await handleEngagementThreshold(
-      {
-        tabId: 42,
-        pageUrl: "https://news.example.com/story",
-        pageType: "article",
-        reason: "article-threshold-met",
-      },
+  it("accept flags openPanelAndAnalyze; kickoff then extracts and opens panel", async () => {
+    await showInviteBadge();
+    expect(mock.injections).toEqual([]);
+    expect(mock.sidePanelOpens).toEqual([]);
+
+    const accepted = await tryAcceptInviteForTab(
+      TAB_ID,
       mock.api.action,
       FIXED_NOW,
     );
-
-    const accepted = await tryAcceptInviteForTab(42, mock.api.action, FIXED_NOW);
     expect(accepted.handled).toBe(true);
     expect(accepted.openPanelAndAnalyze).toBe(true);
     expect(accepted.clearBadge).toBe(true);
     expect(mock.badgeText).toBe("");
     expect(accepted.phase).toBe("accepted");
+    // Controller alone does not extract — SW/router call kickOffPanelAnalysis.
+    expect(mock.injections).toEqual([]);
+
+    const { capture, panel } = kickOffPanelAnalysis(TAB_ID, STORY_URL);
+    await Promise.all([capture, panel]);
+    expect(mock.injections).toEqual([TAB_ID]);
+    expect(mock.sidePanelOpens).toEqual([TAB_ID]);
   });
 
-  it("dismiss and snooze clear badge and update state", async () => {
-    await handleEngagementThreshold(
-      {
-        tabId: 42,
-        pageUrl: "https://news.example.com/story",
-        pageType: "article",
-        reason: "article-threshold-met",
-      },
-      mock.api.action,
-      FIXED_NOW,
-    );
+  it("dismiss and snooze clear badge without analysis", async () => {
+    await showInviteBadge();
 
     const dismissed = await handleInviteAction(
       "dismiss",
-      42,
+      TAB_ID,
       mock.api.action,
       FIXED_NOW,
     );
     expect(dismissed.handled).toBe(true);
     expect(dismissed.clearBadge).toBe(true);
+    expect(dismissed.openPanelAndAnalyze).toBe(false);
     expect(mock.badgeText).toBe("");
+    expect(mock.injections).toEqual([]);
 
     // Re-show for snooze path
     await handleEngagementThreshold(
       {
-        tabId: 42,
+        tabId: TAB_ID,
         pageUrl: "https://other.example.com/story",
         pageType: "article",
         reason: "article-threshold-met",
@@ -166,13 +195,16 @@ describe("invite controller SW wiring", () => {
     );
     const snoozed = await handleInviteAction(
       "snooze",
-      42,
+      TAB_ID,
       mock.api.action,
       FIXED_NOW,
     );
     expect(snoozed.handled).toBe(true);
     expect(snoozed.phase).toBe("snoozed");
+    expect(snoozed.openPanelAndAnalyze).toBe(false);
     expect(mock.badgeText).toBe("");
+    expect(mock.injections).toEqual([]);
+    expect(mock.sidePanelOpens).toEqual([]);
 
     const runtime = mock.storage[STORAGE_KEYS.inviteRuntime] as {
       snoozeUntilDayKey: string | null;
@@ -181,35 +213,27 @@ describe("invite controller SW wiring", () => {
   });
 
   it("clearInviteForTab drops badge when that tab owned the invite", async () => {
-    await handleEngagementThreshold(
-      {
-        tabId: 42,
-        pageUrl: "https://news.example.com/story",
-        pageType: "article",
-        reason: "article-threshold-met",
-      },
-      mock.api.action,
-      FIXED_NOW,
-    );
-    await clearInviteForTab(42, mock.api.action);
+    await showInviteBadge();
+    await clearInviteForTab(TAB_ID, mock.api.action);
     expect(mock.badgeText).toBe("");
     const runtime = mock.storage[STORAGE_KEYS.inviteRuntime] as {
       activeInvite: null;
     };
     expect(runtime.activeInvite).toBeNull();
+    expect(mock.injections).toEqual([]);
   });
 });
 
 describe("router invite messages", () => {
-  it("routes ENGAGEMENT_THRESHOLD with sender tab id", async () => {
+  it("routes ENGAGEMENT_THRESHOLD without extract or panel", async () => {
     const response = await handleBackgroundRequest(
       {
         type: "ENGAGEMENT_THRESHOLD",
         pageType: "article",
-        url: "https://news.example.com/story",
+        url: STORY_URL,
         reason: "article-threshold-met",
       },
-      { senderTabId: 42 },
+      { senderTabId: TAB_ID },
     );
     expect(response.ok).toBe(true);
     if (response.ok && response.type === "ENGAGEMENT_THRESHOLD") {
@@ -217,29 +241,65 @@ describe("router invite messages", () => {
       expect(response.phase).toBe("invitation_shown");
     }
     expect(mock.badgeText).toBe("!");
+    expect(mock.injections).toEqual([]);
+    expect(mock.sidePanelOpens).toEqual([]);
   });
 
-  it("routes INVITE_ACTION dismiss", async () => {
+  it("routes INVITE_ACTION accept → panel + extract", async () => {
     await handleBackgroundRequest(
       {
         type: "ENGAGEMENT_THRESHOLD",
         pageType: "article",
-        url: "https://news.example.com/story",
+        url: STORY_URL,
         reason: "article-threshold-met",
       },
-      { senderTabId: 42 },
+      { senderTabId: TAB_ID },
+    );
+    expect(mock.injections).toEqual([]);
+
+    const response = await handleBackgroundRequest({
+      type: "INVITE_ACTION",
+      action: "accept",
+      tabId: TAB_ID,
+    });
+    expect(response.ok).toBe(true);
+    if (response.ok && response.type === "INVITE_ACTION") {
+      expect(response.handled).toBe(true);
+      expect(response.openPanelAndAnalyze).toBe(true);
+      expect(response.phase).toBe("accepted");
+    }
+    expect(mock.badgeText).toBe("");
+    expect(mock.sidePanelOpens).toEqual([TAB_ID]);
+    // Extraction is fire-and-forget; wait for the injection to land.
+    await vi.waitFor(() => {
+      expect(mock.injections).toEqual([TAB_ID]);
+    });
+  });
+
+  it("routes INVITE_ACTION dismiss without analysis", async () => {
+    await handleBackgroundRequest(
+      {
+        type: "ENGAGEMENT_THRESHOLD",
+        pageType: "article",
+        url: STORY_URL,
+        reason: "article-threshold-met",
+      },
+      { senderTabId: TAB_ID },
     );
     const response = await handleBackgroundRequest({
       type: "INVITE_ACTION",
       action: "dismiss",
-      tabId: 42,
+      tabId: TAB_ID,
     });
     expect(response.ok).toBe(true);
     if (response.ok && response.type === "INVITE_ACTION") {
       expect(response.handled).toBe(true);
       expect(response.clearBadge).toBe(true);
+      expect(response.openPanelAndAnalyze).toBe(false);
       expect(response.phase).toBe("dismissed");
     }
     expect(mock.badgeText).toBe("");
+    expect(mock.injections).toEqual([]);
+    expect(mock.sidePanelOpens).toEqual([]);
   });
 });

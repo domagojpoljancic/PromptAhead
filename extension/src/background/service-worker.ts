@@ -3,7 +3,6 @@ import {
   smartOriginsGranted,
   syncEngagementContentScripts,
 } from "../domain/smart";
-import { openSidePanel } from "../shared/chrome";
 import { broadcastBackgroundEvent } from "../shared/messaging";
 import { ensureDefaults } from "../shared/storage";
 import {
@@ -11,8 +10,9 @@ import {
   peekActiveInviteTabId,
   tryAcceptInviteForTab,
 } from "./invite-controller";
+import { kickOffPanelAnalysis } from "./panel-analysis";
 import { registerBackgroundRouter } from "./router";
-import { captureTabContext, forgetPageContext } from "./page-context-store";
+import { forgetPageContext } from "./page-context-store";
 
 const OPEN_PANEL_MENU_ID = "promptahead-open-panel";
 
@@ -41,32 +41,32 @@ async function syncEngagementRegistration(): Promise<void> {
 }
 
 /**
- * The single Manual entry point. Order matters and nothing may be awaited:
+ * Manual / post-accept entry. Order matters and nothing may be awaited:
  * extraction is kicked off first so the injection request leaves while the
  * `activeTab` grant is freshest, then `sidePanel.open` still runs inside the
- * user gesture Chrome requires (S0.4/S0.5).
+ * user gesture Chrome requires (S0.4/S0.5). Suggest (curated/Nano) runs in the
+ * panel after context arrives — never on engagement threshold alone.
  */
 function handleManualGesture(tab: chrome.tabs.Tab | undefined): void {
   if (!tab?.id) {
     return;
   }
-  void captureTabContext(tab.id, tab.url);
-  void openSidePanel(tab.id);
+  kickOffPanelAnalysis(tab.id, tab.url);
 }
 
 /**
  * Toolbar / shortcut / menu. Uses in-memory invite tab id so accept can open
  * the panel inside the user gesture (no await before sidePanel.open).
+ * Badge/threshold never reaches here — only an explicit accept gesture does.
  */
 function handleGesture(tab: chrome.tabs.Tab | undefined): void {
   if (!tab?.id) {
     return;
   }
   if (peekActiveInviteTabId() === tab.id) {
-    // TODO(DOM-34 follow-up): dedicated Smart Nano-on-accept pipeline.
+    // Accept clears badge; analysis uses the same Manual extract→panel path.
     void tryAcceptInviteForTab(tab.id);
-    void captureTabContext(tab.id, tab.url);
-    void openSidePanel(tab.id);
+    kickOffPanelAnalysis(tab.id, tab.url);
     return;
   }
   handleManualGesture(tab);
