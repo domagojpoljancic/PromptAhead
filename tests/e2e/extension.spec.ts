@@ -93,28 +93,51 @@ test("extracts local fixture and walks prompt flow to copy", async () => {
   await expect(panel.locator("#choose")).toBeVisible({ timeout: 15_000 });
   await expect(panel.locator("#context-title")).toContainText(/AI Act|EU/i);
 
-  await panel.locator("#primary-actions button").first().click();
-  await expect(panel.locator("#refine")).toBeVisible();
-  await panel.locator("#continue-to-review").click();
-  await expect(panel.locator("#review")).toBeVisible();
-  await panel.locator("#build-prompt").click();
-  await expect(panel.locator("#prompt")).toBeVisible();
-  await expect(panel.locator("#prompt-text")).not.toHaveValue("");
+  await walkChooseThroughCopy(panel);
 
-  // chrome-extension:// origins are opaque — grantPermissions cannot target them.
-  // Stub clipboard so Copy still exercises the handoff + history path.
-  await panel.evaluate(() => {
-    Object.defineProperty(navigator, "clipboard", {
-      configurable: true,
-      value: {
-        writeText: async () => undefined,
-        readText: async () => "",
-      },
-    });
+  await panel.close();
+  await tab.close();
+});
+
+/**
+ * DOM-51: Nano forced off (`nanoPreference: "basic"` / Settings force-basic)
+ * must still complete extract → curated suggestions → prompt → copy.
+ * Live Nano hardware smoke stays on DOM-31 /
+ * docs/nano-verification-checklist.md — CI never downloads or runs Prompt API.
+ */
+test("Nano forced off still completes curated extract → prompt → copy", async () => {
+  test.setTimeout(30_000);
+  await seedCompletedOnboarding(session, { nanoPreference: "basic" });
+
+  const options = await openExtensionPage(session, session.optionsUrl);
+  await expect(options.locator("#nano-force-basic")).toBeChecked();
+  await expect
+    .poll(async () =>
+      options.evaluate(async () => {
+        const response = (await chrome.runtime.sendMessage({
+          type: "GET_SETTINGS",
+        })) as { ok: boolean; settings?: { nanoPreference: string } };
+        return response.settings?.nanoPreference ?? null;
+      }),
+    )
+    .toBe("basic");
+  await options.close();
+
+  const tab = await session.context.newPage();
+  await tab.goto(server.url("/article.html"), {
+    waitUntil: "domcontentloaded",
   });
-  await panel.locator("#destination-actions button").first().click();
-  await expect(panel.locator("#success")).toBeVisible();
-  await expect(panel.locator("#success-message")).toContainText(/copied/i);
+
+  const panel = await openExtensionPage(session, session.sidePanelUrl);
+  const tabId = await extractActiveFixture(panel, tab);
+  expect(tabId).toBeGreaterThan(0);
+
+  await expect(panel.locator("#choose")).toBeVisible({ timeout: 15_000 });
+  await expect(panel.locator("#status")).toContainText(/curated/i);
+  await expect(panel.locator("#nano-fallback")).toBeHidden();
+  await expect(panel.locator("#primary-actions button").first()).toBeVisible();
+
+  await walkChooseThroughCopy(panel);
 
   await panel.close();
   await tab.close();
@@ -198,11 +221,37 @@ async function extractActiveFixture(
   }, fixtureUrl);
 }
 
+async function walkChooseThroughCopy(panel: Page): Promise<void> {
+  await panel.locator("#primary-actions button").first().click();
+  await expect(panel.locator("#refine")).toBeVisible();
+  await panel.locator("#continue-to-review").click();
+  await expect(panel.locator("#review")).toBeVisible();
+  await panel.locator("#build-prompt").click();
+  await expect(panel.locator("#prompt")).toBeVisible();
+  await expect(panel.locator("#prompt-text")).not.toHaveValue("");
+
+  // chrome-extension:// origins are opaque — grantPermissions cannot target them.
+  // Stub clipboard so Copy still exercises the handoff + history path.
+  await panel.evaluate(() => {
+    Object.defineProperty(navigator, "clipboard", {
+      configurable: true,
+      value: {
+        writeText: async () => undefined,
+        readText: async () => "",
+      },
+    });
+  });
+  await panel.locator("#destination-actions button").first().click();
+  await expect(panel.locator("#success")).toBeVisible();
+  await expect(panel.locator("#success-message")).toContainText(/copied/i);
+}
+
 async function seedCompletedOnboarding(
   target: ExtensionSession,
+  settingsPatch: { nanoPreference?: "basic" | "enabled" | "skipped" } = {},
 ): Promise<void> {
   const seed = await openExtensionPage(target, target.optionsUrl);
-  await seed.evaluate(async () => {
+  await seed.evaluate(async (patch) => {
     await chrome.runtime.sendMessage({
       type: "SET_ONBOARDING",
       patch: {
@@ -215,8 +264,8 @@ async function seedCompletedOnboarding(
     });
     await chrome.runtime.sendMessage({
       type: "SET_SETTINGS",
-      patch: { defaultDestination: "copy" },
+      patch: { defaultDestination: "copy", ...patch },
     });
-  });
+  }, settingsPatch);
   await seed.close();
 }

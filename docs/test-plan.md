@@ -43,8 +43,9 @@ Never call cloud models in tests. Playwright never opens live ChatGPT / Claude /
 - Domain unit + HTML fixture extraction
 - Messaging / storage integration with chrome mock
 - Side-panel and options jsdom click-through (DOM-10 / DOM-11 happy paths + key failures)
-- Playwright against built MV3: service-worker PING, options persistence, onboarding skip, local fixture extract → curated flow → copy, clear-all
+- Playwright against built MV3: service-worker PING, options persistence, onboarding skip, local fixture extract → curated flow → copy, clear-all, **Nano forced off (Settings force basic) → curated extract → prompt → copy**
 - Production manifest stays `activeTab`-only; e2e copies `extension/dist/` and adds a **test-only** `host_permissions` entry for `http://127.0.0.1:<fixture-port>/*`
+- Real Nano hardware / Prompt API smoke stays manual: [`nano-verification-checklist.md`](./nano-verification-checklist.md) (DOM-31) — Playwright never downloads or runs Nano
 
 ### Manual release smoke (keep tiny)
 
@@ -169,6 +170,7 @@ Scripts: `npm run test:e2e` / `test:e2e:headed` / included in `test:ci`.
 - Open `chrome-extension://<id>/src/options/index.html` and `…/sidepanel/index.html` directly (no `chrome://extensions` automation).
 - Serve `tests/fixtures/html/article-jsonld.html` on `127.0.0.1`; extract via background with test-only host grant.
 - Walk curated prompt flow to Copy; clear-all from options.
+- Force basic private mode (Nano off) → curated suggestions still complete extract → prompt → copy (hardware Nano remains DOM-31).
 
 ## 8. Manual Chrome verification checklists
 

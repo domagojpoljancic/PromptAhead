@@ -108,7 +108,7 @@ export async function openExtensionPage(
   url: string,
 ): Promise<Page> {
   const page = await session.context.newPage();
-  await page.goto(url);
+  await page.goto(url, { waitUntil: "domcontentloaded" });
   return page;
 }
 
