@@ -112,6 +112,7 @@ async function persistAfterTransition(
   dayKey: string,
   tabId: number | undefined,
   settings: Settings,
+  extra: Partial<Omit<InviteRuntimeState, "schemaVersion">> = {},
 ): Promise<void> {
   const patch: Partial<Omit<InviteRuntimeState, "schemaVersion">> = {
     quotaDayKey: transition.quota.dayKey || dayKey,
@@ -119,6 +120,7 @@ async function persistAfterTransition(
     domainsInvitedToday: [...transition.quota.domainsInvitedToday],
     pagesInvitedToday: [...transition.quota.pagesInvitedToday],
     snoozeUntilDayKey: transition.snoozeUntilDayKey,
+    ...extra,
   };
 
   if (transition.showBadge && tabId !== undefined) {
@@ -205,7 +207,18 @@ export async function handleEngagementThreshold(
     policyFrom(settings, runtime, dayKey),
   );
 
-  await persistAfterTransition(transition, dayKey, detail.tabId, settings);
+  await persistAfterTransition(transition, dayKey, detail.tabId, settings, {
+    lastInviteEvent: {
+      at: new Date(nowMs).toISOString(),
+      url: detail.pageUrl,
+      pageType: detail.pageType,
+      showBadge: transition.showBadge,
+      suppression: transition.session.suppression,
+      reason: transition.session.reason,
+      invitesToday: transition.quota.invitesToday,
+      domainsInvitedToday: [...transition.quota.domainsInvitedToday],
+    },
+  });
   await paintFromTransition(transition, api);
 
   return resultFrom(transition, true);

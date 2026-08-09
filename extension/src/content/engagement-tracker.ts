@@ -12,6 +12,7 @@
 import type { PageType } from "../shared/types/page-context";
 import {
   createEngagementSession,
+  guessEngagementPageType,
   isEngagementEligibleUrl,
   noteFocus,
   noteProductInteraction,
@@ -113,9 +114,11 @@ export function startEngagementTracker(
   const clock = options.clock ?? (() => Date.now());
   const scrollThrottleMs = options.scrollThrottleMs ?? 200;
   const tickIntervalMs = options.tickIntervalMs ?? 1_000;
+  let pageType = options.pageType;
+  let pageUrl = options.url;
   let state = createEngagementSession({
-    pageType: options.pageType,
-    url: options.url,
+    pageType,
+    url: pageUrl,
     thresholds: options.thresholds,
     now: clock(),
     visible: pageDoc.visibilityState === "visible",
@@ -125,6 +128,7 @@ export function startEngagementTracker(
   let stopped = false;
   let scrollTimer: ReturnType<typeof setTimeout> | null = null;
   let tickTimer: ReturnType<typeof setInterval> | null = null;
+  let urlPollTimer: ReturnType<typeof setInterval> | null = null;
 
   const apply = (
     result: ReturnType<typeof tickEngagement>,
@@ -132,11 +136,32 @@ export function startEngagementTracker(
     state = result.state;
     if (result.thresholdReached) {
       options.onThresholdReached({
-        pageType: options.pageType,
-        url: options.url,
+        pageType,
+        url: pageUrl,
         reason: result.reason,
       });
     }
+  };
+
+  const resetForUrl = (href: string): void => {
+    pageUrl = href;
+    pageType = guessEngagementPageType(pageDoc, href);
+    state = createEngagementSession({
+      pageType,
+      url: pageUrl,
+      thresholds: options.thresholds,
+      now: clock(),
+      visible: pageDoc.visibilityState === "visible",
+      focused: typeof pageDoc.hasFocus === "function" ? pageDoc.hasFocus() : true,
+    });
+    flushScroll();
+  };
+
+  const onMaybeNavigate = (): void => {
+    if (stopped) return;
+    const href = pageWin.location.href;
+    if (href === pageUrl) return;
+    resetForUrl(href);
   };
 
   const onVisibility = (): void => {
@@ -182,7 +207,7 @@ export function startEngagementTracker(
   };
 
   const onClick = (event: Event): void => {
-    if (stopped || options.pageType !== "product") return;
+    if (stopped || pageType !== "product") return;
     const target = snapshotInteractionTarget(event.target);
     if (!target) return;
     apply(noteProductInteraction(state, target, clock(), options.thresholds));
@@ -191,6 +216,9 @@ export function startEngagementTracker(
   pageDoc.addEventListener("visibilitychange", onVisibility, { passive: true });
   pageWin.addEventListener("focus", onFocus, { passive: true });
   pageWin.addEventListener("blur", onBlur, { passive: true });
+  pageWin.addEventListener("popstate", onMaybeNavigate, { passive: true });
+  // Capture on document so nested overflow scrollers (live blogs) count too.
+  pageDoc.addEventListener("scroll", onScroll, { passive: true, capture: true });
   pageWin.addEventListener("scroll", onScroll, { passive: true, capture: true });
   pageDoc.addEventListener("click", onClick, { passive: true, capture: true });
 
@@ -198,6 +226,9 @@ export function startEngagementTracker(
     if (stopped) return;
     apply(tickEngagement(state, clock(), options.thresholds));
   }, tickIntervalMs);
+
+  // Soft navigations (pushState) do not re-inject content scripts.
+  urlPollTimer = setInterval(onMaybeNavigate, 1_000);
 
   // Initial scroll sample for short pages already in view.
   flushScroll();
@@ -209,10 +240,13 @@ export function startEngagementTracker(
       pageDoc.removeEventListener("visibilitychange", onVisibility);
       pageWin.removeEventListener("focus", onFocus);
       pageWin.removeEventListener("blur", onBlur);
+      pageWin.removeEventListener("popstate", onMaybeNavigate);
+      pageDoc.removeEventListener("scroll", onScroll, true);
       pageWin.removeEventListener("scroll", onScroll, true);
       pageDoc.removeEventListener("click", onClick, true);
       if (scrollTimer !== null) clearTimeout(scrollTimer);
       if (tickTimer !== null) clearInterval(tickTimer);
+      if (urlPollTimer !== null) clearInterval(urlPollTimer);
     },
     getState: () => state,
   };

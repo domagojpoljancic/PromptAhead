@@ -10,18 +10,35 @@ import { guessEngagementPageType } from "../domain/engagement/page-type-guess";
 import { sendToBackground } from "../shared/messaging";
 import { startEngagementTracker } from "./engagement-tracker";
 
-const url = typeof location !== "undefined" ? location.href : "";
-const pageType = guessEngagementPageType(document, url);
+const BOOT_FLAG = "__promptaheadEngagementBooted";
 
-startEngagementTracker({
-  pageType,
-  url,
-  onThresholdReached: (detail) => {
-    void sendToBackground({
-      type: "ENGAGEMENT_THRESHOLD",
-      pageType: detail.pageType,
-      url: detail.url,
-      reason: detail.reason,
-    });
-  },
-});
+declare global {
+  interface Window {
+    [BOOT_FLAG]?: boolean;
+  }
+}
+
+function bootEngagement(): void {
+  if (typeof window === "undefined" || window[BOOT_FLAG]) {
+    return;
+  }
+  window[BOOT_FLAG] = true;
+
+  const url = typeof location !== "undefined" ? location.href : "";
+  const pageType = guessEngagementPageType(document, url);
+
+  startEngagementTracker({
+    pageType,
+    url,
+    onThresholdReached: (detail) => {
+      void sendToBackground({
+        type: "ENGAGEMENT_THRESHOLD",
+        pageType: detail.pageType,
+        url: detail.url,
+        reason: detail.reason,
+      });
+    },
+  });
+}
+
+bootEngagement();

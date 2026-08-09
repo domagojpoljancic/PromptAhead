@@ -5,6 +5,10 @@
 
 import { getActiveTab, openSidePanel } from "../shared/chrome";
 import {
+  hasSmartHostPermission,
+  syncEngagementContentScripts,
+} from "../domain/smart";
+import {
   broadcastBackgroundEvent,
   describeError,
   isBackgroundEvent,
@@ -15,14 +19,17 @@ import {
 import {
   addRecentPrompt,
   clearAllPromptAheadData,
+  clearInviteRuntime,
   clearLearningAggregates,
   clearRecentHistory,
+  readInviteRuntime,
   readOnboarding,
   readRecentHistory,
   readSettings,
   updateOnboarding,
   updateSettings,
 } from "../shared/storage";
+import { ENGAGEMENT_BOOT_SCRIPT_PATH } from "./engagement-boot-path";
 import {
   clearInviteForTab,
   handleEngagementThreshold,
@@ -229,6 +236,47 @@ export async function handleBackgroundRequest(
         clearBadge: outcome.clearBadge,
         openPanelAndAnalyze: outcome.openPanelAndAnalyze,
         phase: outcome.phase,
+      };
+    }
+
+    case "SYNC_ENGAGEMENT_SCRIPTS": {
+      const hostGranted = await hasSmartHostPermission();
+      const result = await syncEngagementContentScripts(
+        hostGranted,
+        undefined,
+        undefined,
+        [ENGAGEMENT_BOOT_SCRIPT_PATH],
+      );
+      return {
+        ok: true,
+        type: "SYNC_ENGAGEMENT_SCRIPTS",
+        hostGranted,
+        registered: result.registered,
+        js: result.js ?? [],
+        error: result.error,
+      };
+    }
+
+    case "GET_INVITE_RUNTIME": {
+      const runtime = await readInviteRuntime();
+      return {
+        ok: true,
+        type: "GET_INVITE_RUNTIME",
+        invitesToday: runtime.invitesToday,
+        domainsInvitedToday: runtime.domainsInvitedToday,
+        pagesInvitedToday: runtime.pagesInvitedToday,
+        snoozeUntilDayKey: runtime.snoozeUntilDayKey,
+        lastInviteEvent: runtime.lastInviteEvent,
+      };
+    }
+
+    case "RESET_INVITE_CAPS": {
+      const cleared = await clearInviteRuntime();
+      return {
+        ok: true,
+        type: "RESET_INVITE_CAPS",
+        cleared: true,
+        invitesToday: cleared.invitesToday,
       };
     }
   }

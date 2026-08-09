@@ -246,10 +246,40 @@ export function migrateInviteRuntime(
     pagesInvitedToday,
     snoozeUntilDayKey: snooze,
     activeInvite: migrateActiveInvite(record.activeInvite),
+    lastInviteEvent: migrateLastInviteEvent(record.lastInviteEvent),
   };
 
   return {
     value,
     migrated: version !== STORAGE_SCHEMA_VERSION || !hadPagesField,
+  };
+}
+
+function migrateLastInviteEvent(raw: unknown): InviteRuntimeState["lastInviteEvent"] {
+  const record = asRecord(raw);
+  if (!record) {
+    return null;
+  }
+  if (
+    typeof record.at !== "string" ||
+    typeof record.url !== "string" ||
+    typeof record.pageType !== "string" ||
+    typeof record.showBadge !== "boolean" ||
+    typeof record.reason !== "string" ||
+    typeof record.invitesToday !== "number" ||
+    !Array.isArray(record.domainsInvitedToday)
+  ) {
+    return null;
+  }
+  return {
+    at: record.at,
+    url: record.url,
+    pageType: record.pageType,
+    showBadge: record.showBadge,
+    suppression:
+      typeof record.suppression === "string" ? record.suppression : null,
+    reason: record.reason,
+    invitesToday: Math.floor(record.invitesToday),
+    domainsInvitedToday: pickStringArray(record.domainsInvitedToday, []),
   };
 }

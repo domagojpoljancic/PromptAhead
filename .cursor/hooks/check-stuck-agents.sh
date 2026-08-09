@@ -6,16 +6,18 @@ set -u
 
 ROOT="$(cd "$(dirname "$0")/../.." && pwd)"
 WATCH_FILE="${STUCK_AGENT_WATCH_FILE:-$ROOT/.cursor/stuck-agent-watch.json}"
-STUCK_SEC="${STUCK_AGENT_THRESHOLD_SEC:-300}"
+# Prefer stuckAfterSec from watch file; env overrides; default 120s
+STUCK_SEC="${STUCK_AGENT_THRESHOLD_SEC:-}"
 PROJECT_SLUG="${CURSOR_PROJECT_SLUG:-Users-domagoj-Documents-Cursor-Projects-PromptAhead}"
 TRANSCRIPTS_ROOT="${CURSOR_TRANSCRIPTS_ROOT:-$HOME/.cursor/projects/$PROJECT_SLUG/agent-transcripts}"
+# Unwatched scan OFF by default (avoids false STUCK on parent call-* / old transcripts)
+SCAN_RECENT="${STUCK_AGENT_SCAN_RECENT:-0}"
 
-python3 - "$WATCH_FILE" "$STUCK_SEC" "$TRANSCRIPTS_ROOT" "$ROOT" <<'PY' || true
+python3 - "$WATCH_FILE" "${STUCK_SEC:-}" "$TRANSCRIPTS_ROOT" "$ROOT" "$SCAN_RECENT" <<'PY' || true
 import json, os, sys, time
 from datetime import datetime, timezone
 
-watch_path, stuck_sec_s, transcripts_root, repo_root = sys.argv[1:5]
-stuck_sec = int(stuck_sec_s)
+watch_path, stuck_sec_s, transcripts_root, repo_root, scan_recent_s = sys.argv[1:6]
 now = time.time()
 
 def load_watch():
@@ -138,8 +140,24 @@ def edited_paths_silent(entry, age_sec):
     return all_silent
 
 state = load_watch()
+# Prefer watch-file stuckAfterSec when env not set
+if stuck_sec_s.strip():
+    stuck_sec = int(stuck_sec_s)
+else:
+    stuck_sec = int(state.get("stuckAfterSec") or 120)
+
 agents = state.get("agents") or {}
 seen = set()
+still_running = {}
+
+def uuid_like(aid: str) -> bool:
+    # Reject parent tool call ids (call-… / fc_…) — only real subagent UUIDs
+    import re
+    return bool(re.fullmatch(
+        r"[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}",
+        aid,
+        flags=re.I,
+    ))
 
 if not agents:
     print("watchdog: no active watches")
@@ -148,6 +166,9 @@ else:
         if not isinstance(entry, dict):
             entry = {"id": str(aid)}
         aid = str(entry.get("id") or aid)
+        if not uuid_like(aid):
+            print(f"DONE id={aid} age_sec=0 note=rejected_non_uuid")
+            continue
         seen.add(aid)
         status = str(entry.get("status") or "running").lower()
         tpath = entry.get("transcriptPath") or entry.get("transcript_path")
@@ -157,7 +178,7 @@ else:
         if status in ("completed", "done", "success"):
             print(f"DONE id={aid} age_sec=0 note=watch_status")
             continue
-        if status in ("failed", "error", "failure"):
+        if status in ("failed", "error", "failure", "cancelled", "canceled", "aborted"):
             print(f"DONE id={aid} age_sec=0 note=watch_failed")
             continue
 
@@ -176,6 +197,7 @@ else:
                 print(f"STUCK id={aid} age_sec={age} note=no_transcript")
             else:
                 print(f"OK id={aid} age_sec={age} note=no_transcript_yet")
+            still_running[aid] = entry
             continue
 
         mtime, last = last_jsonl_event(tpath)
@@ -185,6 +207,11 @@ else:
             st = (last or {}).get("status") or "ended"
             print(f"DONE id={aid} age_sec={age} status={st} transcript={tpath}")
             continue
+
+        # Heuristic: subagent finished successfully but no turn_ended line
+        # (common for Task tool) — treat as DONE if status was cleared by stop hook
+        # or last assistant message exists and age already huge with stop hook removal.
+        # Keep as running here; stop hook removes from watch.
 
         files_silent = edited_paths_silent(entry, stuck_sec)
         if age >= stuck_sec:
@@ -196,9 +223,22 @@ else:
                 print(f"OK id={aid} age_sec={age} note=files_active transcript={tpath}")
         else:
             print(f"OK id={aid} age_sec={age} transcript={tpath}")
+        still_running[aid] = entry
 
-# Also scan recent subagent transcripts not in watch (last 2h, still open)
-scan_recent = os.environ.get("STUCK_AGENT_SCAN_RECENT", "1") == "1"
+# Prune completed / rejected entries from watch file so loops can IDLE_EXIT
+try:
+    if isinstance(state.get("agents"), dict) and state["agents"] != still_running:
+        pruned = dict(state)
+        pruned["agents"] = still_running
+        pruned["updatedAt"] = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+        with open(watch_path, "w", encoding="utf-8") as f:
+            json.dump(pruned, f, indent=2)
+            f.write("\n")
+except Exception:
+    pass
+
+# Optional scan of recent unwatched subagent transcripts (OFF by default)
+scan_recent = scan_recent_s == "1"
 if scan_recent and os.path.isdir(transcripts_root):
     cutoff = now - 2 * 3600
     for root, _dirs, files in os.walk(transcripts_root):
@@ -208,7 +248,7 @@ if scan_recent and os.path.isdir(transcripts_root):
             if not fn.endswith(".jsonl"):
                 continue
             aid = fn[:-6]
-            if aid in seen:
+            if aid in seen or not uuid_like(aid):
                 continue
             p = os.path.join(root, fn)
             try:
@@ -226,6 +266,10 @@ if scan_recent and os.path.isdir(transcripts_root):
             # else: recent active unwatched — omit to reduce noise
 
 print(f"watchdog: check_complete ts={datetime.now(timezone.utc).strftime('%Y-%m-%dT%H:%M:%SZ')}")
+
+# Signal parent loop to exit when the watch file has no running agents
+if not still_running:
+    print("AGENT_LOOP_IDLE_EXIT")
 PY
 
 exit 0

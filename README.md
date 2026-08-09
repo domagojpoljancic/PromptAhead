@@ -1,6 +1,6 @@
 # PromptAhead
 
-> **WIP — M3 Smart product path on `main`; Playwright Smart coverage expanding (DOM-56).** Manual core (M1) is buildable and covered by Vitest/Playwright/CI. Nano UX, Smart grant/revoke, engagement thresholds, invitation state machine, badge-first invites with **proactive caps** (once/page, once/domain/day, ≤3/day) + snooze / domain exclude / global pause (persistence + Settings toggle, Vitest), and accept → panel + extract are on `main`. Optional `chrome.notifications` / invite dismiss UI deferred. Next automation: Smart invite/accept paths + caps (DOM-56); manual Smart smoke (DOM-38). Chrome Web Store packaging (M4) still ahead.
+> **WIP — M3 Smart on `main`; engagement boot path fix in flight (CRXJS hashed `assets/…`).** Manual core (M1) is buildable and covered by Vitest/Playwright/CI. Nano UX, Smart grant/revoke, engagement thresholds, invitation state machine, badge-first invites with **proactive caps** + snooze / domain exclude / global pause, and accept → panel + extract are on `main`. This branch registers engagement via the packaged loader (not the source `.ts` path), re-injects open tabs after grant, and softens article invite to **30s OR ~⅔ scroll**. Manual Smart smoke still open; Chrome Web Store packaging (M4) still ahead.
 
 **Your next question, already prepared.**
 
@@ -21,7 +21,7 @@ Privacy-first Chrome extension (Manifest V3) that notices when you are genuinely
 | M0 spike harness (`spikes/`) | **Done** — S0.1–S0.7 implemented and run |
 | Spike results (`docs/technical-spikes.md`) | **Filled** — Chrome **150.0.0.0** (2026-08-01) |
 | Extraction | JSON-LD / Open Graph / semantic-HTML classification with size caps; 6 HTML fixtures; Readability deferred |
-| Engagement | Domain + content tracker; runtime inject after Smart host grant; Vitest fixture threshold fire + jank smoke (passive/throttle) |
+| Engagement | Domain + content tracker; CRXJS `?script` / manifest-resolved boot path + open-tab inject after Smart grant (WIP); article invite **30s OR ~⅔ scroll**; Vitest resolve/register + fixture threshold fire |
 | Invitation (Smart) | State machine + **caps** (once/page · once/domain/day · ≤3/day) + snooze / exclude / global pause persistence (Vitest); SW badge on threshold (no extract); accept → panel + Manual extract/suggest; dismiss·snooze·exclude clear badge; Manual extract still works when proactive paused; Settings **Pause proactive Smart invites**; Playwright revoke→Manual regression; optional `chrome.notifications` deferred |
 | Suggestions + prompts | Curated + mock-Nano + real `NanoSuggestionEngine` (validate / repair / timeout / curated fallback) |
 | Product docs | Handoff + architecture / plan / privacy / test plan / Nano checklist |
@@ -126,6 +126,6 @@ Shared agent rules under `.cursor/rules/` (committed; local MCP/sync state stays
 | --- | --- | --- |
 | Pre-push hygiene | [`pre-push-hygiene.mdc`](.cursor/rules/pre-push-hygiene.mdc) | Refresh README (including this section), block secrets/junk, keep docs/branches aligned before push/PR |
 | Linear ⇆ Cursor sync | [`linear-sync.mdc`](.cursor/rules/linear-sync.mdc) | Pull Linear changes first (ask before absorbing); push status/checklists as work happens; issue sizing habits |
-| Stuck-agent watchdog | [`stuck-agent-watchdog.mdc`](.cursor/rules/stuck-agent-watchdog.mdc) + [`.cursor/hooks/`](.cursor/hooks/) | When launching background Tasks, arm a notify heartbeat so silent hangs get nudged within minutes |
+| Stuck-agent watchdog | [`stuck-agent-watchdog.mdc`](.cursor/rules/stuck-agent-watchdog.mdc) + [`.cursor/hooks/`](.cursor/hooks/) | Background Task heartbeat via `run-stuck-agent-watchdog.sh` (idle-exit when watch file empty); nudge/replace stuck agents |
 
 Also useful: project skill [`.cursor/skills/linear-workflow/SKILL.md`](.cursor/skills/linear-workflow/SKILL.md) for issue sizing / parent–sub-issue structure. CI + Vitest/Playwright (`npm run test:ci`) remain the automated quality gate; Linear tickets track milestone automation (e.g. Nano contracts, Smart e2e, a11y/coverage).

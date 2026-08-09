@@ -16,8 +16,12 @@ export {
   ENGAGEMENT_CONTENT_SCRIPT_ID,
   ENGAGEMENT_CONTENT_SCRIPT_JS,
   ENGAGEMENT_CONTENT_SCRIPT_MATCHES,
+  ENGAGEMENT_MANIFEST_PACKAGE_MATCH,
   getChromeScriptingRegistrationApi,
+  injectEngagementIntoOpenTabs,
+  resolveEngagementContentScriptJs,
   smartOriginsGranted,
   syncEngagementContentScripts,
+  type ManifestContentScriptsSlice,
   type ScriptingRegistrationApi,
 } from "./engagement-scripts";

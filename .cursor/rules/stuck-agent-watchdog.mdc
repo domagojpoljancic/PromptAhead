@@ -11,39 +11,38 @@ alwaysApply: true
 
 This is an intentional exception to “don’t poll subagents”: you may **not** busy-wait, but you **MUST** arm a notify-based heartbeat.
 
-### Arm the loop (zsh, unique sentinel)
+### Arm the loop (preferred)
 
 ```bash
-# Loop every 3m: stuck-agent watchdog
-while true; do
-  sleep 180
-  echo "AGENT_LOOP_TICK_stuck_agent $(date -u +%Y-%m-%dT%H:%M:%SZ)"
-  # optional: .cursor/hooks/check-stuck-agents.sh && echo result
-done
+bash ".cursor/hooks/run-stuck-agent-watchdog.sh"
 ```
 
-Shell: `block_until_ms: 0` + `notify_on_output` pattern `^AGENT_LOOP_TICK_stuck_agent` reason `stuck agent watch`.
+Shell: `block_until_ms: 0` + `notify_on_output` pattern `^AGENT_LOOP_TICK_stuck_agent|^AGENT_LOOP_IDLE_EXIT|^STUCK id=` reason `stuck agent watch`.
 
-Also record active agent id(s) in `.cursor/stuck-agent-watch.json` (gitignored) when launching; clear on completion/stop. Hooks may do this automatically via `subagentStart` / `subagentStop`.
+The runner sleeps ~2m between ticks, runs `.cursor/hooks/check-stuck-agents.sh`, and **exits when the watch file has no running agents** (`AGENT_LOOP_IDLE_EXIT`). Do not use a bare `while true` that never checks for idle.
+
+Also record active agent id(s) in `.cursor/stuck-agent-watch.json` (gitignored) when launching; clear on completion/stop. Hooks may do this automatically via `subagentStart` / `subagentStop`. Only UUID subagent ids (under `…/subagents/<uuid>.jsonl`) — never parent `call-*` / `fc_*` tool ids.
 
 ### Stuck definition
 
-- Subagent transcript under `agent-transcripts/**/subagents/<id>.jsonl` has **mtime older than 5 minutes** AND last event is NOT `turn_ended` with success/error completion, **OR**
-- Transcript silent ≥5m AND working-tree files the agent was editing also silent ≥5m while Task still “running”.
+- Watched subagent transcript mtime older than `stuckAfterSec` (default **120s** in watch file) AND last event is NOT a completed `turn_ended`, **OR**
+- Transcript silent ≥ threshold AND listed edited paths also silent while still “running”.
 
 ### On each watchdog tick
 
-1. Run `.cursor/hooks/check-stuck-agents.sh` from repo root.
-2. If OK / no active watches: short silent or one-line `watchdog: ok`.
-3. If **STUCK**: immediately `Task` resume with `interrupt: true` — tell the agent it appears stuck, finish current slice, skip hanging tools, report status. Notify user briefly: “Background agent looked stuck — nudged.”
-4. If **COMPLETED** (`turn_ended` since last check): stop the loop, summarize for user, do needed follow-up. Do not leave orphan loops.
+1. Run `.cursor/hooks/check-stuck-agents.sh` from repo root (the runner does this).
+2. If **AGENT_LOOP_IDLE_EXIT** / no active watches: loop stops — do not re-arm until a new background Task launches.
+3. If **STUCK**: immediately `Task` resume with `interrupt: true` — finish current slice, skip hanging tools, report status. Notify user briefly: “Background agent looked stuck — nudged.” Second consecutive STUCK on the same id → interrupt + replace with a fresh agent.
+4. If **COMPLETED** (`DONE` / stop hook cleared watch): when all agents gone, idle-exit follows on the next tick.
 
-### Stop conditions
+### Stop conditions (must exit)
 
-- User says stop watching
-- All watched agents completed
+- User says stop watching / pause
+- Watch file has **zero** running agents → `AGENT_LOOP_IDLE_EXIT` (loop breaks)
 - Session end
+
+Never leave an orphan `while true` sleeping after agents are done.
 
 ### Manual fallback
 
-`/loop 3m run stuck-agent watchdog check` — or run `.cursor/hooks/check-stuck-agents.sh` once.
+`bash .cursor/hooks/check-stuck-agents.sh` once, or `bash .cursor/hooks/run-stuck-agent-watchdog.sh` in background only while agents are watched.

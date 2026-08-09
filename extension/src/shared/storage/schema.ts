@@ -100,6 +100,18 @@ export type ActiveInviteRecord = {
   pageType: "article" | "product" | "generic";
 };
 
+/** Last engagement→invite machine outcome (developer / smoke diagnostics). */
+export type LastInviteEvent = {
+  at: string;
+  url: string;
+  pageType: string;
+  showBadge: boolean;
+  suppression: string | null;
+  reason: string;
+  invitesToday: number;
+  domainsInvitedToday: string[];
+};
+
 export type InviteRuntimeState = {
   schemaVersion: 1;
   quotaDayKey: string;
@@ -109,6 +121,7 @@ export type InviteRuntimeState = {
   pagesInvitedToday: string[];
   snoozeUntilDayKey: string | null;
   activeInvite: ActiveInviteRecord | null;
+  lastInviteEvent: LastInviteEvent | null;
 };
 
 export const EMPTY_INVITE_RUNTIME = (dayKey: string): InviteRuntimeState => ({
@@ -119,6 +132,7 @@ export const EMPTY_INVITE_RUNTIME = (dayKey: string): InviteRuntimeState => ({
   pagesInvitedToday: [],
   snoozeUntilDayKey: null,
   activeInvite: null,
+  lastInviteEvent: null,
 });
 
 /** Typed but unwritten until developer mode lands (handoff §20). */

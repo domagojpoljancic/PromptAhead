@@ -148,7 +148,7 @@ Store under `tests/fixtures/html/` with expected JSON sidecars where useful.
 
 ### Engagement (M3+)
 
-- Article: 45s active + 35% scroll.
+- Article: 30s active **or** ~⅔ scroll (either bar).
 - Product: 30s + disposition signal.
 - Hidden/unfocused time excluded.
 - Once per page; once per domain/day; 3/day global.
