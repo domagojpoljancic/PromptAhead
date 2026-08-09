@@ -633,6 +633,83 @@ describe("side panel click-through", () => {
     expect(isVisible("#choose")).toBe(false);
     expect(isVisible("#onboarding")).toBe(true);
   });
+
+  it("shows low-value empty copy and skips suggestions (DOM-60)", async () => {
+    const suggestActions = vi.fn(async () => ({
+      engineId: "curated" as const,
+      primary: [primaryAction],
+      more: [moreAction],
+    }));
+    const engine: SuggestionEngine = {
+      id: "curated",
+      isAvailable: async () => true,
+      suggestActions,
+      generatePrompt: async () => "unused",
+    };
+
+    store.latest = {
+      pageContext: {
+        schemaVersion: 1,
+        pageType: "generic",
+        language: "en",
+        title: "Google Docs",
+        url: "https://docs.google.com/document/d/abc/edit",
+        generic: { headings: ["Doc"], excerpts: ["Body text."] },
+      },
+      tabId: 7,
+    };
+
+    await boot({ engine });
+    await flush();
+
+    expect(isVisible("#empty")).toBe(true);
+    expect(textOf("#empty-message")).toMatch(/not much to prompt ahead/i);
+    expect(isVisible("#choose")).toBe(false);
+    expect(suggestActions).not.toHaveBeenCalled();
+  });
+
+  it("selection on a low-value page unlocks selection-only workflow (DOM-60)", async () => {
+    const suggestActions = vi.fn(async (input: { pageContext: PageContext }) => {
+      expect(input.pageContext.selectedText).toBe("just this passage");
+      expect(input.pageContext.article).toBeUndefined();
+      expect(input.pageContext.generic).toBeUndefined();
+      expect(input.pageContext.pageType).toBe("generic");
+      return {
+        engineId: "curated" as const,
+        primary: [primaryAction],
+        more: [],
+      };
+    });
+    const engine: SuggestionEngine = {
+      id: "curated",
+      isAvailable: async () => true,
+      suggestActions,
+      generatePrompt: async () => "unused",
+    };
+
+    store.latest = {
+      pageContext: {
+        schemaVersion: 1,
+        pageType: "generic",
+        language: "en",
+        title: "Example News",
+        url: "https://news.example.com/",
+        selectedText: "just this passage",
+        description: "Homepage deck",
+        generic: {
+          headings: ["Top stories"],
+          excerpts: ["Many headlines that should be dropped."],
+        },
+      },
+      tabId: 7,
+    };
+
+    await boot({ engine });
+    await flush();
+
+    expect(isVisible("#choose")).toBe(true);
+    expect(suggestActions).toHaveBeenCalledOnce();
+  });
 });
 
 type SidePanelDepsOpen = (options: {

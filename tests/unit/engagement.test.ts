@@ -24,7 +24,7 @@ import {
 import { startEngagementTracker } from "../../extension/src/content/engagement-tracker";
 
 describe("isEngagementEligibleUrl", () => {
-  it("allows http(s) pages", () => {
+  it("allows http(s) pages that look worth prompting from", () => {
     expect(isEngagementEligibleUrl("https://news.example.com/a")).toBe(true);
     expect(isEngagementEligibleUrl("http://shop.example.com/p/1")).toBe(true);
   });
@@ -37,6 +37,16 @@ describe("isEngagementEligibleUrl", () => {
     expect(isEngagementEligibleUrl("about:blank")).toBe(false);
     expect(isEngagementEligibleUrl("file:///tmp/x.html")).toBe(false);
     expect(isEngagementEligibleUrl("not a url")).toBe(false);
+  });
+
+  it("blocks app/editor, homepage, and listing URLs (DOM-60)", () => {
+    expect(
+      isEngagementEligibleUrl("https://docs.google.com/document/d/abc/edit"),
+    ).toBe(false);
+    expect(isEngagementEligibleUrl("https://news.example.com/")).toBe(false);
+    expect(
+      isEngagementEligibleUrl("https://shop.example.com/category/laptops"),
+    ).toBe(false);
   });
 });
 

@@ -125,6 +125,24 @@ describe("invite controller SW wiring", () => {
     expect(runtime.activeInvite?.tabId).toBe(TAB_ID);
   });
 
+  it("ignores threshold on low-value URLs without showing a badge (DOM-60)", async () => {
+    const result = await handleEngagementThreshold(
+      {
+        tabId: TAB_ID,
+        pageUrl: "https://docs.google.com/document/d/abc/edit",
+        pageType: "generic",
+        reason: "article-threshold-met",
+      },
+      mock.api.action,
+      FIXED_NOW,
+    );
+
+    expect(result.handled).toBe(false);
+    expect(result.showBadge).toBe(false);
+    expect(mock.badgeText).toBe("");
+    expect(mock.injections).toEqual([]);
+  });
+
   it("skips invite when mode is Manual", async () => {
     await updateSettings({ mode: "manual", smartModeAvailable: false });
     const result = await handleEngagementThreshold(

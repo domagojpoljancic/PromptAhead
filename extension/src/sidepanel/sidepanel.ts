@@ -43,6 +43,11 @@ import {
   refreshOnboardingAfterClear as defaultRefreshOnboardingAfterClear,
 } from "./onboarding";
 import {
+  assessPagePromptValue,
+  lowValueMessageFor,
+  toSelectionOnlyContext,
+} from "../domain/page-value";
+import {
   STALE_CONTEXT_MESSAGE,
   type PanelStep,
   type WorkflowCardStep,
@@ -459,6 +464,20 @@ export async function initSidePanel(
     setText(statusLine, message);
   }
 
+  /**
+   * Low-value page with no selection — keep the tab bound so Refresh can
+   * pick up a later selection without another toolbar click.
+   */
+  function renderLowValue(message: string, tabId?: number): void {
+    clearWorkflowData();
+    if (typeof tabId === "number") {
+      boundTabId = tabId;
+    }
+    showStep("empty");
+    setText(emptyMessage, message);
+    setText(statusLine, message);
+  }
+
   function renderStale(message: string = STALE_CONTEXT_MESSAGE): void {
     clearWorkflowData();
     showStep("stale");
@@ -672,6 +691,16 @@ export async function initSidePanel(
     if (isOnboardingBlocking()) {
       return;
     }
+
+    const value = assessPagePromptValue(ctx);
+    if (!value.worthPrompting) {
+      if (!ctx.selectedText?.trim()) {
+        renderLowValue(lowValueMessageFor(value.reason), tabId);
+        return;
+      }
+      ctx = toSelectionOnlyContext(ctx);
+    }
+
     const key = contextKey(ctx, tabId);
     if (
       key === lastAcceptedKey &&

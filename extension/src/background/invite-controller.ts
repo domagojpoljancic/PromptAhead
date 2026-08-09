@@ -23,6 +23,7 @@ import {
   type InvitePolicy,
   type InvitationTransition,
 } from "../domain/invitation";
+import { assessUrlPromptValue } from "../domain/page-value";
 import {
   applyInviteBadge,
   clearInviteBadge,
@@ -186,6 +187,18 @@ export async function handleEngagementThreshold(
 ): Promise<InviteHandleResult> {
   const settings = await readSettings();
   if (settings.mode !== "smart" || !settings.smartModeAvailable) {
+    return {
+      handled: false,
+      showBadge: false,
+      clearBadge: false,
+      openPanelAndAnalyze: false,
+      phase: null,
+      suppression: null,
+    };
+  }
+
+  // Defence in depth: old injected trackers may still fire on low-value URLs.
+  if (!assessUrlPromptValue(detail.pageUrl).worthPrompting) {
     return {
       handled: false,
       showBadge: false,
