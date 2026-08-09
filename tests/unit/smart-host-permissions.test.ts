@@ -53,7 +53,7 @@ function mockScripting(state: {
       }
     }),
     unregisterContentScripts: vi.fn(async (filter) => {
-      const remove = new Set(filter?.ids ?? []);
+      const remove = new Set<string>(filter?.ids ?? []);
       state.ids = state.ids.filter((id) => !remove.has(id));
       if (state.jsById) {
         for (const id of remove) {
