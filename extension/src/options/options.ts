@@ -100,6 +100,9 @@ export function initOptions(deps: Partial<OptionsDeps> = {}): OptionsController 
   const languageCustom = document.getElementById(
     "language-custom",
   ) as HTMLInputElement | null;
+  const proactivePause = document.getElementById(
+    "proactive-pause",
+  ) as HTMLInputElement | null;
   const developerMode = document.getElementById(
     "developer-mode",
   ) as HTMLInputElement | null;
@@ -295,6 +298,10 @@ export function initOptions(deps: Partial<OptionsDeps> = {}): OptionsController 
       input.checked = input.value === settings.historyMode;
     }
 
+    if (proactivePause) {
+      proactivePause.checked = settings.proactivePaused;
+    }
+
     if (developerMode) {
       developerMode.checked = settings.developerMode;
     }
@@ -312,6 +319,7 @@ export function initOptions(deps: Partial<OptionsDeps> = {}): OptionsController 
         `nano: ${settings.nanoPreference}`,
         `availability: ${latestReadiness?.availability ?? "unknown"}`,
         `history: ${settings.historyMode}`,
+        `proactivePaused: ${settings.proactivePaused}`,
         `developer: ${settings.developerMode}`,
         `settings schema: v${settings.schemaVersion}`,
       ].join(" · ");
@@ -585,6 +593,20 @@ export function initOptions(deps: Partial<OptionsDeps> = {}): OptionsController 
       void saveSettingsPatch({ historyMode: mode });
     });
   }
+
+  proactivePause?.addEventListener("change", () => {
+    const paused = Boolean(proactivePause.checked);
+    void saveSettingsPatch({ proactivePaused: paused }).then((ok) => {
+      if (ok) {
+        setStatus(
+          paused
+            ? "Proactive Smart invites paused. Manual toolbar analyze still works."
+            : "Proactive Smart invites resumed.",
+          "ok",
+        );
+      }
+    });
+  });
 
   developerMode?.addEventListener("change", () => {
     void saveSettingsPatch({ developerMode: Boolean(developerMode.checked) });
