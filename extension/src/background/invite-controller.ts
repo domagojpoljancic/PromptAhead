@@ -18,6 +18,7 @@ import {
   inviteBadgeFor,
   onThresholdReached,
   snoozeInvitation,
+  withExcludedDomain,
   type InvitationSession,
   type InvitePolicy,
   type InvitationTransition,
@@ -71,6 +72,7 @@ function quotaFromRuntime(runtime: InviteRuntimeState) {
     dayKey: runtime.quotaDayKey,
     invitesToday: runtime.invitesToday,
     domainsInvitedToday: runtime.domainsInvitedToday,
+    pagesInvitedToday: runtime.pagesInvitedToday ?? [],
   };
 }
 
@@ -115,6 +117,7 @@ async function persistAfterTransition(
     quotaDayKey: transition.quota.dayKey || dayKey,
     invitesToday: transition.quota.invitesToday,
     domainsInvitedToday: [...transition.quota.domainsInvitedToday],
+    pagesInvitedToday: [...transition.quota.pagesInvitedToday],
     snoozeUntilDayKey: transition.snoozeUntilDayKey,
   };
 
@@ -134,9 +137,12 @@ async function persistAfterTransition(
   await updateInviteRuntime(patch, dayKey);
 
   if (transition.excludeDomain) {
-    const excluded = new Set(settings.excludedDomains);
-    excluded.add(transition.excludeDomain);
-    await updateSettings({ excludedDomains: [...excluded] });
+    await updateSettings({
+      excludedDomains: withExcludedDomain(
+        settings.excludedDomains,
+        transition.excludeDomain,
+      ),
+    });
   }
 }
 

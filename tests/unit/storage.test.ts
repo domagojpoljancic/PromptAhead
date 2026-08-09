@@ -9,9 +9,11 @@ import {
   clearLearningAggregates,
   clearRecentHistory,
   ensureDefaults,
+  readInviteRuntime,
   readOnboarding,
   readRecentHistory,
   readSettings,
+  updateInviteRuntime,
   updateOnboarding,
   updateSettings,
 } from "../../extension/src/shared/storage";
@@ -223,6 +225,53 @@ describe("onboarding persistence", () => {
     expect(await readOnboarding()).toMatchObject({
       completed: false,
       completedAt: null,
+    });
+  });
+});
+
+describe("invite runtime + proactive pause persistence (DOM-35)", () => {
+  it("persists global pause and excluded domains in settings", async () => {
+    const updated = await updateSettings({
+      proactivePaused: true,
+      excludedDomains: ["news.example.com"],
+    });
+    expect(updated.proactivePaused).toBe(true);
+    expect(updated.excludedDomains).toEqual(["news.example.com"]);
+    expect(await readSettings()).toMatchObject({
+      proactivePaused: true,
+      excludedDomains: ["news.example.com"],
+    });
+  });
+
+  it("migrates invite runtime missing pagesInvitedToday and persists caps", async () => {
+    uninstallChromeMock();
+    mock = installChromeMock({
+      initialStorage: {
+        [STORAGE_KEYS.inviteRuntime]: {
+          schemaVersion: 1,
+          quotaDayKey: "2026-08-07",
+          invitesToday: 1,
+          domainsInvitedToday: ["news.example.com"],
+          snoozeUntilDayKey: "2026-08-07",
+          activeInvite: null,
+        },
+      },
+    });
+
+    const runtime = await readInviteRuntime("2026-08-07");
+    expect(runtime.pagesInvitedToday).toEqual([]);
+    expect(runtime.snoozeUntilDayKey).toBe("2026-08-07");
+    expect(runtime.invitesToday).toBe(1);
+
+    await updateInviteRuntime({
+      pagesInvitedToday: ["https://news.example.com/story"],
+      invitesToday: 1,
+      domainsInvitedToday: ["news.example.com"],
+      quotaDayKey: "2026-08-07",
+    });
+    expect(await readInviteRuntime("2026-08-07")).toMatchObject({
+      pagesInvitedToday: ["https://news.example.com/story"],
+      snoozeUntilDayKey: "2026-08-07",
     });
   });
 });

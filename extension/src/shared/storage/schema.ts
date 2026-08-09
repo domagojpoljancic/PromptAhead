@@ -10,7 +10,7 @@ export const STORAGE_KEYS = {
   recentHistory: "history.recent.v1",
   fullHistory: "history.full.v1",
   learningAggregates: "learning.aggregates.v1",
-  /** Smart invite quota / snooze / active badge tab (DOM-34). */
+  /** Smart invite quota / snooze / page+domain caps / active badge (DOM-34/35). */
   inviteRuntime: "invite.runtime.v1",
   devLogs: "dev.logs.v1",
   onboarding: "onboarding.v1",
@@ -105,6 +105,8 @@ export type InviteRuntimeState = {
   quotaDayKey: string;
   invitesToday: number;
   domainsInvitedToday: string[];
+  /** Normalized page keys invited today (once-per-page; no browsing-history dump). */
+  pagesInvitedToday: string[];
   snoozeUntilDayKey: string | null;
   activeInvite: ActiveInviteRecord | null;
 };
@@ -114,6 +116,7 @@ export const EMPTY_INVITE_RUNTIME = (dayKey: string): InviteRuntimeState => ({
   quotaDayKey: dayKey,
   invitesToday: 0,
   domainsInvitedToday: [],
+  pagesInvitedToday: [],
   snoozeUntilDayKey: null,
   activeInvite: null,
 });

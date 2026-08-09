@@ -4,20 +4,27 @@ import {
   DEFAULT_DAILY_INVITE_CAP,
   EMPTY_INVITE_QUOTA,
   acceptInvitation,
+  calendarDayKeyUtc,
   canInviteAgainOnPage,
   clearInviteBadgePayload,
   createInvitationSession,
+  dayAfter,
   disableDomainInvitation,
   dismissInvitation,
   domainFromUrl,
   evaluateInviteSuppression,
+  isDailyCapReached,
+  isGlobalSnoozeActive,
   inviteBadgeFor,
   inviteCopyFor,
   mayStartAnalysis,
   onThresholdReached,
+  pageKeyFromUrl,
   recordInviteShown,
   shouldShowInviteBadge,
   snoozeInvitation,
+  wasPageInvitedToday,
+  withExcludedDomain,
   type InvitePolicy,
   type InviteQuota,
 } from "../../extension/src/domain/invitation";
@@ -56,12 +63,28 @@ describe("inviteBadgeFor", () => {
 });
 
 describe("caps helpers", () => {
-  it("parses domains and records daily quota", () => {
+  it("parses domains and page keys, records daily quota", () => {
     expect(domainFromUrl("https://News.Example.com/a")).toBe("news.example.com");
+    expect(pageKeyFromUrl("https://News.Example.com/a/#frag")).toBe(
+      "https://news.example.com/a",
+    );
+    expect(pageKeyFromUrl("https://news.example.com/a/")).toBe(
+      "https://news.example.com/a",
+    );
+
     let quota: InviteQuota = EMPTY_INVITE_QUOTA("2026-08-07");
-    quota = recordInviteShown(quota, "news.example.com", "2026-08-07");
+    quota = recordInviteShown(
+      quota,
+      "news.example.com",
+      "2026-08-07",
+      "https://news.example.com/a",
+    );
     expect(quota.invitesToday).toBe(1);
     expect(quota.domainsInvitedToday).toEqual(["news.example.com"]);
+    expect(quota.pagesInvitedToday).toEqual(["https://news.example.com/a"]);
+    expect(wasPageInvitedToday(quota, "https://news.example.com/a/", "2026-08-07")).toBe(
+      true,
+    );
   });
 
   it("resets when the calendar day changes", () => {
@@ -69,11 +92,36 @@ describe("caps helpers", () => {
       EMPTY_INVITE_QUOTA("2026-08-06"),
       "a.example",
       "2026-08-06",
+      "https://a.example/x",
     );
-    const next = recordInviteShown(stale, "b.example", "2026-08-07");
+    const next = recordInviteShown(stale, "b.example", "2026-08-07", "https://b.example/y");
     expect(next.dayKey).toBe("2026-08-07");
     expect(next.invitesToday).toBe(1);
     expect(next.domainsInvitedToday).toEqual(["b.example"]);
+    expect(next.pagesInvitedToday).toEqual(["https://b.example/y"]);
+  });
+
+  it("treats snooze as active through the snooze day only", () => {
+    expect(isGlobalSnoozeActive("2026-08-07", "2026-08-07")).toBe(true);
+    expect(isGlobalSnoozeActive("2026-08-08", "2026-08-07")).toBe(false);
+    expect(dayAfter("2026-08-07")).toBe("2026-08-08");
+    expect(calendarDayKeyUtc(Date.parse("2026-08-07T23:00:00.000Z"))).toBe("2026-08-07");
+  });
+
+  it("withExcludedDomain normalizes and dedupes", () => {
+    expect(withExcludedDomain([], "Shop.Example.com")).toEqual(["shop.example.com"]);
+    expect(withExcludedDomain(["shop.example.com"], "Shop.Example.com.")).toEqual([
+      "shop.example.com",
+    ]);
+  });
+
+  it("isDailyCapReached ignores stale day keys", () => {
+    const quota = recordInviteShown(
+      EMPTY_INVITE_QUOTA("2026-08-06"),
+      "a.example",
+      "2026-08-06",
+    );
+    expect(isDailyCapReached(quota, "2026-08-07")).toBe(false);
   });
 });
 
@@ -93,6 +141,9 @@ describe("invitation state machine", () => {
     expect(shouldShowInviteBadge(shown.session)).toBe(true);
     expect(mayStartAnalysis(shown.session)).toBe(false);
     expect(shown.quota.invitesToday).toBe(1);
+    expect(shown.quota.pagesInvitedToday).toEqual([
+      "https://news.example.com/story",
+    ]);
   });
 
   it("accept opens panel path and only then mayStartAnalysis", () => {
@@ -136,6 +187,35 @@ describe("invitation state machine", () => {
     expect(again.showBadge).toBe(false);
   });
 
+  it("once-per-page blocks a fresh session for the same URL", () => {
+    const first = onThresholdReached(
+      createInvitationSession({
+        pageUrl: "https://news.example.com/story#top",
+        pageType: "article",
+      }),
+      policy(),
+    );
+    expect(first.showBadge).toBe(true);
+
+    // Same page, different domain slot artificially cleared — page key still blocks.
+    const blocked = onThresholdReached(
+      createInvitationSession({
+        pageUrl: "https://news.example.com/story/",
+        pageType: "article",
+      }),
+      policy({
+        quota: {
+          dayKey: "2026-08-07",
+          invitesToday: 1,
+          domainsInvitedToday: [],
+          pagesInvitedToday: first.quota.pagesInvitedToday,
+        },
+      }),
+    );
+    expect(blocked.session.suppression).toBe("page_already_invited_today");
+    expect(blocked.showBadge).toBe(false);
+  });
+
   it("snooze suppresses globally for the rest of the day", () => {
     const session = createInvitationSession({
       pageUrl: "https://news.example.com/a",
@@ -162,6 +242,19 @@ describe("invitation state machine", () => {
     expect(blocked.session.phase).toBe("suppressed");
     expect(blocked.session.suppression).toBe("global_snooze");
     expect(blocked.showBadge).toBe(false);
+
+    const nextDay = onThresholdReached(
+      createInvitationSession({
+        pageUrl: "https://other.example.com/b",
+        pageType: "article",
+      }),
+      policy({
+        dayKey: dayAfter("2026-08-07"),
+        snoozeUntilDayKey: snoozed.snoozeUntilDayKey,
+        quota: EMPTY_INVITE_QUOTA(dayAfter("2026-08-07")),
+      }),
+    );
+    expect(nextDay.showBadge).toBe(true);
   });
 
   it("domain disabled excludes the site and clears the badge", () => {
@@ -185,7 +278,7 @@ describe("invitation state machine", () => {
         pageType: "product",
       }),
       policy({
-        excludedDomains: [disabled.excludeDomain!],
+        excludedDomains: withExcludedDomain([], disabled.excludeDomain!),
         quota: shown.quota,
       }),
     );
@@ -225,7 +318,12 @@ describe("invitation state machine", () => {
       }),
       policy({
         dayKey,
-        quota: recordInviteShown(EMPTY_INVITE_QUOTA(dayKey), "site0.example.com", dayKey),
+        quota: recordInviteShown(
+          EMPTY_INVITE_QUOTA(dayKey),
+          "site0.example.com",
+          dayKey,
+          "https://site0.example.com/x",
+        ),
       }),
     );
     expect(sameDomain.session.suppression).toBe("domain_already_invited_today");
@@ -242,6 +340,8 @@ describe("invitation state machine", () => {
     const blocked = onThresholdReached(session, policy({ proactivePaused: true }));
     expect(blocked.session.phase).toBe("suppressed");
     expect(blocked.showBadge).toBe(false);
+    // Pause only gates proactive invites — analysis flag stays off until accept.
+    expect(mayStartAnalysis(blocked.session)).toBe(false);
   });
 
   it("ignores accept/dismiss when not invitation_shown", () => {
