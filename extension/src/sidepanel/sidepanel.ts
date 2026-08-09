@@ -457,6 +457,7 @@ export async function initSidePanel(
   }
 
   function renderEmpty(message: string): void {
+    stopSelectionWatchIfBound();
     clearWorkflowData();
     boundTabId = null;
     showStep("empty");
@@ -465,20 +466,30 @@ export async function initSidePanel(
   }
 
   /**
-   * Low-value page with no selection — keep the tab bound so Refresh can
-   * pick up a later selection without another toolbar click.
+   * Low-value page with no selection — keep the tab bound so Refresh (or
+   * selection auto-watch) can pick up a later selection without another
+   * toolbar click.
    */
   function renderLowValue(message: string, tabId?: number): void {
     clearWorkflowData();
     if (typeof tabId === "number") {
       boundTabId = tabId;
+      void send({ type: "WATCH_SELECTION", tabId });
     }
     showStep("empty");
     setText(emptyMessage, message);
     setText(statusLine, message);
   }
 
+  function stopSelectionWatchIfBound(): void {
+    if (boundTabId === null) {
+      return;
+    }
+    void send({ type: "STOP_WATCH_SELECTION", tabId: boundTabId });
+  }
+
   function renderStale(message: string = STALE_CONTEXT_MESSAGE): void {
+    stopSelectionWatchIfBound();
     clearWorkflowData();
     showStep("stale");
     setText(staleMessage, message);
@@ -700,6 +711,8 @@ export async function initSidePanel(
       }
       ctx = toSelectionOnlyContext(ctx);
     }
+
+    stopSelectionWatchIfBound();
 
     const key = contextKey(ctx, tabId);
     if (
@@ -1012,6 +1025,15 @@ export async function initSidePanel(
       if (isOnboardingBlocking()) {
         return;
       }
+      // Selection auto-refresh only applies while idle on empty/stale so a
+      // mid-prompt highlight on the page does not reset the workflow.
+      if (
+        message.source === "selection" &&
+        currentStep !== "empty" &&
+        currentStep !== "stale"
+      ) {
+        return;
+      }
       // Toolbar / shortcut re-capture while the panel is already open.
       void acceptPageContext(message.pageContext, message.tabId);
       return;
@@ -1033,8 +1055,10 @@ export async function initSidePanel(
       return;
     }
     if (currentStep === "empty" || currentStep === "stale") {
+      stopSelectionWatchIfBound();
       return;
     }
+    stopSelectionWatchIfBound();
     boundTabId = null;
     renderStale(
       message.reason === "closed"

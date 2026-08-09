@@ -1,6 +1,6 @@
 # PromptAhead
 
-> **WIP — M3 Smart on `main`; page activation gate (DOM-60) in flight.** Manual core (M1) is buildable and covered by Vitest/Playwright/CI. Nano UX, Smart grant/revoke, engagement thresholds, invitation state machine, badge-first invites with **proactive caps** + snooze / domain exclude / global pause, and accept → panel + extract are on `main`. PromptAhead now refuses weak surfaces (Google Docs / homepages / listings) unless the user selects text; Smart never invites there either. Manual Smart smoke still open; Chrome Web Store packaging (M4) still ahead.
+> **WIP — M3 Smart on `main`; page activation gate + selection auto-refresh (DOM-60 / DOM-61) in flight.** Manual core (M1) is buildable and covered by Vitest/Playwright/CI. Nano UX, Smart grant/revoke, engagement thresholds, invitation state machine, badge-first invites with **proactive caps** + snooze / domain exclude / global pause, and accept → panel + extract are on `main`. PromptAhead refuses weak surfaces (Google Docs / homepages / listings) unless the user selects text — and after that empty state, a selection auto-refreshes the panel. Smart never invites on those URLs either. Manual Smart smoke still open; Chrome Web Store packaging (M4) still ahead.
 
 **Your next question, already prepared.**
 
@@ -11,7 +11,7 @@ Privacy-first Chrome extension (Manifest V3) that notices when you are genuinely
 | Area | State |
 | --- | --- |
 | Product extension (`extension/`) | **Manual core** + **M2 Nano UX** + **M3 Smart** (grant/revoke, engagement, badge invite, accept→extract) |
-| Side panel | Workflow state machine; Nano thinking + curated fallback + **Retry local AI**; calm Nano panel notices + Smart permission education |
+| Side panel | Workflow state machine; Nano thinking + curated fallback + **Retry local AI**; calm Nano panel notices + Smart permission education; **selection auto-refresh** on low-value empty state |
 | Onboarding + settings | Manual-first first-run; Nano ready/download/unsupported + onboarding gate; Settings Smart grant/revoke + education; **global proactive pause** toggle |
 | Destinations | Deep links with **app-first + web fallback**; Gemini / oversized prompts use **clipboard + open**; never auto-submit |
 | Automation | Vitest (unit + jsdom UI), Playwright (MV3 + navigate→stale + Nano-off curated + **Smart revoke→Manual** + homepage empty-state), GitHub Actions (`test:ci`, Node 20.19+) |
@@ -42,7 +42,7 @@ npm install
 npm run build
 ```
 
-Load **`extension/dist/`** unpacked on `chrome://extensions`. Open a normal article or product page and click the toolbar icon (or context menu / `Alt+Shift+P`): PromptAhead extracts that page, opens the side panel, and offers curated (or on-device Nano) directions when enabled. Homepages, category/search lists, and app/editor surfaces (e.g. Google Docs) show a calm empty state unless you select text first.
+Load **`extension/dist/`** unpacked on `chrome://extensions`. Open a normal article or product page and click the toolbar icon (or context menu / `Alt+Shift+P`): PromptAhead extracts that page, opens the side panel, and offers curated (or on-device Nano) directions when enabled. Homepages, category/search lists, and app/editor surfaces (e.g. Google Docs) show a calm empty state unless you select text first — after the empty state, selecting text on the page auto-refreshes the panel (no Refresh click).
 
 First run shows a short, skippable onboarding (Manual default; optional Nano download; always **Continue with basic private mode**). Build a prompt, edit it, then:
 

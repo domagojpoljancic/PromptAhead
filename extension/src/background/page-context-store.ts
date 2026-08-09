@@ -87,8 +87,14 @@ export async function readLatestPageContext(tabId: number): Promise<LatestPageCo
 export function captureTabContext(
   tabId: number,
   knownUrl?: string,
+  options: { source?: "gesture" | "selection" } = {},
 ): Promise<ExtractionOutcome> {
-  lastGestureTabId = tabId;
+  const source = options.source ?? "gesture";
+  // Selection-driven re-extract must not steal the gesture-tab pointer used
+  // by GET_LATEST when the panel first opens.
+  if (source === "gesture") {
+    lastGestureTabId = tabId;
+  }
   const token = {};
   currentRunByTab.set(tabId, token);
 
@@ -104,6 +110,7 @@ export function captureTabContext(
         type: "PAGE_CONTEXT_UPDATED",
         tabId,
         pageContext: outcome.pageContext,
+        source,
       });
     } else {
       rememberExtractionError(tabId, outcome.error);

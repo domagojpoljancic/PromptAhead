@@ -14,6 +14,7 @@ import {
 import { kickOffPanelAnalysis } from "./panel-analysis";
 import { registerBackgroundRouter } from "./router";
 import { forgetPageContext } from "./page-context-store";
+import { forgetSelectionWatch } from "./selection-watch";
 
 const OPEN_PANEL_MENU_ID = "promptahead-open-panel";
 const ENGAGEMENT_JS = [ENGAGEMENT_BOOT_SCRIPT_PATH] as const;
@@ -148,6 +149,7 @@ chrome.tabs.onUpdated.addListener((tabId, changeInfo, tab) => {
   // and some Playwright-driven navigations that omit status.
   if (changeInfo.status === "loading" || changeInfo.url !== undefined) {
     forgetPageContext(tabId);
+    forgetSelectionWatch(tabId);
     void clearInviteForTab(tabId);
     broadcastBackgroundEvent({
       type: "PAGE_CONTEXT_CLEARED",
@@ -180,6 +182,7 @@ chrome.tabs.onUpdated.addListener((tabId, changeInfo, tab) => {
 
 chrome.tabs.onRemoved.addListener((tabId) => {
   forgetPageContext(tabId);
+  forgetSelectionWatch(tabId);
   void clearInviteForTab(tabId);
   broadcastBackgroundEvent({
     type: "PAGE_CONTEXT_CLEARED",

@@ -148,6 +148,19 @@ function createSend(store: Store) {
           pageContext: store.latest.pageContext ?? samplePage,
           tabId: store.latest.tabId ?? 7,
         };
+      case "WATCH_SELECTION":
+        return {
+          ok: true as const,
+          type: "WATCH_SELECTION" as const,
+          watching: true,
+          tabId: request.tabId,
+        };
+      case "STOP_WATCH_SELECTION":
+        return {
+          ok: true as const,
+          type: "STOP_WATCH_SELECTION" as const,
+          stopped: true as const,
+        };
       case "ADD_RECENT_PROMPT":
         store.history.unshift(request.entry);
         return {
@@ -709,6 +722,80 @@ describe("side panel click-through", () => {
 
     expect(isVisible("#choose")).toBe(true);
     expect(suggestActions).toHaveBeenCalledOnce();
+  });
+
+  it("selection-sourced update unlocks empty low-value state (DOM-61)", async () => {
+    const suggestActions = vi.fn(async () => ({
+      engineId: "curated" as const,
+      primary: [primaryAction],
+      more: [],
+    }));
+    const engine: SuggestionEngine = {
+      id: "curated",
+      isAvailable: async () => true,
+      suggestActions,
+      generatePrompt: async () => "unused",
+    };
+
+    store.latest = {
+      pageContext: {
+        schemaVersion: 1,
+        pageType: "generic",
+        language: "en",
+        title: "Example News",
+        url: "https://news.example.com/",
+        generic: { headings: ["Top"], excerpts: ["Cards."] },
+      },
+      tabId: 7,
+    };
+
+    const { send, pushEvent } = await boot({ engine });
+    await flush();
+    expect(isVisible("#empty")).toBe(true);
+    expect(send).toHaveBeenCalledWith(
+      expect.objectContaining({ type: "WATCH_SELECTION", tabId: 7 }),
+    );
+
+    pushEvent({
+      type: "PAGE_CONTEXT_UPDATED",
+      tabId: 7,
+      source: "selection",
+      pageContext: {
+        schemaVersion: 1,
+        pageType: "generic",
+        language: "en",
+        title: "Example News",
+        url: "https://news.example.com/",
+        selectedText: "auto-selected passage",
+        generic: { headings: ["Top"], excerpts: ["Cards."] },
+      },
+    });
+    await flush();
+    await flush();
+
+    expect(isVisible("#choose")).toBe(true);
+    expect(suggestActions).toHaveBeenCalled();
+  });
+
+  it("ignores selection-sourced updates mid-workflow (DOM-61)", async () => {
+    const { pushEvent } = await boot();
+    await flush();
+    expect(isVisible("#choose")).toBe(true);
+
+    pushEvent({
+      type: "PAGE_CONTEXT_UPDATED",
+      tabId: 7,
+      source: "selection",
+      pageContext: {
+        ...samplePage,
+        title: "Should not replace",
+        selectedText: "new highlight elsewhere",
+      },
+    });
+    await flush();
+
+    expect(isVisible("#choose")).toBe(true);
+    expect(textOf("#context-title")).toBe("EU AI Act");
   });
 });
 

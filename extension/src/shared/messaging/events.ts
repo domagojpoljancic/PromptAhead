@@ -18,6 +18,8 @@ export type BackgroundEvent =
       type: "PAGE_CONTEXT_UPDATED";
       tabId: number;
       pageContext: PageContext;
+      /** Why this capture was pushed — panel gates selection auto-apply. */
+      source?: "gesture" | "selection";
     };
 
 export const BACKGROUND_EVENT_TYPES = [
@@ -47,7 +49,15 @@ export function isBackgroundEvent(value: unknown): value is BackgroundEvent {
     );
   }
   if (value.type === "PAGE_CONTEXT_UPDATED") {
-    return typeof value.tabId === "number" && isPageContext(value.pageContext);
+    const sourceOk =
+      value.source === undefined ||
+      value.source === "gesture" ||
+      value.source === "selection";
+    return (
+      typeof value.tabId === "number" &&
+      isPageContext(value.pageContext) &&
+      sourceOk
+    );
   }
   return false;
 }
