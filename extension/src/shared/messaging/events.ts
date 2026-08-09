@@ -18,8 +18,8 @@ export type BackgroundEvent =
       type: "PAGE_CONTEXT_UPDATED";
       tabId: number;
       pageContext: PageContext;
-      /** Why this capture was pushed — panel gates selection auto-apply. */
-      source?: "gesture" | "selection";
+      /** Why this capture was pushed — panel gates selection/navigation auto-apply. */
+      source?: "gesture" | "selection" | "navigation";
     };
 
 export const BACKGROUND_EVENT_TYPES = [
@@ -52,7 +52,8 @@ export function isBackgroundEvent(value: unknown): value is BackgroundEvent {
     const sourceOk =
       value.source === undefined ||
       value.source === "gesture" ||
-      value.source === "selection";
+      value.source === "selection" ||
+      value.source === "navigation";
     return (
       typeof value.tabId === "number" &&
       isPageContext(value.pageContext) &&

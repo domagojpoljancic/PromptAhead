@@ -50,7 +50,7 @@ First run shows a short, skippable onboarding (Manual default; optional Nano dow
 - **Open in ChatGPT / Claude / Perplexity** — deep link (native app scheme when available, then web URL with `q=` prefill)
 - **Open in Gemini** (and any oversized prompt) — copy to clipboard, then open the chat UI for paste
 
-Nothing is auto-submitted. **Refresh from page** re-reads the same tab until it navigates — after that Chrome revokes `activeTab` and you invoke the extension again (panel shows calm stale / access-lost UX). Settings and **Clear all PromptAhead data** live on the options page.
+Nothing is auto-submitted. **Refresh from page** re-reads the same tab until it navigates — after that Chrome revokes `activeTab` and you invoke the extension again (panel shows calm stale / access-lost UX). From a low-value empty state, opening an article updates the panel CTA (and auto-captures when Smart website access is already granted). Settings and **Clear all PromptAhead data** live on the options page.
 
 ### Developer scripts
 

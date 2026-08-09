@@ -87,7 +87,7 @@ export async function readLatestPageContext(tabId: number): Promise<LatestPageCo
 export function captureTabContext(
   tabId: number,
   knownUrl?: string,
-  options: { source?: "gesture" | "selection" } = {},
+  options: { source?: "gesture" | "selection" | "navigation" } = {},
 ): Promise<ExtractionOutcome> {
   const source = options.source ?? "gesture";
   // Selection-driven re-extract must not steal the gesture-tab pointer used

@@ -48,6 +48,7 @@ import {
   toSelectionOnlyContext,
 } from "../domain/page-value";
 import {
+  NAVIGATED_FROM_EMPTY_MESSAGE,
   STALE_CONTEXT_MESSAGE,
   type PanelStep,
   type WorkflowCardStep,
@@ -489,7 +490,6 @@ export async function initSidePanel(
   }
 
   function renderStale(message: string = STALE_CONTEXT_MESSAGE): void {
-    stopSelectionWatchIfBound();
     clearWorkflowData();
     showStep("stale");
     setText(staleMessage, message);
@@ -1025,10 +1025,10 @@ export async function initSidePanel(
       if (isOnboardingBlocking()) {
         return;
       }
-      // Selection auto-refresh only applies while idle on empty/stale so a
-      // mid-prompt highlight on the page does not reset the workflow.
+      // Selection / post-empty navigation auto-refresh only applies while idle
+      // on empty/stale so a mid-prompt highlight does not reset the workflow.
       if (
-        message.source === "selection" &&
+        (message.source === "selection" || message.source === "navigation") &&
         currentStep !== "empty" &&
         currentStep !== "stale"
       ) {
@@ -1054,8 +1054,18 @@ export async function initSidePanel(
       void renderDebugLine();
       return;
     }
-    if (currentStep === "empty" || currentStep === "stale") {
-      stopSelectionWatchIfBound();
+    // Low-value empty: do not keep the old homepage/listing copy after navigate.
+    // Do not STOP_WATCH here — that would clear awaitingPageUpgrade and block
+    // Smart auto-extract when the article finishes loading (DOM-62).
+    if (currentStep === "empty") {
+      renderStale(
+        message.reason === "closed"
+          ? "That tab closed — click the PromptAhead icon on a page to capture it again."
+          : NAVIGATED_FROM_EMPTY_MESSAGE,
+      );
+      return;
+    }
+    if (currentStep === "stale") {
       return;
     }
     stopSelectionWatchIfBound();
