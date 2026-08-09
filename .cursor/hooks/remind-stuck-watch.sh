@@ -5,7 +5,7 @@ set -u
 
 input="$(cat || true)"
 
-additional_context='After any background Task (run_in_background: true), BEFORE ending the turn arm the stuck-agent watchdog loop (see .cursor/rules/stuck-agent-watchdog.mdc): Shell block_until_ms 0 + notify_on_output pattern ^AGENT_LOOP_TICK_stuck_agent. Record agent id(s) in .cursor/stuck-agent-watch.json. On each tick run .cursor/hooks/check-stuck-agents.sh. Manual fallback: /loop 3m run stuck-agent watchdog check.'
+additional_context='After any background Task (run_in_background: true), BEFORE ending the turn arm the stuck-agent watchdog: Shell block_until_ms 0 running bash .cursor/hooks/run-stuck-agent-watchdog.sh with notify_on_output pattern ^AGENT_LOOP_TICK_stuck_agent|^AGENT_LOOP_IDLE_EXIT|^STUCK id=. Record UUID agent id(s) in .cursor/stuck-agent-watch.json. The loop exits on AGENT_LOOP_IDLE_EXIT when no agents remain — do not leave orphan while-true loops. See .cursor/rules/stuck-agent-watchdog.mdc.'
 
 is_bg=0
 if printf '%s' "$input" | python3 -c '

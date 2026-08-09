@@ -13,7 +13,7 @@ export type ScrollMetrics = {
  * How far the user has scrolled through the document.
  * Short pages (nothing to scroll) count as fully scrolled when the viewport
  * covers the content — otherwise articles shorter than the screen would never
- * meet the 35% bar.
+ * meet the deep-scroll bar.
  */
 export function computeScrollDepth(metrics: ScrollMetrics): number {
   const { scrollY, viewportHeight, scrollHeight } = metrics;

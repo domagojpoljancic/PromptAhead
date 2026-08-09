@@ -7,6 +7,8 @@ alwaysApply: true
 
 This project is tracked in Linear team **Domagoj** (key `DOM`, workspace `domagojp`) via the Linear MCP tools. Keep Linear and the codebase in sync on every run **without the user having to ask**. Skip only for trivial, non-project chats (quick questions, explanations) or when the user says "skip linear".
 
+Linear MCP is allowlisted in `.cursor/permissions.json` so Auto-run should not prompt for every Linear read/write. Do not ask the user to approve individual Linear tool calls.
+
 Also follow project skill `.cursor/skills/linear-workflow/SKILL.md` when creating or sizing issues.
 
 ## A. Pull from Linear first (ask before acting)

@@ -131,33 +131,33 @@ describe("product interaction heuristics", () => {
 });
 
 describe("evaluateEngagementThreshold", () => {
-  it("requires article active time and scroll depth", () => {
+  it("meets article bar on dwell alone or deep scroll alone", () => {
+    expect(
+      evaluateEngagementThreshold({
+        pageType: "article",
+        activeMs: DEFAULT_ARTICLE_THRESHOLD.minActiveMs,
+        scrollDepth: 0,
+        hasProductInteraction: false,
+      }),
+    ).toEqual({ met: true, reason: "article-active-time-met" });
+
+    expect(
+      evaluateEngagementThreshold({
+        pageType: "article",
+        activeMs: 0,
+        scrollDepth: DEFAULT_ARTICLE_THRESHOLD.minScrollDepth,
+        hasProductInteraction: false,
+      }),
+    ).toEqual({ met: true, reason: "article-scroll-depth-met" });
+
     expect(
       evaluateEngagementThreshold({
         pageType: "article",
         activeMs: DEFAULT_ARTICLE_THRESHOLD.minActiveMs - 1,
-        scrollDepth: 0.9,
-        hasProductInteraction: false,
-      }).met,
-    ).toBe(false);
-
-    expect(
-      evaluateEngagementThreshold({
-        pageType: "article",
-        activeMs: DEFAULT_ARTICLE_THRESHOLD.minActiveMs,
         scrollDepth: DEFAULT_ARTICLE_THRESHOLD.minScrollDepth - 0.01,
         hasProductInteraction: false,
-      }).reason,
-    ).toBe("article-scroll-depth");
-
-    expect(
-      evaluateEngagementThreshold({
-        pageType: "article",
-        activeMs: DEFAULT_ARTICLE_THRESHOLD.minActiveMs,
-        scrollDepth: DEFAULT_ARTICLE_THRESHOLD.minScrollDepth,
-        hasProductInteraction: false,
       }),
-    ).toEqual({ met: true, reason: "article-threshold-met" });
+    ).toEqual({ met: false, reason: "article-threshold-pending" });
   });
 
   it("requires product dwell plus interaction", () => {
@@ -193,7 +193,7 @@ describe("evaluateEngagementThreshold", () => {
 });
 
 describe("engagement session (once per page)", () => {
-  it("fires once for an article after time + scroll", () => {
+  it("fires once for an article after dwell alone", () => {
     let session = createEngagementSession({
       pageType: "article",
       url: "https://news.example.com/story",
@@ -202,16 +202,16 @@ describe("engagement session (once per page)", () => {
 
     let result = noteScroll(
       session,
-      { scrollY: 400, viewportHeight: 500, scrollHeight: 2000 },
+      { scrollY: 0, viewportHeight: 500, scrollHeight: 2000 },
       1_000,
     );
-    // depth = (400+500)/2000 = 0.45 ≥ 0.35, but time still short
+    // shallow scroll alone must not invite
     expect(result.thresholdReached).toBe(false);
     session = result.state;
 
     result = tickEngagement(session, DEFAULT_ARTICLE_THRESHOLD.minActiveMs);
     expect(result.thresholdReached).toBe(true);
-    expect(result.reason).toBe("article-threshold-met");
+    expect(result.reason).toBe("article-active-time-met");
     session = result.state;
 
     result = tickEngagement(session, DEFAULT_ARTICLE_THRESHOLD.minActiveMs + 5_000);
@@ -219,7 +219,24 @@ describe("engagement session (once per page)", () => {
     expect(session.fired).toBe(true);
   });
 
-  it("does not count hidden time toward the article bar", () => {
+  it("fires for an article on deep scroll before dwell", () => {
+    let session = createEngagementSession({
+      pageType: "article",
+      url: "https://news.example.com/story",
+      now: 0,
+    });
+
+    const result = noteScroll(
+      session,
+      { scrollY: 1_200, viewportHeight: 500, scrollHeight: 2000 },
+      500,
+    );
+    // depth = (1200+500)/2000 = 0.85 ≥ 2/3
+    expect(result.thresholdReached).toBe(true);
+    expect(result.reason).toBe("article-scroll-depth-met");
+  });
+
+  it("does not count hidden time toward the article dwell bar", () => {
     let session = createEngagementSession({
       pageType: "article",
       url: "https://news.example.com/story",
@@ -227,14 +244,14 @@ describe("engagement session (once per page)", () => {
     });
     session = noteScroll(
       session,
-      { scrollY: 0, viewportHeight: 800, scrollHeight: 800 },
+      { scrollY: 0, viewportHeight: 500, scrollHeight: 2000 },
       0,
     ).state;
 
     session = noteVisibility(session, false, 5_000).state;
     const result = tickEngagement(session, 60_000);
     expect(result.thresholdReached).toBe(false);
-    expect(result.reason).toBe("article-active-time");
+    expect(result.reason).toBe("article-threshold-pending");
   });
 
   it("fires for a product after dwell + meaningful click", () => {
@@ -299,6 +316,24 @@ describe("guessEngagementPageType", () => {
     const doc = document.implementation.createHTMLDocument("g");
     doc.body.innerHTML = "<div>hello</div>";
     expect(guessEngagementPageType(doc, "https://example.com/")).toBe("generic");
+  });
+
+  it("treats /live-news/ URLs and LiveBlogPosting JSON-LD as articles", () => {
+    const bare = document.implementation.createHTMLDocument("live");
+    bare.body.innerHTML = "<div>updates</div>";
+    expect(
+      guessEngagementPageType(
+        bare,
+        "https://edition.cnn.com/2026/08/09/world/live-news/iran-war-trump",
+      ),
+    ).toBe("article");
+
+    const ld = document.implementation.createHTMLDocument("lb");
+    ld.head.innerHTML =
+      '<script type="application/ld+json">{"@type":"LiveBlogPosting"}</script>';
+    expect(guessEngagementPageType(ld, "https://news.example.com/live")).toBe(
+      "article",
+    );
   });
 });
 

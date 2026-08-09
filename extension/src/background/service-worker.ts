@@ -5,6 +5,7 @@ import {
 } from "../domain/smart";
 import { broadcastBackgroundEvent } from "../shared/messaging";
 import { ensureDefaults } from "../shared/storage";
+import { ENGAGEMENT_BOOT_SCRIPT_PATH } from "./engagement-boot-path";
 import {
   clearInviteForTab,
   peekActiveInviteTabId,
@@ -15,6 +16,7 @@ import { registerBackgroundRouter } from "./router";
 import { forgetPageContext } from "./page-context-store";
 
 const OPEN_PANEL_MENU_ID = "promptahead-open-panel";
+const ENGAGEMENT_JS = [ENGAGEMENT_BOOT_SCRIPT_PATH] as const;
 
 /**
  * Manual mode spends `activeTab` on gesture before opening the panel.
@@ -37,7 +39,20 @@ async function setupContextMenu(): Promise<void> {
 /** Register engagement tracker iff optional Smart host access is present. */
 async function syncEngagementRegistration(): Promise<void> {
   const granted = await hasSmartHostPermission();
-  await syncEngagementContentScripts(granted);
+  const result = await syncEngagementContentScripts(
+    granted,
+    undefined,
+    undefined,
+    ENGAGEMENT_JS,
+  );
+  if (result.error) {
+    console.warn("[PromptAhead] engagement script sync failed:", result.error);
+  } else if (granted && result.registered) {
+    console.info(
+      "[PromptAhead] engagement script registered",
+      result.js?.join(", ") ?? "",
+    );
+  }
 }
 
 /**
@@ -74,6 +89,12 @@ function handleGesture(tab: chrome.tabs.Tab | undefined): void {
 
 registerBackgroundRouter();
 
+// Every SW wake (including unpacked Reload) — do not rely only on onInstalled.
+configurePanelBehavior();
+void setupContextMenu();
+void ensureDefaults();
+void syncEngagementRegistration();
+
 chrome.runtime.onInstalled.addListener(() => {
   configurePanelBehavior();
   void setupContextMenu();
@@ -92,13 +113,13 @@ chrome.runtime.onStartup.addListener(() => {
 // registration in lockstep so engagement never runs without host access.
 chrome.permissions.onAdded.addListener((permissions) => {
   if (smartOriginsGranted(permissions.origins)) {
-    void syncEngagementContentScripts(true);
+    void syncEngagementContentScripts(true, undefined, undefined, ENGAGEMENT_JS);
   }
 });
 
 chrome.permissions.onRemoved.addListener((permissions) => {
   if (smartOriginsGranted(permissions.origins)) {
-    void syncEngagementContentScripts(false);
+    void syncEngagementContentScripts(false, undefined, undefined, ENGAGEMENT_JS);
   }
 });
 
@@ -122,19 +143,39 @@ chrome.commands.onCommand.addListener((command, tab) => {
 
 // Navigation revokes `activeTab`, so cached context for that tab is stale.
 // The panel stays open and reacts to PAGE_CONTEXT_CLEARED (DOM-10).
-chrome.tabs.onUpdated.addListener((tabId, changeInfo) => {
+chrome.tabs.onUpdated.addListener((tabId, changeInfo, tab) => {
   // `status: "loading"` covers full navigations; `url` covers same-document
   // and some Playwright-driven navigations that omit status.
-  if (changeInfo.status !== "loading" && changeInfo.url === undefined) {
-    return;
+  if (changeInfo.status === "loading" || changeInfo.url !== undefined) {
+    forgetPageContext(tabId);
+    void clearInviteForTab(tabId);
+    broadcastBackgroundEvent({
+      type: "PAGE_CONTEXT_CLEARED",
+      tabId,
+      reason: "navigated",
+    });
   }
-  forgetPageContext(tabId);
-  void clearInviteForTab(tabId);
-  broadcastBackgroundEvent({
-    type: "PAGE_CONTEXT_CLEARED",
-    tabId,
-    reason: "navigated",
-  });
+
+  // Fallback inject when registerContentScripts did not attach (CRXJS / race).
+  if (changeInfo.status === "complete") {
+    const url = tab.url ?? "";
+    if (!/^https?:/i.test(url)) {
+      return;
+    }
+    void (async () => {
+      if (!(await hasSmartHostPermission())) {
+        return;
+      }
+      try {
+        await chrome.scripting.executeScript({
+          target: { tabId },
+          files: [...ENGAGEMENT_JS],
+        });
+      } catch {
+        // Restricted page or missing host access on this tab.
+      }
+    })();
+  }
 });
 
 chrome.tabs.onRemoved.addListener((tabId) => {

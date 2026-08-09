@@ -32,7 +32,8 @@ function jsonLdHints(doc: Document): { product: boolean; article: boolean } {
       lower.includes('"@type":"article"') ||
       lower.includes('"@type": "article"') ||
       lower.includes('"@type":"newsarticle"') ||
-      lower.includes('"@type":"blogposting"')
+      lower.includes('"@type":"blogposting"') ||
+      lower.includes('"@type":"liveblogposting"')
     ) {
       article = true;
     }
@@ -74,7 +75,8 @@ export function guessEngagementPageType(
     ogType === "blog" ||
     ogType === "news" ||
     Boolean(doc.querySelector("article")) ||
-    Boolean(doc.querySelector('meta[property="article:published_time"]'));
+    Boolean(doc.querySelector('meta[property="article:published_time"]')) ||
+    /\/live-news\//i.test(url);
 
   if (articleish) {
     return "article";

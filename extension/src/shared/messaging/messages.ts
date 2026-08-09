@@ -54,7 +54,13 @@ export type BackgroundRequest =
       tabId?: number;
     }
   /** Accept / dismiss / snooze / disable the active badge invite. */
-  | { type: "INVITE_ACTION"; action: InviteActionKind; tabId?: number };
+  | { type: "INVITE_ACTION"; action: InviteActionKind; tabId?: number }
+  /** Developer: re-sync Smart engagement scripts and report registration. */
+  | { type: "SYNC_ENGAGEMENT_SCRIPTS" }
+  /** Developer / smoke: read invite caps + last threshold outcome. */
+  | { type: "GET_INVITE_RUNTIME" }
+  /** Developer / smoke: clear today's invite caps (keeps settings). */
+  | { type: "RESET_INVITE_CAPS" };
 
 export type BackgroundRequestType = BackgroundRequest["type"];
 
@@ -90,6 +96,32 @@ type OkPayloads = {
     openPanelAndAnalyze: boolean;
     phase: string | null;
   };
+  SYNC_ENGAGEMENT_SCRIPTS: {
+    hostGranted: boolean;
+    registered: boolean;
+    js: string[];
+    error?: string;
+  };
+  GET_INVITE_RUNTIME: {
+    invitesToday: number;
+    domainsInvitedToday: string[];
+    pagesInvitedToday: string[];
+    snoozeUntilDayKey: string | null;
+    lastInviteEvent: {
+      at: string;
+      url: string;
+      pageType: string;
+      showBadge: boolean;
+      suppression: string | null;
+      reason: string;
+      invitesToday: number;
+      domainsInvitedToday: string[];
+    } | null;
+  };
+  RESET_INVITE_CAPS: {
+    cleared: true;
+    invitesToday: number;
+  };
 };
 
 export type BackgroundOk<K extends BackgroundRequestType = BackgroundRequestType> =
@@ -122,6 +154,9 @@ export const BACKGROUND_REQUEST_TYPES: readonly BackgroundRequestType[] = [
   "OPEN_SIDE_PANEL",
   "ENGAGEMENT_THRESHOLD",
   "INVITE_ACTION",
+  "SYNC_ENGAGEMENT_SCRIPTS",
+  "GET_INVITE_RUNTIME",
+  "RESET_INVITE_CAPS",
 ];
 
 const REQUEST_TYPES: ReadonlySet<string> = new Set(BACKGROUND_REQUEST_TYPES);

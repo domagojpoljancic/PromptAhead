@@ -106,6 +106,11 @@ export function initOptions(deps: Partial<OptionsDeps> = {}): OptionsController 
   const developerMode = document.getElementById(
     "developer-mode",
   ) as HTMLInputElement | null;
+  const developerActions = document.getElementById("developer-actions");
+  const developerActionsHint = document.getElementById("developer-actions-hint");
+  const resetInviteCaps = document.getElementById(
+    "reset-invite-caps",
+  ) as HTMLButtonElement | null;
   const nanoStatus = document.getElementById("nano-status");
   const nanoForceBasic = document.getElementById(
     "nano-force-basic",
@@ -285,6 +290,43 @@ export function initOptions(deps: Partial<OptionsDeps> = {}): OptionsController 
     }
   }
 
+  let engagementDebug = "engagement: unknown";
+  let inviteDebug = "invite: unknown";
+
+  async function refreshEngagementDebug(): Promise<void> {
+    const response = await send({ type: "SYNC_ENGAGEMENT_SCRIPTS" });
+    if (!response.ok || response.type !== "SYNC_ENGAGEMENT_SCRIPTS") {
+      engagementDebug = `engagement: sync failed (${response.ok === false ? response.error : "bad reply"})`;
+      return;
+    }
+    const jsHint = response.js[0] ? response.js[0].replace(/^assets\//, "") : "none";
+    engagementDebug = [
+      `hostGranted: ${response.hostGranted}`,
+      `registered: ${response.registered}`,
+      `js: ${jsHint}`,
+      response.error ? `error: ${response.error}` : null,
+    ]
+      .filter(Boolean)
+      .join(", ");
+  }
+
+  async function refreshInviteDebug(): Promise<void> {
+    const response = await send({ type: "GET_INVITE_RUNTIME" });
+    if (!response.ok || response.type !== "GET_INVITE_RUNTIME") {
+      inviteDebug = `invite: read failed (${response.ok === false ? response.error : "bad reply"})`;
+      return;
+    }
+    const last = response.lastInviteEvent;
+    const lastBit = last
+      ? `last: ${last.showBadge ? "badge" : last.suppression ?? last.reason} @ ${last.url.slice(0, 48)}`
+      : "last: none";
+    inviteDebug = [
+      `invitesToday: ${response.invitesToday}`,
+      `domains: [${response.domainsInvitedToday.join(", ") || "—"}]`,
+      lastBit,
+    ].join(", ");
+  }
+
   function renderSettings(settings: Settings): void {
     latestSettings = settings;
     if (destinationSelect) {
@@ -311,6 +353,8 @@ export function initOptions(deps: Partial<OptionsDeps> = {}): OptionsController 
     renderNanoControls(settings);
 
     setHidden(debugSection, !settings.developerMode);
+    setHidden(developerActions, !settings.developerMode);
+    setHidden(developerActionsHint, !settings.developerMode);
     if (debugLine) {
       debugLine.textContent = [
         `mode: ${settings.mode}`,
@@ -322,6 +366,8 @@ export function initOptions(deps: Partial<OptionsDeps> = {}): OptionsController 
         `proactivePaused: ${settings.proactivePaused}`,
         `developer: ${settings.developerMode}`,
         `settings schema: v${settings.schemaVersion}`,
+        engagementDebug,
+        inviteDebug,
       ].join(" · ");
     }
   }
@@ -550,6 +596,16 @@ export function initOptions(deps: Partial<OptionsDeps> = {}): OptionsController 
     renderSettings(response.settings);
     void refreshNanoReadiness();
     void refreshHostPermission();
+    void refreshEngagementDebug().then(() => {
+      if (latestSettings) {
+        renderSettings(latestSettings);
+      }
+    });
+    void refreshInviteDebug().then(() => {
+      if (latestSettings) {
+        renderSettings(latestSettings);
+      }
+    });
   }
 
   smartEnable?.addEventListener("click", () => {
@@ -609,7 +665,34 @@ export function initOptions(deps: Partial<OptionsDeps> = {}): OptionsController 
   });
 
   developerMode?.addEventListener("change", () => {
-    void saveSettingsPatch({ developerMode: Boolean(developerMode.checked) });
+    void saveSettingsPatch({ developerMode: Boolean(developerMode.checked) }).then(
+      (ok) => {
+        if (ok) {
+          void Promise.all([refreshEngagementDebug(), refreshInviteDebug()]).then(
+            () => {
+              if (latestSettings) {
+                renderSettings(latestSettings);
+              }
+            },
+          );
+        }
+      },
+    );
+  });
+
+  resetInviteCaps?.addEventListener("click", () => {
+    void (async () => {
+      const response = await send({ type: "RESET_INVITE_CAPS" });
+      if (!response.ok) {
+        setStatus(`Could not reset caps — ${response.error}`, "error");
+        return;
+      }
+      await refreshInviteDebug();
+      if (latestSettings) {
+        renderSettings(latestSettings);
+      }
+      setStatus("Today's invite caps cleared. Re-engage on an article to test.", "ok");
+    })();
   });
 
   nanoForceBasic?.addEventListener("change", () => {

@@ -4,10 +4,12 @@ import {
   ENGAGEMENT_CONTENT_SCRIPT_ID,
   ENGAGEMENT_CONTENT_SCRIPT_JS,
   ENGAGEMENT_CONTENT_SCRIPT_MATCHES,
+  ENGAGEMENT_MANIFEST_PACKAGE_MATCH,
   SMART_HOST_ORIGINS,
   SMART_PERMISSION_EDUCATION,
   hasSmartHostPermission,
   requestSmartHostPermission,
+  resolveEngagementContentScriptJs,
   revokeSmartHostPermission,
   settingsAfterSmartGrant,
   settingsAfterSmartRevoke,
@@ -31,21 +33,33 @@ function mockPermissions(state: { granted: boolean }): PermissionsApi {
   };
 }
 
-function mockScripting(state: { ids: string[] }): ScriptingRegistrationApi {
+function mockScripting(state: {
+  ids: string[];
+  jsById?: Record<string, string[]>;
+}): ScriptingRegistrationApi {
   return {
     getRegisteredContentScripts: vi.fn(async () =>
-      state.ids.map((id) => ({ id })),
+      state.ids.map((id) => ({
+        id,
+        js: state.jsById?.[id],
+      })),
     ),
     registerContentScripts: vi.fn(async (scripts) => {
       for (const script of scripts) {
         if (!state.ids.includes(script.id)) {
           state.ids.push(script.id);
         }
+        state.jsById = { ...state.jsById, [script.id]: [...script.js] };
       }
     }),
     unregisterContentScripts: vi.fn(async (filter) => {
       const remove = new Set(filter?.ids ?? []);
       state.ids = state.ids.filter((id) => !remove.has(id));
+      if (state.jsById) {
+        for (const id of remove) {
+          delete state.jsById[id];
+        }
+      }
     }),
   };
 }
@@ -111,17 +125,46 @@ describe("engagement content-script sync after Smart grant", () => {
     expect(smartOriginsGranted(undefined)).toBe(false);
   });
 
-  it("registers the engagement boot script when granted", async () => {
-    const state = { ids: [] as string[] };
-    const api = mockScripting(state);
+  it("resolves packaged CRXJS loader paths from the dummy manifest entry", () => {
+    const packaged = ["assets/engagement-boot.ts-loader-CKHf2Ijv.js"];
+    expect(
+      resolveEngagementContentScriptJs({
+        content_scripts: [
+          {
+            matches: [ENGAGEMENT_MANIFEST_PACKAGE_MATCH],
+            js: packaged,
+          },
+        ],
+      }),
+    ).toEqual(packaged);
+    expect(resolveEngagementContentScriptJs(undefined)).toEqual([
+      ...ENGAGEMENT_CONTENT_SCRIPT_JS,
+    ]);
+  });
 
-    await expect(syncEngagementContentScripts(true, api)).resolves.toEqual({
+  it("registers the packaged engagement boot script when granted", async () => {
+    const state = { ids: [] as string[], jsById: {} as Record<string, string[]> };
+    const api = mockScripting(state);
+    const packagedJs = ["assets/engagement-boot.ts-loader-test.js"];
+    const manifest = {
+      content_scripts: [
+        {
+          matches: [ENGAGEMENT_MANIFEST_PACKAGE_MATCH],
+          js: packagedJs,
+        },
+      ],
+    };
+
+    await expect(
+      syncEngagementContentScripts(true, api, manifest),
+    ).resolves.toEqual({
       registered: true,
+      js: packagedJs,
     });
     expect(api.registerContentScripts).toHaveBeenCalledWith([
       {
         id: ENGAGEMENT_CONTENT_SCRIPT_ID,
-        js: [...ENGAGEMENT_CONTENT_SCRIPT_JS],
+        js: packagedJs,
         matches: [...ENGAGEMENT_CONTENT_SCRIPT_MATCHES],
         runAt: "document_idle",
         persistAcrossSessions: true,
@@ -129,9 +172,37 @@ describe("engagement content-script sync after Smart grant", () => {
     ]);
     expect(state.ids).toEqual([ENGAGEMENT_CONTENT_SCRIPT_ID]);
 
-    // Idempotent — second grant must not re-register.
-    await syncEngagementContentScripts(true, api);
+    // Idempotent — second grant must not re-register when paths match.
+    await syncEngagementContentScripts(true, api, manifest);
     expect(api.registerContentScripts).toHaveBeenCalledTimes(1);
+  });
+
+  it("re-registers when an existing entry still uses the source path", async () => {
+    const state = {
+      ids: [ENGAGEMENT_CONTENT_SCRIPT_ID],
+      jsById: {
+        [ENGAGEMENT_CONTENT_SCRIPT_ID]: [...ENGAGEMENT_CONTENT_SCRIPT_JS],
+      },
+    };
+    const api = mockScripting(state);
+    const packagedJs = ["assets/engagement-boot.ts-loader-fixed.js"];
+
+    await syncEngagementContentScripts(true, api, {
+      content_scripts: [
+        {
+          matches: [ENGAGEMENT_MANIFEST_PACKAGE_MATCH],
+          js: packagedJs,
+        },
+      ],
+    });
+
+    expect(api.unregisterContentScripts).toHaveBeenCalledWith({
+      ids: [ENGAGEMENT_CONTENT_SCRIPT_ID],
+    });
+    expect(api.registerContentScripts).toHaveBeenCalledWith([
+      expect.objectContaining({ js: packagedJs }),
+    ]);
+    expect(state.jsById[ENGAGEMENT_CONTENT_SCRIPT_ID]).toEqual(packagedJs);
   });
 
   it("unregisters when host access is revoked", async () => {

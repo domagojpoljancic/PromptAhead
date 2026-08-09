@@ -25,6 +25,7 @@ export type ThresholdEvaluation = {
 /**
  * Whether current signals meet the initial article / product bars.
  * Generic pages never meet — Smart invites only for article/product (handoff).
+ * Articles: active dwell **or** deep scroll (either bar is enough).
  */
 export function evaluateEngagementThreshold(
   signals: EngagementSignalSnapshot,
@@ -36,13 +37,15 @@ export function evaluateEngagementThreshold(
 
   if (signals.pageType === "article") {
     const { minActiveMs, minScrollDepth } = thresholds.article;
-    if (signals.activeMs < minActiveMs) {
-      return { met: false, reason: "article-active-time" };
+    const timeOk = signals.activeMs >= minActiveMs;
+    const scrollOk = signals.scrollDepth >= minScrollDepth;
+    if (timeOk) {
+      return { met: true, reason: "article-active-time-met" };
     }
-    if (signals.scrollDepth < minScrollDepth) {
-      return { met: false, reason: "article-scroll-depth" };
+    if (scrollOk) {
+      return { met: true, reason: "article-scroll-depth-met" };
     }
-    return { met: true, reason: "article-threshold-met" };
+    return { met: false, reason: "article-threshold-pending" };
   }
 
   // product

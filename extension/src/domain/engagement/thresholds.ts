@@ -17,8 +17,10 @@ export type ProductThreshold = {
 };
 
 export const DEFAULT_ARTICLE_THRESHOLD: Readonly<ArticleThreshold> = {
-  minActiveMs: 45_000,
-  minScrollDepth: 0.35,
+  /** Active dwell alone is enough to invite (OR with scroll). */
+  minActiveMs: 30_000,
+  /** Deep scroll alone is enough (OR with dwell). ~⅔ of page height. */
+  minScrollDepth: 2 / 3,
 };
 
 export const DEFAULT_PRODUCT_THRESHOLD: Readonly<ProductThreshold> = {

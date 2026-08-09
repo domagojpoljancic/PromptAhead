@@ -130,15 +130,12 @@ describe("engagement tracker on HTML fixtures", () => {
     now = 50;
     await vi.advanceTimersByTimeAsync(50);
     expect(handle.getState().scrollDepth).toBeCloseTo(0.45);
-    expect(onThresholdReached).not.toHaveBeenCalled();
-
-    now = 1_000;
-    await vi.advanceTimersByTimeAsync(200);
+    // fixture bar is 0.35 — deep-enough scroll alone invites
     expect(onThresholdReached).toHaveBeenCalledTimes(1);
     expect(onThresholdReached).toHaveBeenCalledWith({
       pageType: "article",
       url: ARTICLE_URL,
-      reason: "article-threshold-met",
+      reason: "article-scroll-depth-met",
     });
     expect(Object.keys(onThresholdReached.mock.calls[0]![0]).sort()).toEqual([
       "pageType",

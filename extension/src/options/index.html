@@ -161,6 +161,15 @@
           <input type="checkbox" id="developer-mode" />
           <span>Developer mode</span>
         </label>
+        <div class="button-row" id="developer-actions" hidden>
+          <button type="button" class="btn" id="reset-invite-caps">
+            Reset today's invite caps
+          </button>
+        </div>
+        <p class="hint" id="developer-actions-hint" hidden>
+          Clears once-per-page / once-per-domain / daily invite counters so Smart
+          smoke can re-run without waiting for UTC midnight.
+        </p>
       </section>
 
       <section class="settings__section">
