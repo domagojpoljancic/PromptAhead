@@ -687,6 +687,30 @@ describe("options click-through", () => {
     expect(store.settings.languageOverride).toBe("hr");
   });
 
+  it("toggles global proactive pause from Settings", async () => {
+    const { send } = createSend(store);
+    initOptions({ sendToBackground: send, confirm: () => true });
+    await flush();
+
+    const pause = document.getElementById(
+      "proactive-pause",
+    ) as HTMLInputElement;
+    expect(pause).toBeTruthy();
+    expect(pause.checked).toBe(false);
+
+    pause.checked = true;
+    pause.dispatchEvent(new Event("change", { bubbles: true }));
+    await flush();
+    expect(store.settings.proactivePaused).toBe(true);
+    expect(textOf("#status")).toMatch(/proactive.*paused/i);
+
+    pause.checked = false;
+    pause.dispatchEvent(new Event("change", { bubbles: true }));
+    await flush();
+    expect(store.settings.proactivePaused).toBe(false);
+    expect(textOf("#status")).toMatch(/resumed/i);
+  });
+
   it("toggles force basic private mode for Nano", async () => {
     const { send } = createSend(store);
     initOptions({
