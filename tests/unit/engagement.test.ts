@@ -220,7 +220,7 @@ describe("engagement session (once per page)", () => {
   });
 
   it("fires for an article on deep scroll before dwell", () => {
-    let session = createEngagementSession({
+    const session = createEngagementSession({
       pageType: "article",
       url: "https://news.example.com/story",
       now: 0,
