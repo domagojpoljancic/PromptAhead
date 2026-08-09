@@ -1,6 +1,6 @@
 # PromptAhead
 
-> **WIP — M3 Smart mode in progress; M2 Nano hardware smoke still open.** Manual core (M1) is buildable and covered by Vitest/Playwright/CI. Nano UX and Smart host-permission education + grant/revoke are on `main`. Engagement thresholds register the content tracker after Smart host grant; invitation state machine + **badge-first SW wiring** (`chrome.action` apply / dismiss·snooze) and **accept → panel + extract** (suggest/Nano only after accept) are in flight — optional `chrome.notifications` still deferred. Chrome Web Store packaging (M4) is still ahead.
+> **WIP — M3 Smart product path on `main`; Playwright Smart coverage expanding (DOM-56).** Manual core (M1) is buildable and covered by Vitest/Playwright/CI. Nano UX, Smart grant/revoke, engagement thresholds, invitation state machine, badge-first invites, and accept → panel + extract are on `main`. Optional `chrome.notifications` / invite dismiss UI deferred. Next automation: Smart invite/accept paths + caps (DOM-56); manual Smart smoke (DOM-38). Chrome Web Store packaging (M4) still ahead.
 
 **Your next question, already prepared.**
 
@@ -10,11 +10,11 @@ Privacy-first Chrome extension (Manifest V3) that notices when you are genuinely
 
 | Area | State |
 | --- | --- |
-| Product extension (`extension/`) | **Manual core** + **M2 Nano UX** + **M3 Smart permissions (WIP)** — education copy, grant/revoke helpers, Settings/onboarding hooks |
-| Side panel | Workflow state machine; Nano thinking + curated fallback + **Retry local AI**; calm Nano panel notices + Smart permission education (WIP) |
-| Onboarding + settings | Manual-first first-run; Nano ready/download/unsupported + onboarding gate; Settings Smart grant/revoke + education (WIP, untested) |
+| Product extension (`extension/`) | **Manual core** + **M2 Nano UX** + **M3 Smart** (grant/revoke, engagement, badge invite, accept→extract) |
+| Side panel | Workflow state machine; Nano thinking + curated fallback + **Retry local AI**; calm Nano panel notices + Smart permission education |
+| Onboarding + settings | Manual-first first-run; Nano ready/download/unsupported + onboarding gate; Settings Smart grant/revoke + education |
 | Destinations | Deep links with **app-first + web fallback**; Gemini / oversized prompts use **clipboard + open**; never auto-submit |
-| Automation | Vitest (unit + jsdom UI), Playwright (built MV3 + navigate→stale + Nano-off curated), GitHub Actions (`test:ci`, Node 20.19+) |
+| Automation | Vitest (unit + jsdom UI), Playwright (MV3 + navigate→stale + Nano-off curated + **Smart revoke→Manual**), GitHub Actions (`test:ci`, Node 20.19+) |
 | Nano CI | Curated path stays green with Nano forced off (`NANO_FORCE_DISABLED` + Playwright Settings force-basic → extract → copy); live hardware checklist remains DOM-31 / [`docs/nano-verification-checklist.md`](docs/nano-verification-checklist.md) |
 | Nano engine | Longer create/prompt budgets; prefer unconstrained prompt then constrain; retain failure reason on curated fallback |
 | M1 acceptance | Manual §25 map + smoke notes in [`docs/test-plan.md`](docs/test-plan.md) |
@@ -22,7 +22,7 @@ Privacy-first Chrome extension (Manifest V3) that notices when you are genuinely
 | Spike results (`docs/technical-spikes.md`) | **Filled** — Chrome **150.0.0.0** (2026-08-01) |
 | Extraction | JSON-LD / Open Graph / semantic-HTML classification with size caps; 6 HTML fixtures; Readability deferred |
 | Engagement | Domain + content tracker; runtime inject after Smart host grant; Vitest fixture threshold fire + jank smoke (passive/throttle) |
-| Invitation (Smart) | State machine + caps + badge-first copy; SW badge on threshold (no extract); accept → panel + Manual extract/suggest path (Vitest); dismiss·snooze clear badge; optional `chrome.notifications` deferred |
+| Invitation (Smart) | State machine + caps + badge-first copy; SW badge on threshold (no extract); accept → panel + Manual extract/suggest; dismiss·snooze clear badge; Playwright revoke→Manual regression; optional `chrome.notifications` deferred |
 | Suggestions + prompts | Curated + mock-Nano + real `NanoSuggestionEngine` (validate / repair / timeout / curated fallback) |
 | Product docs | Handoff + architecture / plan / privacy / test plan / Nano checklist |
 | Planning | Linear used as the product / issue tracker |
@@ -110,7 +110,8 @@ See [`docs/architecture.md`](docs/architecture.md) for the full folder layout. A
 - Chrome Web Store packaging / listing (M4)
 - Main-content extraction beyond the thin `main`/`article` heuristic; Mozilla Readability license call still open
 - Sensitive-page heuristics (banking/medical pages are not blocked yet)
-- Full Smart mode polish (optional notifications, dedicated invite dismiss UI) — badge/SW + accept→panel+extract landed; notifications / invite UI still deferred
+- Full Smart mode polish (optional notifications, dedicated invite dismiss UI) — badge/SW + accept→panel+extract landed; Playwright invite/accept + caps still expanding (DOM-56)
+
 - Hardware Nano smoke beyond checklist rows — DOM-31 / [`docs/nano-verification-checklist.md`](docs/nano-verification-checklist.md); CI covers curated / Nano-off only
 
 ## Contributing / development notes

@@ -43,9 +43,11 @@ Never call cloud models in tests. Playwright never opens live ChatGPT / Claude /
 - Domain unit + HTML fixture extraction
 - Messaging / storage integration with chrome mock
 - Side-panel and options jsdom click-through (DOM-10 / DOM-11 happy paths + key failures)
-- Playwright against built MV3: service-worker PING, options persistence, onboarding skip, local fixture extract → curated flow → copy, clear-all, **Nano forced off (Settings force basic) → curated extract → prompt → copy**
+- Playwright against built MV3: service-worker PING, options persistence, onboarding skip, local fixture extract → curated flow → copy, clear-all, **Nano forced off (Settings force basic) → curated extract → prompt → copy**, **Smart revoke → Manual extract → curated still works** (DOM-56 thin slice; invite/badge/accept e2e still open)
 - Production manifest stays `activeTab`-only; e2e copies `extension/dist/` and adds a **test-only** `host_permissions` entry for `http://127.0.0.1:<fixture-port>/*`
 - Real Nano hardware / Prompt API smoke stays manual: [`nano-verification-checklist.md`](./nano-verification-checklist.md) (DOM-31) — Playwright never downloads or runs Nano
+- Remaining Smart invite / caps / protected-page automation and OS permission-dialog edges: [DOM-56](https://linear.app/domagojp/issue/DOM-56) + [DOM-38](https://linear.app/domagojp/issue/DOM-38) manual smoke
+
 
 ### Manual release smoke (keep tiny)
 
@@ -171,8 +173,10 @@ Scripts: `npm run test:e2e` / `test:e2e:headed` / included in `test:ci`.
 - Serve `tests/fixtures/html/article-jsonld.html` on `127.0.0.1`; extract via background with test-only host grant.
 - Walk curated prompt flow to Copy; clear-all from options.
 - Force basic private mode (Nano off) → curated suggestions still complete extract → prompt → copy (hardware Nano remains DOM-31).
+- Smart revoke → settings Manual → fixture extract → curated still completes (DOM-56); grant→badge→accept and protected-page paths not yet in Playwright.
 
 ## 8. Manual Chrome verification checklists
+
 
 ### M1 release smoke
 
@@ -200,7 +204,7 @@ See §4 “Manual release smoke” — that is the only required pre-release Chr
 2. Engagement on article/product triggers badge/notification once.
 3. Dismiss / snooze / don’t suggest on this site / global pause.
 4. Caps hold under repeated browsing.
-5. Revoke host access → Manual still works.
+5. Revoke host access → Manual still works — **automated** Playwright thin path (DOM-56); confirm once on real Chrome under [DOM-38](https://linear.app/domagojp/issue/DOM-38).
 6. Protected pages never proactive-trigger.
 
 ### M4 a11y / polish
