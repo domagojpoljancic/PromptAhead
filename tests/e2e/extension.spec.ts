@@ -153,6 +153,70 @@ test("clear all data restores defaults from options", async () => {
   await page.close();
 });
 
+/**
+ * DOM-56 (thin slice): after Smart→Manual (revoke settings outcome), Manual
+ * extract → curated still works. Real Chrome permission-dialog grant/revoke
+ * stays on DOM-38 manual smoke; invite/badge/accept e2e stay for later DOM-56.
+ */
+test("Smart revoke leaves Manual extract → curated working", async () => {
+  test.setTimeout(30_000);
+  await seedCompletedOnboarding(session, { nanoPreference: "basic" });
+
+  const options = await openExtensionPage(session, session.optionsUrl);
+
+  // Apply the same settings patch Settings uses after a successful Smart revoke.
+  // Do not call chrome.permissions.remove(<all_urls>) here — in Playwright’s
+  // Chromium it can hide tab URLs from chrome.tabs.query and break extract.
+  // Real optional-host revoke stays on DOM-38 manual smoke.
+  await options.evaluate(async () => {
+    await chrome.runtime.sendMessage({
+      type: "SET_SETTINGS",
+      patch: { mode: "smart", smartModeAvailable: true },
+    });
+    await chrome.runtime.sendMessage({
+      type: "SET_SETTINGS",
+      patch: { mode: "manual", smartModeAvailable: false },
+    });
+  });
+
+  await options.reload({ waitUntil: "domcontentloaded" });
+  await expect(options.locator("#mode-label")).toHaveText("Manual");
+  await expect
+    .poll(async () =>
+      options.evaluate(async () => {
+        const response = (await chrome.runtime.sendMessage({
+          type: "GET_SETTINGS",
+        })) as {
+          ok: boolean;
+          settings?: { mode: string; smartModeAvailable: boolean };
+        };
+        return response.settings
+          ? `${response.settings.mode}:${response.settings.smartModeAvailable}`
+          : null;
+      }),
+    )
+    .toBe("manual:false");
+  await options.close();
+
+  const tab = await session.context.newPage();
+  await tab.goto(server.url("/article.html"), {
+    waitUntil: "domcontentloaded",
+  });
+  await expect(tab.locator("h1")).toContainText(/AI Act|EU/i);
+
+  const panel = await openExtensionPage(session, session.sidePanelUrl);
+  await expect.poll(async () => pingBackground(panel)).toBe(true);
+  const tabId = await extractActiveFixture(panel, tab);
+  expect(tabId).toBeGreaterThan(0);
+
+  await expect(panel.locator("#choose")).toBeVisible({ timeout: 15_000 });
+  await expect(panel.locator("#status")).toContainText(/curated/i);
+  await walkChooseThroughCopy(panel);
+
+  await panel.close();
+  await tab.close();
+});
+
 test("navigate after capture shows stale panel", async () => {
   test.setTimeout(30_000);
   await seedCompletedOnboarding(session);
@@ -201,9 +265,22 @@ async function extractActiveFixture(
   const fixtureUrl = fixturePage.url();
   return extensionPage.evaluate(async (url) => {
     const tabs = await chrome.tabs.query({});
-    const match = tabs.find((tab) => tab.url === url);
+    const match =
+      tabs.find((tab) => tab.url === url) ??
+      tabs.find((tab) => Boolean(tab.url && url.startsWith(tab.url))) ??
+      tabs.find((tab) => {
+        if (!tab.url) {
+          return false;
+        }
+        try {
+          return new URL(tab.url).pathname === new URL(url).pathname;
+        } catch {
+          return false;
+        }
+      });
     if (!match?.id) {
-      throw new Error(`Fixture tab not found for ${url}`);
+      const seen = tabs.map((tab) => tab.url ?? "(no url)").join("; ");
+      throw new Error(`Fixture tab not found for ${url}. Seen: ${seen}`);
     }
     const response = (await chrome.runtime.sendMessage({
       type: "EXTRACT_ACTIVE_TAB",
