@@ -17,6 +17,7 @@ import {
 } from "../../extension/src/background/invite-controller";
 import { kickOffPanelAnalysis } from "../../extension/src/background/panel-analysis";
 import {
+  captureTabContext,
   clearPageContextCache,
 } from "../../extension/src/background/page-context-store";
 import { handleBackgroundRequest } from "../../extension/src/background/router";
@@ -221,6 +222,65 @@ describe("invite controller SW wiring", () => {
     };
     expect(runtime.activeInvite).toBeNull();
     expect(mock.injections).toEqual([]);
+  });
+
+  it("persists global pause and stops proactive invites (Manual extract still allowed)", async () => {
+    await updateSettings({ proactivePaused: true });
+    const settings = mock.storage[STORAGE_KEYS.settings] as {
+      proactivePaused: boolean;
+    };
+    expect(settings.proactivePaused).toBe(true);
+
+    const blocked = await handleEngagementThreshold(
+      {
+        tabId: TAB_ID,
+        pageUrl: STORY_URL,
+        pageType: "article",
+        reason: "article-threshold-met",
+      },
+      mock.api.action,
+      FIXED_NOW,
+    );
+    expect(blocked.handled).toBe(true);
+    expect(blocked.showBadge).toBe(false);
+    expect(blocked.suppression).toBe("proactive_paused");
+    expect(mock.badgeText).toBe("");
+
+    // Toolbar Manual path: capture still runs while proactive is paused.
+    const result = await captureTabContext(TAB_ID);
+    expect(result.ok).toBe(true);
+    expect(mock.injections).toEqual([TAB_ID]);
+  });
+
+  it("persists domain exclude and once-per-page page keys", async () => {
+    await showInviteBadge();
+    const afterShow = mock.storage[STORAGE_KEYS.inviteRuntime] as {
+      pagesInvitedToday: string[];
+      domainsInvitedToday: string[];
+    };
+    expect(afterShow.pagesInvitedToday).toContain(
+      "https://news.example.com/story",
+    );
+    expect(afterShow.domainsInvitedToday).toContain("news.example.com");
+
+    await handleInviteAction("disable_domain", TAB_ID, mock.api.action, FIXED_NOW);
+    const settings = mock.storage[STORAGE_KEYS.settings] as {
+      excludedDomains: string[];
+    };
+    expect(settings.excludedDomains).toContain("news.example.com");
+
+    const again = await handleEngagementThreshold(
+      {
+        tabId: TAB_ID,
+        pageUrl: "https://news.example.com/other",
+        pageType: "article",
+        reason: "article-threshold-met",
+      },
+      mock.api.action,
+      FIXED_NOW,
+    );
+    expect(again.suppression).toBe("domain_excluded");
+    expect(again.showBadge).toBe(false);
   });
 });
 

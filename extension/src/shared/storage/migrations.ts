@@ -234,14 +234,22 @@ export function migrateInviteRuntime(
   const snooze =
     typeof record.snoozeUntilDayKey === "string" ? record.snoozeUntilDayKey : null;
 
+  const domainsInvitedToday = pickStringArray(record.domainsInvitedToday, []);
+  const pagesInvitedToday = pickStringArray(record.pagesInvitedToday, []);
+  const hadPagesField = Array.isArray(record.pagesInvitedToday);
+
   const value: InviteRuntimeState = {
     schemaVersion: STORAGE_SCHEMA_VERSION,
     quotaDayKey,
     invitesToday,
-    domainsInvitedToday: pickStringArray(record.domainsInvitedToday, []),
+    domainsInvitedToday,
+    pagesInvitedToday,
     snoozeUntilDayKey: snooze,
     activeInvite: migrateActiveInvite(record.activeInvite),
   };
 
-  return { value, migrated: version !== STORAGE_SCHEMA_VERSION };
+  return {
+    value,
+    migrated: version !== STORAGE_SCHEMA_VERSION || !hadPagesField,
+  };
 }

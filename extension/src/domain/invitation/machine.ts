@@ -1,5 +1,5 @@
 /**
- * Invitation state machine (handoff §32 / DOM-34).
+ * Invitation state machine (handoff §32 / DOM-34 / DOM-35).
  *
  * eligible → threshold → invitation shown → accepted | dismissed | snoozed | domain_disabled
  * Caps / pause / exclusion / snooze suppress before the badge is shown.
@@ -15,6 +15,7 @@ import {
   isGlobalSnoozeActive,
   recordInviteShown,
   wasDomainInvitedToday,
+  wasPageInvitedToday,
   type InviteQuota,
 } from "./caps";
 
@@ -31,6 +32,7 @@ export type InvitationPhase =
 export type SuppressionReason =
   | "daily_cap"
   | "domain_already_invited_today"
+  | "page_already_invited_today"
   | "proactive_paused"
   | "domain_excluded"
   | "global_snooze"
@@ -107,7 +109,7 @@ export function createInvitationSession(
 
 /**
  * Gate checks before an invitation may be shown. Order matches product
- * priorities: pause / exclusion / snooze first, then daily + domain caps.
+ * priorities: pause / exclusion / snooze first, then daily + domain + page caps.
  */
 export function evaluateInviteSuppression(
   session: InvitationSession,
@@ -130,6 +132,9 @@ export function evaluateInviteSuppression(
   }
   if (wasDomainInvitedToday(policy.quota, session.domain, policy.dayKey)) {
     return "domain_already_invited_today";
+  }
+  if (wasPageInvitedToday(policy.quota, session.pageUrl, policy.dayKey)) {
+    return "page_already_invited_today";
   }
   return null;
 }
@@ -181,7 +186,12 @@ export function onThresholdReached(
   return {
     ...transitionBase(
       shown,
-      recordInviteShown(policy.quota, session.domain, policy.dayKey),
+      recordInviteShown(
+        policy.quota,
+        session.domain,
+        policy.dayKey,
+        session.pageUrl,
+      ),
       policy.snoozeUntilDayKey,
     ),
     showBadge: true,
