@@ -139,6 +139,8 @@ export async function initSidePanel(
   const contextType = document.getElementById("context-type");
   const contextTitle = document.getElementById("context-title");
   const contextUrl = document.getElementById("context-url");
+  const contextSelection = document.getElementById("context-selection");
+  const contextSelected = document.getElementById("context-selected");
   const refreshButton = document.getElementById("refresh-context");
   const understandingMessage = document.getElementById("understanding-message");
 
@@ -451,6 +453,8 @@ export async function initSidePanel(
       promptTextArea.value = "";
     }
     contextSummary?.setAttribute("hidden", "");
+    contextSelection?.setAttribute("hidden", "");
+    setText(contextSelected, "");
   }
 
   function contextKey(ctx: PageContext, tabId?: number): string {
@@ -689,9 +693,28 @@ export async function initSidePanel(
   }
 
   function renderPageIdentity(ctx: PageContext): void {
-    setText(contextType, PAGE_TYPE_LABELS[ctx.pageType]);
+    const selection = ctx.selectedText?.trim() ?? "";
+    const selectionOnly =
+      Boolean(selection) &&
+      !ctx.article &&
+      !ctx.product &&
+      !ctx.generic &&
+      !ctx.description;
+    setText(
+      contextType,
+      selectionOnly ? "Selected text" : PAGE_TYPE_LABELS[ctx.pageType],
+    );
     setText(contextTitle, ctx.title);
     setText(contextUrl, ctx.url);
+    if (selection) {
+      const preview =
+        selection.length > 320 ? `${selection.slice(0, 317)}…` : selection;
+      setText(contextSelected, preview);
+      contextSelection?.removeAttribute("hidden");
+    } else {
+      setText(contextSelected, "");
+      contextSelection?.setAttribute("hidden", "");
+    }
     contextSummary?.removeAttribute("hidden");
   }
 

@@ -725,6 +725,10 @@ describe("side panel click-through", () => {
 
     expect(isVisible("#choose")).toBe(true);
     expect(suggestActions).toHaveBeenCalledOnce();
+    expect(isVisible("#context-summary")).toBe(true);
+    expect(isVisible("#context-selection")).toBe(true);
+    expect(textOf("#context-type")).toBe("Selected text");
+    expect(textOf("#context-selected")).toBe("just this passage");
   });
 
   it("selection-sourced update unlocks empty low-value state (DOM-61)", async () => {
