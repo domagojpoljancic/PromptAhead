@@ -1,6 +1,6 @@
 # PromptAhead
 
-> **WIP — M3 Smart on `main`; page activation gate + selection auto-refresh (DOM-60 / DOM-61) in flight.** Manual core (M1) is buildable and covered by Vitest/Playwright/CI. Nano UX, Smart grant/revoke, engagement thresholds, invitation state machine, badge-first invites with **proactive caps** + snooze / domain exclude / global pause, and accept → panel + extract are on `main`. PromptAhead refuses weak surfaces (Google Docs / homepages / listings) unless the user selects text — and after that empty state, a selection auto-refreshes the panel. Smart never invites on those URLs either. Manual Smart smoke still open; Chrome Web Store packaging (M4) still ahead.
+> **WIP — M3 Smart on `main`; page activation gate + selection auto-refresh shipped (DOM-60 / DOM-61).** Manual core (M1) is buildable and covered by Vitest/Playwright/CI. Nano UX, Smart grant/revoke, engagement thresholds, invitation state machine, badge-first invites with **proactive caps** + snooze / domain exclude / global pause, and accept → panel + extract are on `main`. PromptAhead refuses weak surfaces (Google Docs / homepages / listings) unless the user selects text — and after that empty state, a selection auto-refreshes the panel. Smart never invites on those URLs either. DOM-38 Smart manual smoke is Done; Playwright invite/revoke slices expanding (DOM-56). Chrome Web Store packaging (M4) still ahead.
 
 **Your next question, already prepared.**
 
@@ -14,7 +14,7 @@ Privacy-first Chrome extension (Manifest V3) that notices when you are genuinely
 | Side panel | Workflow state machine; Nano thinking + curated fallback + **Retry local AI**; calm Nano panel notices + Smart permission education; **selection auto-refresh** on low-value empty state |
 | Onboarding + settings | Manual-first first-run; Nano ready/download/unsupported + onboarding gate; Settings Smart grant/revoke + education; **global proactive pause** toggle |
 | Destinations | Deep links with **app-first + web fallback**; Gemini / oversized prompts use **clipboard + open**; never auto-submit |
-| Automation | Vitest (unit + jsdom UI), Playwright (MV3 + navigate→stale + Nano-off curated + **Smart revoke→Manual** + homepage empty-state), GitHub Actions (`test:ci`, Node 20.19+) |
+| Automation | Vitest (unit + jsdom UI), Playwright (MV3 + navigate→stale + Nano-off curated + **Smart invite badge→accept** + **Smart revoke→Manual** + homepage empty-state), GitHub Actions (`test:ci`, Node 20.19+) |
 | Nano CI | Curated path stays green with Nano forced off (`NANO_FORCE_DISABLED` + Playwright Settings force-basic → extract → copy); live hardware checklist remains DOM-31 / [`docs/nano-verification-checklist.md`](docs/nano-verification-checklist.md) |
 | Nano engine | Longer create/prompt budgets; prefer unconstrained prompt then constrain; retain failure reason on curated fallback |
 | M1 acceptance | Manual §25 map + smoke notes in [`docs/test-plan.md`](docs/test-plan.md) |
@@ -22,7 +22,7 @@ Privacy-first Chrome extension (Manifest V3) that notices when you are genuinely
 | Spike results (`docs/technical-spikes.md`) | **Filled** — Chrome **150.0.0.0** (2026-08-01) |
 | Extraction | JSON-LD / Open Graph / semantic-HTML classification with size caps; 7 HTML fixtures; **page-value gate** (editors / home / listings → empty state unless selection); Readability deferred |
 | Engagement | Domain + content tracker; CRXJS `?script` / manifest-resolved boot path + open-tab inject after Smart grant; article invite **30s OR ~⅔ scroll**; skips low-value URLs (DOM-60); Vitest resolve/register + fixture threshold fire |
-| Invitation (Smart) | State machine + **caps** (once/page · once/domain/day · ≤3/day) + snooze / exclude / global pause persistence (Vitest); SW badge on threshold (no extract); accept → panel + Manual extract/suggest; dismiss·snooze·exclude clear badge; Manual extract still works when proactive paused; Settings **Pause proactive Smart invites**; Playwright revoke→Manual regression; optional `chrome.notifications` deferred |
+| Invitation (Smart) | State machine + **caps** (once/page · once/domain/day · ≤3/day) + snooze / exclude / global pause persistence (Vitest); SW badge on threshold (no extract); accept → panel + Manual extract/suggest; dismiss·snooze·exclude clear badge; Manual extract still works when proactive paused; Settings **Pause proactive Smart invites**; Playwright **badge→accept→extract** + revoke→Manual; optional `chrome.notifications` deferred |
 | Suggestions + prompts | Curated + mock-Nano + real `NanoSuggestionEngine` (validate / repair / timeout / curated fallback) |
 | Product docs | Handoff + architecture / plan / privacy / test plan / Nano checklist |
 | Planning | Linear used as the product / issue tracker |
@@ -110,7 +110,7 @@ See [`docs/architecture.md`](docs/architecture.md) for the full folder layout. A
 - Chrome Web Store packaging / listing (M4)
 - Main-content extraction beyond the thin `main`/`article` heuristic; Mozilla Readability license call still open
 - Sensitive-page heuristics (banking/medical pages are not blocked yet) — usefulness gate for editors/home/listings is separate and shipped as DOM-60
-- Full Smart mode polish (optional notifications, dedicated invite dismiss UI) — badge/SW + accept→panel+extract landed; Playwright invite/accept + caps still expanding (DOM-56)
+- Full Smart mode polish (optional notifications, dedicated invite dismiss UI) — badge/SW + accept→panel+extract landed; Playwright badge→accept + revoke→Manual shipped; caps UI + protected-page e2e still expanding (DOM-56)
 
 - Hardware Nano smoke beyond checklist rows — DOM-31 / [`docs/nano-verification-checklist.md`](docs/nano-verification-checklist.md); CI covers curated / Nano-off only
 
