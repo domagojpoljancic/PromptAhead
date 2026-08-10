@@ -154,9 +154,114 @@ test("clear all data restores defaults from options", async () => {
 });
 
 /**
+ * DOM-56 slice: Smart invite threshold → badge → accept → panel extract.
+ * Drives ENGAGEMENT_THRESHOLD / INVITE_ACTION over extension messaging so CI
+ * does not wait on real dwell/scroll or optional-host permission dialogs.
+ * Real grant dialog + OS notification edges stay on DOM-38 manual smoke.
+ */
+test("Smart invite badge then accept starts panel extract", async () => {
+  test.setTimeout(30_000);
+  await seedCompletedOnboarding(session, {
+    nanoPreference: "basic",
+    mode: "smart",
+    smartModeAvailable: true,
+    proactivePaused: false,
+  });
+
+  const tab = await session.context.newPage();
+  await tab.goto(server.url("/article.html"), {
+    waitUntil: "domcontentloaded",
+  });
+  await expect(tab.locator("h1")).toContainText(/AI Act|EU/i);
+
+  const panel = await openExtensionPage(session, session.sidePanelUrl);
+  await expect.poll(async () => pingBackground(panel)).toBe(true);
+
+  const tabId = await findFixtureTabId(panel, tab);
+  expect(tabId).toBeGreaterThan(0);
+
+  // Badge-first: threshold must not extract before accept.
+  await expect(panel.locator("#choose")).toBeHidden();
+
+  const threshold = await panel.evaluate(
+    async ({ id, url }) => {
+      const response = (await chrome.runtime.sendMessage({
+        type: "ENGAGEMENT_THRESHOLD",
+        tabId: id,
+        pageType: "article",
+        url,
+        reason: "article-threshold-met",
+      })) as {
+        ok: boolean;
+        type?: string;
+        handled?: boolean;
+        showBadge?: boolean;
+        phase?: string | null;
+        error?: string;
+      };
+      if (!response.ok) {
+        throw new Error(response.error ?? "ENGAGEMENT_THRESHOLD failed");
+      }
+      return response;
+    },
+    { id: tabId, url: tab.url() },
+  );
+  expect(threshold.handled).toBe(true);
+  expect(threshold.showBadge).toBe(true);
+  expect(threshold.phase).toBe("invitation_shown");
+
+  await expect
+    .poll(async () =>
+      panel.evaluate(async () => chrome.action.getBadgeText({})),
+    )
+    .toBe("!");
+
+  await expect(panel.locator("#choose")).toBeHidden();
+
+  const accepted = await panel.evaluate(async (id) => {
+    const response = (await chrome.runtime.sendMessage({
+      type: "INVITE_ACTION",
+      action: "accept",
+      tabId: id,
+    })) as {
+      ok: boolean;
+      handled?: boolean;
+      openPanelAndAnalyze?: boolean;
+      phase?: string | null;
+      error?: string;
+    };
+    if (!response.ok) {
+      throw new Error(response.error ?? "INVITE_ACTION accept failed");
+    }
+    return response;
+  }, tabId);
+  expect(accepted.handled).toBe(true);
+  expect(accepted.openPanelAndAnalyze).toBe(true);
+  expect(accepted.phase).toBe("accepted");
+
+  await expect
+    .poll(async () =>
+      panel.evaluate(async () => chrome.action.getBadgeText({})),
+    )
+    .toBe("");
+
+  await expect(panel.locator("#choose")).toBeVisible({ timeout: 15_000 });
+  await expect(panel.locator("#context-title")).toContainText(/AI Act|EU/i);
+  await expect(panel.locator("#status")).toContainText(/curated/i);
+
+  await panel.close();
+  await tab.close();
+});
+
+/**
  * DOM-56 (thin slice): after Smart→Manual (revoke settings outcome), Manual
  * extract → curated still works. Real Chrome permission-dialog grant/revoke
- * stays on DOM-38 manual smoke; invite/badge/accept e2e stay for later DOM-56.
+ * stays on DOM-38 manual smoke.
+ *
+ * DOM-38 note: Chrome Details → Site access may still show “On all sites”
+ * after permissions.remove(<all_urls>) (granted-set vs active-set UI ≥130).
+ * Product truth is Settings “Website access: not granted” /
+ * permissions.contains(<all_urls>) === false — do not treat Details UI as a bug.
  */
 test("Smart revoke leaves Manual extract → curated working", async () => {
   test.setTimeout(30_000);
@@ -276,11 +381,8 @@ test("homepage without selection shows low-value empty state", async () => {
   await tab.close();
 });
 
-/**
- * Find the fixture tab id and ask the background to extract it.
- * Runs inside an extension page so `chrome.runtime` / `chrome.tabs` are available.
- */
-async function extractActiveFixture(
+/** Resolve the fixture tab id from an extension page (options / side panel). */
+async function findFixtureTabId(
   extensionPage: Page,
   fixturePage: Page,
 ): Promise<number> {
@@ -304,9 +406,23 @@ async function extractActiveFixture(
       const seen = tabs.map((tab) => tab.url ?? "(no url)").join("; ");
       throw new Error(`Fixture tab not found for ${url}. Seen: ${seen}`);
     }
+    return match.id;
+  }, fixtureUrl);
+}
+
+/**
+ * Find the fixture tab id and ask the background to extract it.
+ * Runs inside an extension page so `chrome.runtime` / `chrome.tabs` are available.
+ */
+async function extractActiveFixture(
+  extensionPage: Page,
+  fixturePage: Page,
+): Promise<number> {
+  const tabId = await findFixtureTabId(extensionPage, fixturePage);
+  const ok = await extensionPage.evaluate(async (id) => {
     const response = (await chrome.runtime.sendMessage({
       type: "EXTRACT_ACTIVE_TAB",
-      tabId: match.id,
+      tabId: id,
     })) as {
       ok: boolean;
       pageContext?: { title: string };
@@ -316,8 +432,10 @@ async function extractActiveFixture(
     if (!response.ok) {
       throw new Error(response.error ?? "EXTRACT_ACTIVE_TAB failed");
     }
-    return match.id;
-  }, fixtureUrl);
+    return true;
+  }, tabId);
+  expect(ok).toBe(true);
+  return tabId;
 }
 
 async function walkChooseThroughCopy(panel: Page): Promise<void> {
@@ -347,7 +465,12 @@ async function walkChooseThroughCopy(panel: Page): Promise<void> {
 
 async function seedCompletedOnboarding(
   target: ExtensionSession,
-  settingsPatch: { nanoPreference?: "basic" | "enabled" | "skipped" } = {},
+  settingsPatch: {
+    nanoPreference?: "basic" | "enabled" | "skipped";
+    mode?: "manual" | "smart";
+    smartModeAvailable?: boolean;
+    proactivePaused?: boolean;
+  } = {},
 ): Promise<void> {
   const seed = await openExtensionPage(target, target.optionsUrl);
   await seed.evaluate(async (patch) => {
