@@ -25,9 +25,14 @@ export type FixtureServer = {
 
 export async function startFixtureServer(): Promise<FixtureServer> {
   const htmlByPath: Record<string, string> = {
+    "/": readFileSync(join(FIXTURE_DIR, "homepage-thin.html"), "utf8"),
     "/article.html": readFileSync(join(FIXTURE_DIR, "article-jsonld.html"), "utf8"),
     "/product.html": readFileSync(
       join(FIXTURE_DIR, "product-jsonld.html"),
+      "utf8",
+    ),
+    "/category/laptops": readFileSync(
+      join(FIXTURE_DIR, "product-list.html"),
       "utf8",
     ),
   };

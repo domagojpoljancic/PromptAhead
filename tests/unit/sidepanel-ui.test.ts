@@ -9,7 +9,10 @@ import {
 } from "../../extension/src/sidepanel/sidepanel";
 import { resetOnboardingForTests } from "../../extension/src/sidepanel/onboarding";
 import { EMPTY_SOURCE_INCLUSION_MESSAGE } from "../../extension/src/sidepanel/context-inclusion";
-import { STALE_CONTEXT_MESSAGE } from "../../extension/src/sidepanel/workflow";
+import {
+  NAVIGATED_FROM_EMPTY_MESSAGE,
+  STALE_CONTEXT_MESSAGE,
+} from "../../extension/src/sidepanel/workflow";
 import type { PageContext } from "../../extension/src/shared/types/page-context";
 import {
   DEFAULT_ONBOARDING,
@@ -147,6 +150,19 @@ function createSend(store: Store) {
           type: "EXTRACT_ACTIVE_TAB" as const,
           pageContext: store.latest.pageContext ?? samplePage,
           tabId: store.latest.tabId ?? 7,
+        };
+      case "WATCH_SELECTION":
+        return {
+          ok: true as const,
+          type: "WATCH_SELECTION" as const,
+          watching: true,
+          tabId: request.tabId,
+        };
+      case "STOP_WATCH_SELECTION":
+        return {
+          ok: true as const,
+          type: "STOP_WATCH_SELECTION" as const,
+          stopped: true as const,
         };
       case "ADD_RECENT_PROMPT":
         store.history.unshift(request.entry);
@@ -632,6 +648,261 @@ describe("side panel click-through", () => {
 
     expect(isVisible("#choose")).toBe(false);
     expect(isVisible("#onboarding")).toBe(true);
+  });
+
+  it("shows low-value empty copy and skips suggestions (DOM-60)", async () => {
+    const suggestActions = vi.fn(async () => ({
+      engineId: "curated" as const,
+      primary: [primaryAction],
+      more: [moreAction],
+    }));
+    const engine: SuggestionEngine = {
+      id: "curated",
+      isAvailable: async () => true,
+      suggestActions,
+      generatePrompt: async () => "unused",
+    };
+
+    store.latest = {
+      pageContext: {
+        schemaVersion: 1,
+        pageType: "generic",
+        language: "en",
+        title: "Google Docs",
+        url: "https://docs.google.com/document/d/abc/edit",
+        generic: { headings: ["Doc"], excerpts: ["Body text."] },
+      },
+      tabId: 7,
+    };
+
+    await boot({ engine });
+    await flush();
+
+    expect(isVisible("#empty")).toBe(true);
+    expect(textOf("#empty-message")).toMatch(/not much to prompt ahead/i);
+    expect(isVisible("#choose")).toBe(false);
+    expect(suggestActions).not.toHaveBeenCalled();
+  });
+
+  it("selection on a low-value page unlocks selection-only workflow (DOM-60)", async () => {
+    const suggestActions = vi.fn(async (input: { pageContext: PageContext }) => {
+      expect(input.pageContext.selectedText).toBe("just this passage");
+      expect(input.pageContext.article).toBeUndefined();
+      expect(input.pageContext.generic).toBeUndefined();
+      expect(input.pageContext.pageType).toBe("generic");
+      return {
+        engineId: "curated" as const,
+        primary: [primaryAction],
+        more: [],
+      };
+    });
+    const engine: SuggestionEngine = {
+      id: "curated",
+      isAvailable: async () => true,
+      suggestActions,
+      generatePrompt: async () => "unused",
+    };
+
+    store.latest = {
+      pageContext: {
+        schemaVersion: 1,
+        pageType: "generic",
+        language: "en",
+        title: "Example News",
+        url: "https://news.example.com/",
+        selectedText: "just this passage",
+        description: "Homepage deck",
+        generic: {
+          headings: ["Top stories"],
+          excerpts: ["Many headlines that should be dropped."],
+        },
+      },
+      tabId: 7,
+    };
+
+    await boot({ engine });
+    await flush();
+
+    expect(isVisible("#choose")).toBe(true);
+    expect(suggestActions).toHaveBeenCalledOnce();
+    expect(isVisible("#context-summary")).toBe(true);
+    expect(isVisible("#context-selection")).toBe(true);
+    expect(textOf("#context-type")).toBe("Selected text");
+    expect(textOf("#context-selected")).toBe("just this passage");
+  });
+
+  it("selection-sourced update unlocks empty low-value state (DOM-61)", async () => {
+    const suggestActions = vi.fn(async () => ({
+      engineId: "curated" as const,
+      primary: [primaryAction],
+      more: [],
+    }));
+    const engine: SuggestionEngine = {
+      id: "curated",
+      isAvailable: async () => true,
+      suggestActions,
+      generatePrompt: async () => "unused",
+    };
+
+    store.latest = {
+      pageContext: {
+        schemaVersion: 1,
+        pageType: "generic",
+        language: "en",
+        title: "Example News",
+        url: "https://news.example.com/",
+        generic: { headings: ["Top"], excerpts: ["Cards."] },
+      },
+      tabId: 7,
+    };
+
+    const { send, pushEvent } = await boot({ engine });
+    await flush();
+    expect(isVisible("#empty")).toBe(true);
+    expect(send).toHaveBeenCalledWith(
+      expect.objectContaining({ type: "WATCH_SELECTION", tabId: 7 }),
+    );
+
+    pushEvent({
+      type: "PAGE_CONTEXT_UPDATED",
+      tabId: 7,
+      source: "selection",
+      pageContext: {
+        schemaVersion: 1,
+        pageType: "generic",
+        language: "en",
+        title: "Example News",
+        url: "https://news.example.com/",
+        selectedText: "auto-selected passage",
+        generic: { headings: ["Top"], excerpts: ["Cards."] },
+      },
+    });
+    await flush();
+    await flush();
+
+    expect(isVisible("#choose")).toBe(true);
+    expect(suggestActions).toHaveBeenCalled();
+  });
+
+  it("ignores selection-sourced updates mid-workflow (DOM-61)", async () => {
+    const { pushEvent } = await boot();
+    await flush();
+    expect(isVisible("#choose")).toBe(true);
+
+    pushEvent({
+      type: "PAGE_CONTEXT_UPDATED",
+      tabId: 7,
+      source: "selection",
+      pageContext: {
+        ...samplePage,
+        title: "Should not replace",
+        selectedText: "new highlight elsewhere",
+      },
+    });
+    await flush();
+
+    expect(isVisible("#choose")).toBe(true);
+    expect(textOf("#context-title")).toBe("EU AI Act");
+  });
+
+  it("shows navigate CTA when leaving low-value empty (DOM-62)", async () => {
+    store.latest = {
+      pageContext: {
+        schemaVersion: 1,
+        pageType: "generic",
+        language: "en",
+        title: "Example News",
+        url: "https://news.example.com/",
+        generic: { headings: ["Top"], excerpts: ["Cards."] },
+      },
+      tabId: 7,
+    };
+
+    const { pushEvent } = await boot({
+      engine: {
+        id: "curated",
+        isAvailable: async () => true,
+        suggestActions: async () => ({
+          engineId: "curated",
+          primary: [primaryAction],
+          more: [],
+        }),
+        generatePrompt: async () => "unused",
+      },
+    });
+    await flush();
+    expect(isVisible("#empty")).toBe(true);
+
+    pushEvent({
+      type: "PAGE_CONTEXT_CLEARED",
+      tabId: 7,
+      reason: "navigated",
+    });
+    await flush();
+
+    expect(isVisible("#stale")).toBe(true);
+    expect(textOf("#stale-message")).toBe(NAVIGATED_FROM_EMPTY_MESSAGE);
+  });
+
+  it("navigation-sourced update unlocks empty/stale after article open (DOM-62)", async () => {
+    store.latest = {
+      pageContext: {
+        schemaVersion: 1,
+        pageType: "generic",
+        language: "en",
+        title: "Example News",
+        url: "https://news.example.com/",
+        generic: { headings: ["Top"], excerpts: ["Cards."] },
+      },
+      tabId: 7,
+    };
+
+    const suggestActions = vi.fn(async () => ({
+      engineId: "curated" as const,
+      primary: [primaryAction],
+      more: [],
+    }));
+    const { pushEvent } = await boot({
+      engine: {
+        id: "curated",
+        isAvailable: async () => true,
+        suggestActions,
+        generatePrompt: async () => "unused",
+      },
+    });
+    await flush();
+    expect(isVisible("#empty")).toBe(true);
+
+    pushEvent({
+      type: "PAGE_CONTEXT_CLEARED",
+      tabId: 7,
+      reason: "navigated",
+    });
+    await flush();
+    expect(isVisible("#stale")).toBe(true);
+
+    pushEvent({
+      type: "PAGE_CONTEXT_UPDATED",
+      tabId: 7,
+      source: "navigation",
+      pageContext: {
+        schemaVersion: 1,
+        pageType: "article",
+        language: "en",
+        title: "EU AI Act",
+        url: "https://news.example.com/2026/03/eu-ai-act",
+        article: {
+          headings: ["Timeline"],
+          excerpts: ["The regulation applies in stages."],
+        },
+      },
+    });
+    await flush();
+    await flush();
+
+    expect(isVisible("#choose")).toBe(true);
+    expect(textOf("#context-title")).toBe("EU AI Act");
+    expect(suggestActions).toHaveBeenCalled();
   });
 });
 

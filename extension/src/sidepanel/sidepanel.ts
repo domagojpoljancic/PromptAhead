@@ -43,6 +43,12 @@ import {
   refreshOnboardingAfterClear as defaultRefreshOnboardingAfterClear,
 } from "./onboarding";
 import {
+  assessPagePromptValue,
+  lowValueMessageFor,
+  toSelectionOnlyContext,
+} from "../domain/page-value";
+import {
+  NAVIGATED_FROM_EMPTY_MESSAGE,
   STALE_CONTEXT_MESSAGE,
   type PanelStep,
   type WorkflowCardStep,
@@ -133,6 +139,8 @@ export async function initSidePanel(
   const contextType = document.getElementById("context-type");
   const contextTitle = document.getElementById("context-title");
   const contextUrl = document.getElementById("context-url");
+  const contextSelection = document.getElementById("context-selection");
+  const contextSelected = document.getElementById("context-selected");
   const refreshButton = document.getElementById("refresh-context");
   const understandingMessage = document.getElementById("understanding-message");
 
@@ -445,6 +453,8 @@ export async function initSidePanel(
       promptTextArea.value = "";
     }
     contextSummary?.setAttribute("hidden", "");
+    contextSelection?.setAttribute("hidden", "");
+    setText(contextSelected, "");
   }
 
   function contextKey(ctx: PageContext, tabId?: number): string {
@@ -452,11 +462,35 @@ export async function initSidePanel(
   }
 
   function renderEmpty(message: string): void {
+    stopSelectionWatchIfBound();
     clearWorkflowData();
     boundTabId = null;
     showStep("empty");
     setText(emptyMessage, message);
     setText(statusLine, message);
+  }
+
+  /**
+   * Low-value page with no selection — keep the tab bound so Refresh (or
+   * selection auto-watch) can pick up a later selection without another
+   * toolbar click.
+   */
+  function renderLowValue(message: string, tabId?: number): void {
+    clearWorkflowData();
+    if (typeof tabId === "number") {
+      boundTabId = tabId;
+      void send({ type: "WATCH_SELECTION", tabId });
+    }
+    showStep("empty");
+    setText(emptyMessage, message);
+    setText(statusLine, message);
+  }
+
+  function stopSelectionWatchIfBound(): void {
+    if (boundTabId === null) {
+      return;
+    }
+    void send({ type: "STOP_WATCH_SELECTION", tabId: boundTabId });
   }
 
   function renderStale(message: string = STALE_CONTEXT_MESSAGE): void {
@@ -659,9 +693,28 @@ export async function initSidePanel(
   }
 
   function renderPageIdentity(ctx: PageContext): void {
-    setText(contextType, PAGE_TYPE_LABELS[ctx.pageType]);
+    const selection = ctx.selectedText?.trim() ?? "";
+    const selectionOnly =
+      Boolean(selection) &&
+      !ctx.article &&
+      !ctx.product &&
+      !ctx.generic &&
+      !ctx.description;
+    setText(
+      contextType,
+      selectionOnly ? "Selected text" : PAGE_TYPE_LABELS[ctx.pageType],
+    );
     setText(contextTitle, ctx.title);
     setText(contextUrl, ctx.url);
+    if (selection) {
+      const preview =
+        selection.length > 320 ? `${selection.slice(0, 317)}…` : selection;
+      setText(contextSelected, preview);
+      contextSelection?.removeAttribute("hidden");
+    } else {
+      setText(contextSelected, "");
+      contextSelection?.setAttribute("hidden", "");
+    }
     contextSummary?.removeAttribute("hidden");
   }
 
@@ -672,6 +725,18 @@ export async function initSidePanel(
     if (isOnboardingBlocking()) {
       return;
     }
+
+    const value = assessPagePromptValue(ctx);
+    if (!value.worthPrompting) {
+      if (!ctx.selectedText?.trim()) {
+        renderLowValue(lowValueMessageFor(value.reason), tabId);
+        return;
+      }
+      ctx = toSelectionOnlyContext(ctx);
+    }
+
+    stopSelectionWatchIfBound();
+
     const key = contextKey(ctx, tabId);
     if (
       key === lastAcceptedKey &&
@@ -983,6 +1048,15 @@ export async function initSidePanel(
       if (isOnboardingBlocking()) {
         return;
       }
+      // Selection / post-empty navigation auto-refresh only applies while idle
+      // on empty/stale so a mid-prompt highlight does not reset the workflow.
+      if (
+        (message.source === "selection" || message.source === "navigation") &&
+        currentStep !== "empty" &&
+        currentStep !== "stale"
+      ) {
+        return;
+      }
       // Toolbar / shortcut re-capture while the panel is already open.
       void acceptPageContext(message.pageContext, message.tabId);
       return;
@@ -1003,9 +1077,21 @@ export async function initSidePanel(
       void renderDebugLine();
       return;
     }
-    if (currentStep === "empty" || currentStep === "stale") {
+    // Low-value empty: do not keep the old homepage/listing copy after navigate.
+    // Do not STOP_WATCH here — that would clear awaitingPageUpgrade and block
+    // Smart auto-extract when the article finishes loading (DOM-62).
+    if (currentStep === "empty") {
+      renderStale(
+        message.reason === "closed"
+          ? "That tab closed — click the PromptAhead icon on a page to capture it again."
+          : NAVIGATED_FROM_EMPTY_MESSAGE,
+      );
       return;
     }
+    if (currentStep === "stale") {
+      return;
+    }
+    stopSelectionWatchIfBound();
     boundTabId = null;
     renderStale(
       message.reason === "closed"

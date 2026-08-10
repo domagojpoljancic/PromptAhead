@@ -42,6 +42,11 @@ import {
   readLastGestureTabId,
   readLatestPageContext,
 } from "./page-context-store";
+import {
+  handleSelectionReady,
+  startSelectionWatch,
+  stopSelectionWatch,
+} from "./selection-watch";
 
 type ResolvedTab = { id: number; url?: string };
 
@@ -168,6 +173,45 @@ export async function handleBackgroundRequest(
             tabId: tab.id,
           }
         : { ok: false, type: "EXTRACT_ACTIVE_TAB", error: outcome.error };
+    }
+
+    case "WATCH_SELECTION": {
+      const watching = await startSelectionWatch(request.tabId);
+      return {
+        ok: true,
+        type: "WATCH_SELECTION",
+        watching,
+        tabId: request.tabId,
+      };
+    }
+
+    case "STOP_WATCH_SELECTION": {
+      const tabId =
+        request.tabId ??
+        (await resolveTab(undefined))?.id ??
+        context.senderTabId;
+      if (typeof tabId === "number") {
+        await stopSelectionWatch(tabId);
+      }
+      return { ok: true, type: "STOP_WATCH_SELECTION", stopped: true };
+    }
+
+    case "SELECTION_READY": {
+      const tabId = request.tabId ?? context.senderTabId;
+      if (tabId === undefined) {
+        return {
+          ok: false,
+          type: "SELECTION_READY",
+          error: "No tab id for selection ready",
+        };
+      }
+      const tab = await resolveTab(tabId);
+      const outcome = await handleSelectionReady(tabId, tab?.url);
+      return {
+        ok: true,
+        type: "SELECTION_READY",
+        handled: outcome.handled,
+      };
     }
 
     case "OPEN_SIDE_PANEL": {

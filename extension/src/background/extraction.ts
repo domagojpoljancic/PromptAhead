@@ -16,6 +16,7 @@ import {
   type SnapshotCollectionResult,
   type SnapshotLimits,
 } from "../domain/extraction";
+import { assessUrlPromptValue } from "../domain/page-value";
 
 export type ExtractionOutcome =
   { ok: true; pageContext: PageContext; reason: string } | { ok: false; error: string };
@@ -26,12 +27,31 @@ export const RESTRICTED_PAGE_ERROR =
 export const ACCESS_LOST_ERROR =
   "PromptAhead no longer has access to this tab. Chrome revokes it when the page navigates — click the PromptAhead icon on the page again.";
 
+/** App/editor hosts: capture selection (+ title/url) only — never body text. */
+export const SELECTION_ONLY_SNAPSHOT_LIMITS: SnapshotLimits = {
+  ...RAW_SNAPSHOT_LIMITS,
+  headings: 0,
+  textBlocks: 0,
+  specCandidates: 0,
+  jsonLdBlocks: 0,
+};
+
 const ACCESS_ERROR_PATTERN =
   /must request permission|cannot access|no tab with id|extension manifest/i;
 
 function describeInjectionFailure(error: unknown): string {
   const message = error instanceof Error ? error.message : String(error);
   return ACCESS_ERROR_PATTERN.test(message) ? ACCESS_LOST_ERROR : message;
+}
+
+function snapshotLimitsForUrl(knownUrl?: string): SnapshotLimits {
+  if (
+    knownUrl !== undefined &&
+    assessUrlPromptValue(knownUrl).reason === "app-or-editor"
+  ) {
+    return SELECTION_ONLY_SNAPSHOT_LIMITS;
+  }
+  return RAW_SNAPSHOT_LIMITS;
 }
 
 export async function extractPageContextForTab(
@@ -49,7 +69,7 @@ export async function extractPageContextForTab(
     result = await executeScriptInTab<[SnapshotLimits], SnapshotCollectionResult>(
       tabId,
       collectPageSnapshotInPage,
-      [RAW_SNAPSHOT_LIMITS],
+      [snapshotLimitsForUrl(knownUrl)],
     );
   } catch (error) {
     return { ok: false, error: describeInjectionFailure(error) };

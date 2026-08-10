@@ -52,3 +52,7 @@ export function previousStep(step: PanelStep): PanelStep | null {
 
 export const STALE_CONTEXT_MESSAGE =
   "This page changed — click the PromptAhead icon to capture it again.";
+
+/** Shown when the user leaves a low-value empty page (homepage → article). */
+export const NAVIGATED_FROM_EMPTY_MESSAGE =
+  "You opened a new page — click the PromptAhead icon to analyze it.";

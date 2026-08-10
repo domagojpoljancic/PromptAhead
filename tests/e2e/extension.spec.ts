@@ -254,6 +254,28 @@ test("navigate after capture shows stale panel", async () => {
   await tab.close();
 });
 
+test("homepage without selection shows low-value empty state", async () => {
+  test.setTimeout(30_000);
+  await seedCompletedOnboarding(session);
+
+  const tab = await session.context.newPage();
+  await tab.goto(server.url("/"));
+  await expect(tab.locator("h1")).toContainText("Example News");
+
+  const panel = await openExtensionPage(session, session.sidePanelUrl);
+  const tabId = await extractActiveFixture(panel, tab);
+  expect(tabId).toBeGreaterThan(0);
+
+  await expect(panel.locator("#empty")).toBeVisible({ timeout: 15_000 });
+  await expect(panel.locator("#empty-message")).toContainText(
+    /homepage|not much to prompt ahead|select text/i,
+  );
+  await expect(panel.locator("#choose")).toBeHidden();
+
+  await panel.close();
+  await tab.close();
+});
+
 /**
  * Find the fixture tab id and ask the background to extract it.
  * Runs inside an extension page so `chrome.runtime` / `chrome.tabs` are available.

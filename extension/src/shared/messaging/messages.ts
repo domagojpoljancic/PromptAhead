@@ -44,6 +44,11 @@ export type BackgroundRequest =
   | { type: "GET_LATEST_PAGE_CONTEXT"; tabId?: number }
   /** Re-runs extraction on a tab the current gesture still has access to. */
   | { type: "EXTRACT_ACTIVE_TAB"; tabId?: number }
+  /** Panel: watch bound tab for selection after low-value empty state (DOM-61). */
+  | { type: "WATCH_SELECTION"; tabId: number }
+  | { type: "STOP_WATCH_SELECTION"; tabId?: number }
+  /** Content-script: stable selection ready — SW re-extracts if watching. */
+  | { type: "SELECTION_READY"; textLength?: number; tabId?: number }
   | { type: "OPEN_SIDE_PANEL"; tabId?: number }
   /** Content-script engagement threshold → SW invite machine (DOM-34). */
   | {
@@ -83,6 +88,9 @@ type OkPayloads = {
     tabId?: number;
   };
   EXTRACT_ACTIVE_TAB: { pageContext: PageContext; tabId: number };
+  WATCH_SELECTION: { watching: boolean; tabId: number };
+  STOP_WATCH_SELECTION: { stopped: true };
+  SELECTION_READY: { handled: boolean };
   OPEN_SIDE_PANEL: { opened: true };
   ENGAGEMENT_THRESHOLD: {
     handled: boolean;
@@ -151,6 +159,9 @@ export const BACKGROUND_REQUEST_TYPES: readonly BackgroundRequestType[] = [
   "CLEAR_ALL_DATA",
   "GET_LATEST_PAGE_CONTEXT",
   "EXTRACT_ACTIVE_TAB",
+  "WATCH_SELECTION",
+  "STOP_WATCH_SELECTION",
+  "SELECTION_READY",
   "OPEN_SIDE_PANEL",
   "ENGAGEMENT_THRESHOLD",
   "INVITE_ACTION",
@@ -199,7 +210,15 @@ export function isBackgroundRequest(value: unknown): value is BackgroundRequest 
     case "GET_LATEST_PAGE_CONTEXT":
     case "EXTRACT_ACTIVE_TAB":
     case "OPEN_SIDE_PANEL":
+    case "STOP_WATCH_SELECTION":
       return hasOptionalTabId(value);
+    case "WATCH_SELECTION":
+      return typeof value.tabId === "number";
+    case "SELECTION_READY":
+      return (
+        hasOptionalTabId(value) &&
+        (value.textLength === undefined || typeof value.textLength === "number")
+      );
     case "ENGAGEMENT_THRESHOLD":
       return (
         typeof value.url === "string" &&
