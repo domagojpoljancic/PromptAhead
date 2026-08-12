@@ -225,7 +225,7 @@ Engagement is calculated locally and only in active, visible tabs.
 
 Initial defaults:
 
-- **Article:** at least 30 active seconds **or** ~⅔ scroll depth (either is enough).
+- **Article:** at least 30 active seconds **or** ~⅓ scroll depth (either is enough).
 - **Product:** at least 30 active seconds plus a meaningful interaction, such as opening media, specifications, variants, or reviews.
 - Do not count time while the tab is hidden or the browser is unfocused.
 - Trigger at most once per page.

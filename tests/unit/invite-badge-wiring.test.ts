@@ -76,20 +76,23 @@ async function showInviteBadge(): Promise<void> {
 }
 
 describe("applyInviteBadge / clearInviteBadge", () => {
-  it("sets badge text, color, and title via chrome.action", async () => {
+  it("sets badge text, color, and title via chrome.action for a tab", async () => {
     const payload = inviteBadgeFor("article");
-    const ok = await applyInviteBadge(payload, mock.api.action);
+    const ok = await applyInviteBadge(payload, mock.api.action, TAB_ID);
     expect(ok).toBe(true);
-    expect(mock.badgeText).toBe("!");
+    expect(mock.badgeTextFor(TAB_ID)).toBe("!");
     expect(mock.badgeBackground).toBe(payload.backgroundColor);
     expect(mock.actionTitle).toBe(payload.title);
+    expect(mock.badgeCalls.some((c) => c.kind === "text" && c.tabId === TAB_ID)).toBe(
+      true,
+    );
   });
 
-  it("clears badge text and restores default title", async () => {
-    await applyInviteBadge(inviteBadgeFor("product"), mock.api.action);
+  it("clears badge text and restores default title for that tab", async () => {
+    await applyInviteBadge(inviteBadgeFor("product"), mock.api.action, TAB_ID);
     const cleared = clearInviteBadgePayload();
-    await clearInviteBadge(cleared, mock.api.action);
-    expect(mock.badgeText).toBe("");
+    await clearInviteBadge(cleared, mock.api.action, TAB_ID);
+    expect(mock.badgeTextFor(TAB_ID)).toBe("");
     expect(mock.actionTitle).toBe("PromptAhead");
   });
 });
@@ -111,7 +114,7 @@ describe("invite controller SW wiring", () => {
     expect(result.showBadge).toBe(true);
     expect(result.openPanelAndAnalyze).toBe(false);
     expect(result.phase).toBe("invitation_shown");
-    expect(mock.badgeText).toBe("!");
+    expect(mock.badgeTextFor(TAB_ID)).toBe("!");
     expect(mock.actionTitle).toMatch(/story further/i);
     // Threshold/badge must never kick off Manual extract or side panel.
     expect(mock.injections).toEqual([]);
@@ -139,7 +142,7 @@ describe("invite controller SW wiring", () => {
 
     expect(result.handled).toBe(false);
     expect(result.showBadge).toBe(false);
-    expect(mock.badgeText).toBe("");
+    expect(mock.badgeTextFor(TAB_ID)).toBe("");
     expect(mock.injections).toEqual([]);
   });
 
@@ -157,7 +160,7 @@ describe("invite controller SW wiring", () => {
     );
     expect(result.handled).toBe(false);
     expect(result.showBadge).toBe(false);
-    expect(mock.badgeText).toBe("");
+    expect(mock.badgeTextFor(TAB_ID)).toBe("");
     expect(mock.injections).toEqual([]);
     expect(mock.sidePanelOpens).toEqual([]);
   });
@@ -175,7 +178,7 @@ describe("invite controller SW wiring", () => {
     expect(accepted.handled).toBe(true);
     expect(accepted.openPanelAndAnalyze).toBe(true);
     expect(accepted.clearBadge).toBe(true);
-    expect(mock.badgeText).toBe("");
+    expect(mock.badgeTextFor(TAB_ID)).toBe("");
     expect(accepted.phase).toBe("accepted");
     // Controller alone does not extract — SW/router call kickOffPanelAnalysis.
     expect(mock.injections).toEqual([]);
@@ -198,7 +201,7 @@ describe("invite controller SW wiring", () => {
     expect(dismissed.handled).toBe(true);
     expect(dismissed.clearBadge).toBe(true);
     expect(dismissed.openPanelAndAnalyze).toBe(false);
-    expect(mock.badgeText).toBe("");
+    expect(mock.badgeTextFor(TAB_ID)).toBe("");
     expect(mock.injections).toEqual([]);
 
     // Re-show for snooze path
@@ -221,7 +224,7 @@ describe("invite controller SW wiring", () => {
     expect(snoozed.handled).toBe(true);
     expect(snoozed.phase).toBe("snoozed");
     expect(snoozed.openPanelAndAnalyze).toBe(false);
-    expect(mock.badgeText).toBe("");
+    expect(mock.badgeTextFor(TAB_ID)).toBe("");
     expect(mock.injections).toEqual([]);
     expect(mock.sidePanelOpens).toEqual([]);
 
@@ -234,7 +237,7 @@ describe("invite controller SW wiring", () => {
   it("clearInviteForTab drops badge when that tab owned the invite", async () => {
     await showInviteBadge();
     await clearInviteForTab(TAB_ID, mock.api.action);
-    expect(mock.badgeText).toBe("");
+    expect(mock.badgeTextFor(TAB_ID)).toBe("");
     const runtime = mock.storage[STORAGE_KEYS.inviteRuntime] as {
       activeInvite: null;
     };
@@ -262,7 +265,7 @@ describe("invite controller SW wiring", () => {
     expect(blocked.handled).toBe(true);
     expect(blocked.showBadge).toBe(false);
     expect(blocked.suppression).toBe("proactive_paused");
-    expect(mock.badgeText).toBe("");
+    expect(mock.badgeTextFor(TAB_ID)).toBe("");
 
     // Toolbar Manual path: capture still runs while proactive is paused.
     const result = await captureTabContext(TAB_ID);
@@ -318,7 +321,7 @@ describe("router invite messages", () => {
       expect(response.showBadge).toBe(true);
       expect(response.phase).toBe("invitation_shown");
     }
-    expect(mock.badgeText).toBe("!");
+    expect(mock.badgeTextFor(TAB_ID)).toBe("!");
     expect(mock.injections).toEqual([]);
     expect(mock.sidePanelOpens).toEqual([]);
   });
@@ -346,7 +349,7 @@ describe("router invite messages", () => {
       expect(response.openPanelAndAnalyze).toBe(true);
       expect(response.phase).toBe("accepted");
     }
-    expect(mock.badgeText).toBe("");
+    expect(mock.badgeTextFor(TAB_ID)).toBe("");
     expect(mock.sidePanelOpens).toEqual([TAB_ID]);
     // Extraction is fire-and-forget; wait for the injection to land.
     await vi.waitFor(() => {
@@ -376,7 +379,7 @@ describe("router invite messages", () => {
       expect(response.openPanelAndAnalyze).toBe(false);
       expect(response.phase).toBe("dismissed");
     }
-    expect(mock.badgeText).toBe("");
+    expect(mock.badgeTextFor(TAB_ID)).toBe("");
     expect(mock.injections).toEqual([]);
     expect(mock.sidePanelOpens).toEqual([]);
   });
