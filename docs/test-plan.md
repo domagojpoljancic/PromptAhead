@@ -213,11 +213,12 @@ See §4 “Manual release smoke” — that is the only required pre-release Chr
 
 ### M4 a11y / polish
 
-- Full keyboard path to copy.
-- Visible focus; SR announcements for processing/fallback/ready.
-- Forced colors / contrast spot check AA.
-- `prefers-reduced-motion` disables non-essential motion.
-- Dark mode readable.
+- Automated axe (serious/critical) on options + side panel idle/choose — Playwright ([DOM-54](https://linear.app/domagojp/issue/DOM-54)); color-contrast deferred.
+- Full keyboard path to copy — manual / [DOM-43](https://linear.app/domagojp/issue/DOM-43).
+- Visible focus; SR announcements for processing/fallback/ready — [DOM-43](https://linear.app/domagojp/issue/DOM-43).
+- Forced colors / contrast spot check AA — [DOM-43](https://linear.app/domagojp/issue/DOM-43).
+- `prefers-reduced-motion` disables non-essential motion — [DOM-43](https://linear.app/domagojp/issue/DOM-43).
+- Dark mode readable — [DOM-43](https://linear.app/domagojp/issue/DOM-43).
 
 ## 9. Nano evaluation rubric (manual, developer mode)
 
