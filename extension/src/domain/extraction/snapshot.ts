@@ -234,7 +234,7 @@ export function collectPageSnapshotInPage(
       if (productNameCandidates.length >= limits.productNameCandidates) {
         return;
       }
-      let text = normalize(raw)
+      const text = normalize(raw)
         .replace(/(?:€|\$|£)\s*[\d.,]+.*$/i, "")
         .replace(/\b\d{1,5}(?:[.,]\d{2})?\s*(?:€|\$|£)\b.*$/i, "")
         .replace(/\s*[·|—–-]\s*$/, "")
