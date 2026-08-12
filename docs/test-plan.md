@@ -236,6 +236,16 @@ Target: ≥1 of 3 suggestions useful on 80% of the manual eval set.
 
 Record methodology in milestone report; do not add artificial delays.
 
+## 10b. Coverage gates (Vitest / CI)
+
+`npm run test:ci` runs `vitest run --coverage` (also `npm run test:coverage` locally).
+
+| Scope | Threshold (lines / functions / statements / branches) |
+| --- | --- |
+| `extension/src/domain/**` + `extension/src/shared/messaging/**` | 75 / 75 / 75 / 65 |
+
+Configured in `vitest.config.ts`. Floors are intentionally modest (below current measured coverage) so feature work is not blocked. To raise: run `npm run test:coverage`, confirm the new numbers are stable, then bump `thresholds` and this table together. Exclude list skips barrels (`index.ts`) and `types.ts`. Spikes / `dist` are out of scope.
+
 ## 11. Definition of done (testing)
 
 A milestone’s tests are done when:
