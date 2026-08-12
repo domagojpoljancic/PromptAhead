@@ -211,9 +211,7 @@ test("Smart invite badge then accept starts panel extract", async () => {
   expect(threshold.phase).toBe("invitation_shown");
 
   await expect
-    .poll(async () =>
-      panel.evaluate(async () => chrome.action.getBadgeText({})),
-    )
+    .poll(async () => actionBadgeText(panel, tabId))
     .toBe("!");
 
   await expect(panel.locator("#choose")).toBeHidden();
@@ -240,9 +238,7 @@ test("Smart invite badge then accept starts panel extract", async () => {
   expect(accepted.phase).toBe("accepted");
 
   await expect
-    .poll(async () =>
-      panel.evaluate(async () => chrome.action.getBadgeText({})),
-    )
+    .poll(async () => actionBadgeText(panel, tabId))
     .toBe("");
 
   await expect(panel.locator("#choose")).toBeVisible({ timeout: 15_000 });
@@ -362,9 +358,7 @@ test("Settings pause blocks Smart invite badge; Manual extract still works", asy
   expect(threshold.phase).toBe("suppressed");
 
   await expect
-    .poll(async () =>
-      panel.evaluate(async () => chrome.action.getBadgeText({})),
-    )
+    .poll(async () => actionBadgeText(panel, tabId))
     .toBe("");
   await expect(panel.locator("#choose")).toBeHidden();
 
@@ -505,6 +499,17 @@ test("homepage without selection shows low-value empty state", async () => {
   await panel.close();
   await tab.close();
 });
+
+/** Smart invite badges are per-tab — read with the fixture tab id. */
+async function actionBadgeText(
+  extensionPage: Page,
+  tabId: number,
+): Promise<string> {
+  return extensionPage.evaluate(
+    async (id) => chrome.action.getBadgeText({ tabId: id }),
+    tabId,
+  );
+}
 
 /** Resolve the fixture tab id from an extension page (options / side panel). */
 async function findFixtureTabId(
