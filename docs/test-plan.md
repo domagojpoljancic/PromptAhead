@@ -237,6 +237,19 @@ Target: ≥1 of 3 suggestions useful on 80% of the manual eval set.
 
 Record methodology in milestone report; do not add artificial delays.
 
+## 10a. Playwright flake notes (CI)
+
+Known sources and mitigations ([DOM-53](https://linear.app/domagojp/issue/DOM-53)):
+
+| Source | Mitigation |
+| --- | --- |
+| Extension page `ERR_ABORTED` / frame detach on first `goto` | Retry navigation up to 3× with short backoff in `openExtensionPage` / launch ready poll |
+| Service worker up before message handlers | Poll `PING` via options page until ready (no fixed silent sleep) |
+| Fixture server bind race | HTTP readiness probe after `listen` |
+| Transient Chromium flakes in Actions | `retries: 2` when `CI=1`; `trace: on-first-retry` |
+
+Prefer `expect.poll` / locator timeouts over `waitForTimeout` unless documenting a Chromium-only transient (see helpers).
+
 ## 10b. Coverage gates (Vitest / CI)
 
 `npm run test:ci` runs `vitest run --coverage` (also `npm run test:coverage` locally).

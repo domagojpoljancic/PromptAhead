@@ -62,6 +62,9 @@ export async function startFixtureServer(): Promise<FixtureServer> {
   const port = address.port;
   const origin = `http://127.0.0.1:${port}`;
 
+  // Readiness probe — fail fast if listen succeeded but HTTP is not serving.
+  await waitForFixtureReady(origin);
+
   return {
     port,
     origin,
@@ -71,4 +74,24 @@ export async function startFixtureServer(): Promise<FixtureServer> {
         server.close((error) => (error ? reject(error) : resolve()));
       }),
   };
+}
+
+async function waitForFixtureReady(origin: string): Promise<void> {
+  const deadline = Date.now() + 5_000;
+  let lastError: unknown;
+  while (Date.now() < deadline) {
+    try {
+      const response = await fetch(`${origin}/`);
+      if (response.ok) {
+        return;
+      }
+      lastError = new Error(`Fixture server HTTP ${response.status}`);
+    } catch (error) {
+      lastError = error;
+    }
+    await new Promise((resolve) => setTimeout(resolve, 50));
+  }
+  throw lastError instanceof Error
+    ? lastError
+    : new Error("Fixture server never became ready");
 }

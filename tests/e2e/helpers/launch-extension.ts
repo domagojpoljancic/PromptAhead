@@ -82,11 +82,12 @@ export async function launchExtension(
   });
 
   const serviceWorker = await waitForServiceWorker(context);
-  // Give the worker a beat to register message listeners.
-  await new Promise((resolve) => setTimeout(resolve, 250));
   const extensionId = extensionIdFromWorker(serviceWorker);
   const optionsUrl = `chrome-extension://${extensionId}/src/options/index.html`;
   const sidePanelUrl = `chrome-extension://${extensionId}/src/sidepanel/index.html`;
+
+  // Poll until the SW answers PING (replaces a silent fixed sleep).
+  await waitForBackgroundReady(context, optionsUrl);
 
   return {
     context,
@@ -101,6 +102,49 @@ export async function launchExtension(
       rmSync(userDataDir, { recursive: true, force: true });
     },
   };
+}
+
+/**
+ * Open options briefly and poll PING until the service worker is ready.
+ * Justified wait: Chromium may register the SW before message handlers exist.
+ */
+async function waitForBackgroundReady(
+  context: BrowserContext,
+  optionsUrl: string,
+): Promise<void> {
+  const page = await context.newPage();
+  let lastError: unknown;
+  try {
+    for (let attempt = 0; attempt < 3; attempt++) {
+      try {
+        await page.goto(optionsUrl, { waitUntil: "domcontentloaded" });
+        break;
+      } catch (error) {
+        lastError = error;
+        const message = error instanceof Error ? error.message : String(error);
+        if (!/ERR_ABORTED|frame was detached/i.test(message) || attempt === 2) {
+          throw error;
+        }
+        // Backoff only on known transient navigation aborts.
+        await page.waitForTimeout(250 * (attempt + 1));
+      }
+    }
+
+    const deadline = Date.now() + 10_000;
+    while (Date.now() < deadline) {
+      try {
+        if (await pingBackground(page)) {
+          return;
+        }
+      } catch (error) {
+        lastError = error;
+      }
+      await page.waitForTimeout(100);
+    }
+    throw lastError ?? new Error("Background PING never became ready");
+  } finally {
+    await page.close().catch(() => undefined);
+  }
 }
 
 export async function openExtensionPage(
