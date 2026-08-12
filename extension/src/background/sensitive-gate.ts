@@ -41,7 +41,6 @@ export async function assessTabForManualCapture(
     const fromDom = await executeScriptInTab(
       tabId,
       assessDocumentSensitivityInPage,
-      ["pa-sensitive"],
     );
     if (fromDom?.blocked) {
       return fromDom;

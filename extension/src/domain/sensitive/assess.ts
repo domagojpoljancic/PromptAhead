@@ -344,9 +344,7 @@ export function isProactiveSensitiveBlocked(
  * Self-contained for `chrome.scripting.executeScript` (no imports / closures).
  * Must stay in sync with `assessDocumentSensitivity`.
  */
-export function assessDocumentSensitivityInPage(
-  _marker?: string,
-): SensitiveAssessment {
+export function assessDocumentSensitivityInPage(): SensitiveAssessment {
   const doc = document;
   if (doc.querySelector('input[type="password"]')) {
     return {
