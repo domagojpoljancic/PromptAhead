@@ -23,6 +23,7 @@ import {
   type EngagementThresholds,
   type InteractionTargetSnapshot,
 } from "../domain/engagement";
+import { assessSensitivePage } from "../domain/sensitive";
 
 export type EngagementTrackerOptions = {
   pageType: PageType;
@@ -98,7 +99,11 @@ export function startEngagementTracker(
   doc?: Document,
   win?: Window,
 ): EngagementTrackerHandle {
-  if (!isEngagementEligibleUrl(options.url)) {
+  const pageDoc = doc ?? document;
+  if (
+    !isEngagementEligibleUrl(options.url) ||
+    assessSensitivePage(options.url, pageDoc).blocked
+  ) {
     const empty = createEngagementSession({
       pageType: options.pageType,
       url: options.url,
@@ -109,7 +114,6 @@ export function startEngagementTracker(
     return { stop: () => undefined, getState: () => empty };
   }
 
-  const pageDoc = doc ?? document;
   const pageWin = win ?? window;
   const clock = options.clock ?? (() => Date.now());
   const scrollThrottleMs = options.scrollThrottleMs ?? 200;

@@ -24,6 +24,7 @@ import {
   type InvitationTransition,
 } from "../domain/invitation";
 import { assessUrlPromptValue } from "../domain/page-value";
+import { assessUrlSensitivity } from "../domain/sensitive";
 import {
   applyInviteBadge,
   clearInviteBadge,
@@ -199,6 +200,18 @@ export async function handleEngagementThreshold(
 
   // Defence in depth: old injected trackers may still fire on low-value URLs.
   if (!assessUrlPromptValue(detail.pageUrl).worthPrompting) {
+    return {
+      handled: false,
+      showBadge: false,
+      clearBadge: false,
+      openPanelAndAnalyze: false,
+      phase: null,
+      suppression: null,
+    };
+  }
+
+  // Defence in depth: sensitive URL surfaces never get a badge (DOM-37).
+  if (assessUrlSensitivity(detail.pageUrl).blocked) {
     return {
       handled: false,
       showBadge: false,

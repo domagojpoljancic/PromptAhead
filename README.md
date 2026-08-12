@@ -1,6 +1,6 @@
 # PromptAhead
 
-> **WIP — M3 Smart on `main`; page activation gate + selection auto-refresh shipped (DOM-60 / DOM-61).** Manual core (M1) is buildable and covered by Vitest/Playwright/CI. Nano UX, Smart grant/revoke, engagement thresholds, invitation state machine, badge-first invites with **proactive caps** + snooze / domain exclude / global pause, and accept → panel + extract are on `main`. PromptAhead refuses weak surfaces (Google Docs / homepages / listings) unless the user selects text — and after that empty state, a selection auto-refreshes the panel. Smart never invites on those URLs either. DOM-38 Smart manual smoke is Done; Playwright invite/revoke/pause slices expanding (DOM-56). Chrome Web Store packaging (M4) still ahead.
+> **WIP — M3 Smart on `main`; sensitive-page proactive auto-block (DOM-37) in flight.** Manual core (M1) is buildable and covered by Vitest/Playwright/CI. Nano UX, Smart grant/revoke, engagement thresholds, invitation state machine, badge-first invites with **proactive caps** + snooze / domain exclude / global pause, and accept → panel + extract are on `main`. PromptAhead refuses weak surfaces (Google Docs / homepages / listings) unless the user selects text — and after that empty state, a selection auto-refreshes the panel. Smart never invites on those URLs either. DOM-38 Smart manual smoke and DOM-56 Playwright Smart regression are Done. Chrome Web Store packaging (M4) still ahead.
 
 **Your next question, already prepared.**
 
@@ -21,7 +21,7 @@ Privacy-first Chrome extension (Manifest V3) that notices when you are genuinely
 | M0 spike harness (`spikes/`) | **Done** — S0.1–S0.7 implemented and run |
 | Spike results (`docs/technical-spikes.md`) | **Filled** — Chrome **150.0.0.0** (2026-08-01) |
 | Extraction | JSON-LD / Open Graph / semantic-HTML classification with size caps; 7 HTML fixtures; **page-value gate** (editors / home / listings → empty state unless selection); Readability deferred |
-| Engagement | Domain + content tracker; CRXJS `?script` / manifest-resolved boot path + open-tab inject after Smart grant; article invite **30s OR ~⅔ scroll**; skips low-value URLs (DOM-60); Vitest resolve/register + fixture threshold fire |
+| Engagement | Domain + content tracker; CRXJS `?script` / manifest-resolved boot path + open-tab inject after Smart grant; article invite **30s OR ~⅔ scroll**; skips low-value URLs (DOM-60); **sensitive URL/DOM proactive block** (DOM-37); Vitest resolve/register + fixture threshold fire |
 | Invitation (Smart) | State machine + **caps** (once/page · once/domain/day · ≤3/day) + snooze / exclude / global pause persistence (Vitest); SW badge on threshold (no extract); accept → panel + Manual extract/suggest; dismiss·snooze·exclude clear badge; Manual extract still works when proactive paused; Settings **Pause proactive Smart invites**; Playwright **badge→accept→extract** + **pause UI** + revoke→Manual; optional `chrome.notifications` deferred |
 | Suggestions + prompts | Curated + mock-Nano + real `NanoSuggestionEngine` (validate / repair / timeout / curated fallback) |
 | Product docs | Handoff + architecture / plan / privacy / test plan / Nano checklist |
@@ -109,7 +109,7 @@ See [`docs/architecture.md`](docs/architecture.md) for the full folder layout. A
 
 - Chrome Web Store packaging / listing (M4)
 - Main-content extraction beyond the thin `main`/`article` heuristic; Mozilla Readability license call still open
-- Sensitive-page heuristics (banking/medical pages are not blocked yet) — usefulness gate for editors/home/listings is separate and shipped as DOM-60
+- Sensitive-page heuristics for **proactive Smart** (DOM-37 in progress): URL + DOM auto-block so invites never fire on login/checkout/banking/etc.; Manual toolbar extract on protected pages still allowed until the M4 override modal (DOM-39)
 - Full Smart mode polish (optional notifications, dedicated invite dismiss UI) — badge/SW + accept→panel+extract landed; Playwright badge→accept + pause UI + revoke→Manual shipped; protected-page e2e deferred to DOM-37 (DOM-56)
 
 - Hardware Nano smoke beyond checklist rows — DOM-31 / [`docs/nano-verification-checklist.md`](docs/nano-verification-checklist.md); CI covers curated / Nano-off only
