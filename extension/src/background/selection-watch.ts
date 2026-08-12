@@ -10,6 +10,7 @@
 
 import { executeScriptInTab } from "../shared/chrome";
 import { assessUrlPromptValue } from "../domain/page-value";
+import { assessUrlSensitivity } from "../domain/sensitive";
 import { hasSmartHostPermission } from "../domain/smart";
 import {
   installSelectionWatchInPage,
@@ -97,6 +98,10 @@ export async function handleSelectionReady(
   // Stop before re-extract so a flurry of selectionchange events cannot
   // stack captures; panel restarts the watch if still on empty.
   await stopSelectionWatch(tabId);
+  // URL-sensitive pages must not auto-extract via selection (DOM-39).
+  if (knownUrl !== undefined && assessUrlSensitivity(knownUrl).blocked) {
+    return { handled: false };
+  }
   await captureTabContext(tabId, knownUrl, { source: "selection" });
   return { handled: true };
 }
@@ -115,6 +120,10 @@ export async function tryUpgradeAfterNavigation(
   awaitingPageUpgrade.delete(tabId);
 
   if (!assessUrlPromptValue(url).worthPrompting) {
+    return { attempted: true, captured: false };
+  }
+
+  if (assessUrlSensitivity(url).blocked) {
     return { attempted: true, captured: false };
   }
 

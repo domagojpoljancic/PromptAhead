@@ -164,7 +164,9 @@ export async function handleBackgroundRequest(
           error: "No active tab to extract from",
         };
       }
-      const outcome = await captureTabContext(tab.id, tab.url);
+      const outcome = await captureTabContext(tab.id, tab.url, {
+        force: request.force === true,
+      });
       return outcome.ok
         ? {
             ok: true,

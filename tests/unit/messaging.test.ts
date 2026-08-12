@@ -91,6 +91,38 @@ describe("isBackgroundEvent", () => {
     ).toBe(true);
   });
 
+  it("accepts SENSITIVE_PAGE_BLOCKED pushes", () => {
+    expect(
+      isBackgroundEvent({
+        type: "SENSITIVE_PAGE_BLOCKED",
+        tabId: 3,
+        category: "login",
+        reason: "password_input",
+        url: "https://example.com/login",
+      }),
+    ).toBe(true);
+    expect(
+      isBackgroundEvent({
+        type: "SENSITIVE_PAGE_BLOCKED",
+        tabId: 3,
+        category: "not-a-category",
+        reason: "x",
+      }),
+    ).toBe(false);
+  });
+
+  it("accepts EXTRACT_ACTIVE_TAB with force flag", () => {
+    expect(isBackgroundRequest({ type: "EXTRACT_ACTIVE_TAB", force: true })).toBe(
+      true,
+    );
+    expect(
+      isBackgroundRequest({ type: "EXTRACT_ACTIVE_TAB", force: false }),
+    ).toBe(true);
+    expect(
+      isBackgroundRequest({ type: "EXTRACT_ACTIVE_TAB", force: "yes" }),
+    ).toBe(false);
+  });
+
   it("rejects request-shaped or malformed values", () => {
     expect(isBackgroundEvent({ type: "PING" })).toBe(false);
     expect(

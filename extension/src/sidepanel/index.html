@@ -7,6 +7,26 @@
     <link rel="stylesheet" href="./sidepanel.css" />
   </head>
   <body>
+    <div class="sensitive-override" id="sensitive-override" hidden>
+      <div class="sensitive-override__card" role="alertdialog" aria-modal="true" aria-labelledby="sensitive-override-title">
+        <p class="eyebrow">Protected page</p>
+        <h2 class="sensitive-override__heading" id="sensitive-override-title">
+          This page looks sensitive
+        </h2>
+        <p class="sensitive-override__copy" id="sensitive-override-lead"></p>
+        <p class="sensitive-override__copy" id="sensitive-override-what"></p>
+        <p class="sensitive-override__meta" id="sensitive-override-url" hidden></p>
+        <div class="actions">
+          <button type="button" class="btn btn--primary" id="sensitive-override-confirm">
+            Analyze this page anyway
+          </button>
+          <button type="button" class="btn btn--ghost" id="sensitive-override-cancel">
+            Don’t analyze
+          </button>
+        </div>
+      </div>
+    </div>
+
     <div class="onboarding" id="onboarding" hidden>
       <div class="onboarding__card">
         <p class="eyebrow">Welcome</p>

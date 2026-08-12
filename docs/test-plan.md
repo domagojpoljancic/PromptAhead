@@ -209,7 +209,7 @@ See §4 “Manual release smoke” — that is the only required pre-release Chr
 3. Dismiss / snooze / don’t suggest on this site / global pause — arithmetic in Vitest; Settings **Pause proactive Smart invites** → no badge + Manual extract still works — **automated** Playwright (DOM-56). Snooze/exclude UI edges remain manual/Vitest.
 4. Caps hold under repeated browsing — Vitest; flaky OS edges manual.
 5. Revoke host access → Manual still works — **automated** Playwright thin path (DOM-56); confirm once on real Chrome under [DOM-38](https://linear.app/domagojp/issue/DOM-38). Note: Chrome Details → Site access may still show “On all sites” after revoke; product truth is Settings / `permissions.contains`.
-6. Protected pages never proactive-trigger — **automated** Vitest fixture matrix ([DOM-37](https://linear.app/domagojp/issue/DOM-37)); interim Manual toolbar extract on protected pages still allowed without override modal ([DOM-39](https://linear.app/domagojp/issue/DOM-39)).
+6. Protected pages never proactive-trigger — **automated** Vitest fixture matrix ([DOM-37](https://linear.app/domagojp/issue/DOM-37)); Manual extract shows override modal then force-confirm — **automated** Playwright ([DOM-39](https://linear.app/domagojp/issue/DOM-39)).
 
 ### M4 a11y / polish
 

@@ -1,9 +1,8 @@
 /**
- * Sensitive-page detection for Smart proactive auto-block (DOM-37).
+ * Sensitive-page detection for Smart proactive auto-block (DOM-37) and
+ * Manual override gating (DOM-39).
  *
- * URL + DOM heuristics only — never extracts form values. Manual toolbar
- * extract may still run without the M4 override modal (DOM-39); document that
- * interim behavior in the product README / test-plan until override ships.
+ * URL + DOM heuristics only — never extracts form values.
  */
 
 export type SensitiveCategory =
@@ -17,7 +16,7 @@ export type SensitiveCategory =
   | "private_workspace";
 
 export type SensitiveAssessment = {
-  /** When true, Smart must not invite / engage proactively. */
+  /** When true, Smart must not invite / engage proactively; Manual needs override. */
   blocked: boolean;
   category: SensitiveCategory | null;
   reason: string;
@@ -133,6 +132,17 @@ const PRIVATE_WORKSPACE_HOSTS = [
   "onedrive.live.com",
 ];
 
+const CATEGORY_LABELS: Record<SensitiveCategory, string> = {
+  banking: "Banking",
+  payment: "Payment",
+  email: "Email",
+  login: "Sign-in",
+  medical: "Medical",
+  sensitive_input: "Sensitive form",
+  restricted_origin: "Restricted page",
+  private_workspace: "Private document",
+};
+
 function blocked(
   category: SensitiveCategory,
   reason: string,
@@ -222,7 +232,7 @@ export function assessUrlSensitivity(url: string): SensitiveAssessment {
 
 /**
  * In-page DOM signals. Never reads input values — presence of sensitive
- * controls is enough to block proactive Smart.
+ * controls is enough to block.
  */
 export function assessDocumentSensitivity(
   doc: Document,
@@ -256,8 +266,8 @@ export function assessDocumentSensitivity(
 }
 
 /**
- * Combined assessment for proactive Smart. URL first (cheap), then DOM when
- * provided. Benign articles that merely mention “bank” stay allowed.
+ * Combined assessment. URL first (cheap), then DOM when provided.
+ * Benign articles that merely mention “bank” stay allowed.
  */
 export function assessSensitivePage(
   url: string,
@@ -279,4 +289,74 @@ export function isProactiveSensitiveBlocked(
   doc?: Document | null,
 ): boolean {
   return assessSensitivePage(url, doc).blocked;
+}
+
+/**
+ * Self-contained for `chrome.scripting.executeScript` (no imports / closures).
+ * Must stay in sync with `assessDocumentSensitivity`.
+ */
+export function assessDocumentSensitivityInPage(
+  _marker?: string,
+): SensitiveAssessment {
+  const doc = document;
+  if (doc.querySelector('input[type="password"]')) {
+    return {
+      blocked: true,
+      category: "sensitive_input",
+      reason: "password_input",
+    };
+  }
+  if (
+    doc.querySelector(
+      'input[autocomplete="cc-number"], input[autocomplete="cc-csc"], input[autocomplete="cc-exp"], input[autocomplete="cc-exp-month"], input[autocomplete="cc-exp-year"]',
+    )
+  ) {
+    return {
+      blocked: true,
+      category: "sensitive_input",
+      reason: "card_autocomplete",
+    };
+  }
+
+  const named = doc.querySelectorAll("input[name], input[id]");
+  for (let i = 0; i < named.length; i++) {
+    const node = named[i];
+    if (!(node instanceof HTMLInputElement)) {
+      continue;
+    }
+    const key = `${node.name} ${node.id}`.toLowerCase();
+    if (
+      /\b(card[-_]?number|ccnum|cc-num|cvv|cvc|cid)\b/.test(key) ||
+      key.includes("cardnumber") ||
+      key.includes("card-number")
+    ) {
+      return {
+        blocked: true,
+        category: "sensitive_input",
+        reason: "card_field_name",
+      };
+    }
+  }
+  return { blocked: false, category: null, reason: "not_sensitive" };
+}
+
+/** Sober UI label for a blocked category. */
+export function sensitiveCategoryLabel(category: SensitiveCategory): string {
+  return CATEGORY_LABELS[category];
+}
+
+/**
+ * Copy for the Manual override overlay — what will be read, never jokes.
+ */
+export function sensitiveOverrideCopy(category: SensitiveCategory): {
+  title: string;
+  lead: string;
+  whatWillBeRead: string;
+} {
+  return {
+    title: `This looks like a ${CATEGORY_LABELS[category].toLowerCase()} page`,
+    lead: "PromptAhead will not analyze it until you confirm. Password and payment field values are never read.",
+    whatWillBeRead:
+      "If you continue, PromptAhead reads this page’s title, URL, and visible text to build a prompt — not form field values.",
+  };
 }

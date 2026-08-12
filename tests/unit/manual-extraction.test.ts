@@ -24,12 +24,19 @@ const PRODUCT_URL = "https://shop.example.com/products/aurora-14";
 const TAB_ID = 42;
 
 function mockWithPage(overrides: Partial<ChromeMockOptions> = {}): ChromeMock {
+  const snapshotResult = {
+    ok: true as const,
+    snapshot: snapshotFromFixture("product-jsonld", PRODUCT_URL),
+  };
   return installChromeMock({
     activeTab: { id: TAB_ID, url: PRODUCT_URL },
-    executeScript: () => ({
-      ok: true,
-      snapshot: snapshotFromFixture("product-jsonld", PRODUCT_URL),
-    }),
+    executeScript: (details) => {
+      // Sensitive DOM probe (`pa-sensitive`) vs snapshot collect (limits arg).
+      if (details.args?.[0] === "pa-sensitive") {
+        return { blocked: false, category: null, reason: "not_sensitive" };
+      }
+      return snapshotResult;
+    },
     ...overrides,
   });
 }
@@ -50,12 +57,12 @@ describe("Manual-mode extraction path", () => {
 
     const extracted = await sendToBackground({ type: "EXTRACT_ACTIVE_TAB" });
     expect(extracted.ok && extracted.pageContext.pageType).toBe("product");
-    expect(mock.injections).toEqual([TAB_ID]);
+    expect(mock.injections).toEqual([TAB_ID, TAB_ID]);
 
     const latest = await sendToBackground({ type: "GET_LATEST_PAGE_CONTEXT" });
     expect(latest.ok && latest.pageContext?.title).toBe("Aurora 14 Laptop");
-    // The cached read must not cost a second injection.
-    expect(mock.injections).toEqual([TAB_ID]);
+    // The cached read must not cost another injection.
+    expect(mock.injections).toEqual([TAB_ID, TAB_ID]);
   });
 
   it("answers a read that arrives while the gesture extraction is still running", async () => {
@@ -126,11 +133,60 @@ describe("Manual-mode extraction path", () => {
   });
 
   it("reports in-page extraction failures instead of guessing", async () => {
-    mockWithPage({ executeScript: () => ({ ok: false, error: "boom" }) });
+    mockWithPage({
+      executeScript: (details) => {
+        if (details.args?.[0] === "pa-sensitive") {
+          return { blocked: false, category: null, reason: "not_sensitive" };
+        }
+        return { ok: false, error: "boom" };
+      },
+    });
     registerBackgroundRouter();
 
     const response = await sendToBackground({ type: "EXTRACT_ACTIVE_TAB" });
 
     expect(!response.ok && response.error).toMatch(/boom/);
+  });
+
+  it("blocks Manual extract on sensitive URL until force override", async () => {
+    const events: unknown[] = [];
+    mockWithPage({
+      activeTab: { id: TAB_ID, url: "https://bank.example.com/accounts" },
+      executeScript: (details) => {
+        if (details.args?.[0] === "pa-sensitive") {
+          return { blocked: false, category: null, reason: "not_sensitive" };
+        }
+        return {
+          ok: true,
+          snapshot: snapshotFromFixture(
+            "product-jsonld",
+            "https://bank.example.com/accounts",
+          ),
+        };
+      },
+    });
+    chrome.runtime.onMessage.addListener((message) => {
+      events.push(message);
+      return undefined;
+    });
+    registerBackgroundRouter();
+
+    const blocked = await sendToBackground({ type: "EXTRACT_ACTIVE_TAB" });
+    expect(blocked.ok).toBe(false);
+    expect(!blocked.ok && blocked.error).toMatch(/sensitive/i);
+    expect(
+      events.some(
+        (e) =>
+          typeof e === "object" &&
+          e !== null &&
+          (e as { type?: string }).type === "SENSITIVE_PAGE_BLOCKED",
+      ),
+    ).toBe(true);
+
+    const forced = await sendToBackground({
+      type: "EXTRACT_ACTIVE_TAB",
+      force: true,
+    });
+    expect(forced.ok).toBe(true);
   });
 });

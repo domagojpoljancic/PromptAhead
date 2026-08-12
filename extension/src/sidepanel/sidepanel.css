@@ -359,8 +359,49 @@ h1 {
 }
 
 body.onboarding-active .app-header,
-body.onboarding-active .shell {
+body.onboarding-active .shell,
+body.sensitive-override-active .app-header,
+body.sensitive-override-active .shell {
   visibility: hidden;
+}
+
+.sensitive-override {
+  position: fixed;
+  inset: 0;
+  z-index: 25;
+  display: grid;
+  align-items: start;
+  padding: 1.25rem;
+  background: var(--bg);
+  overflow: auto;
+}
+
+.sensitive-override__card {
+  display: grid;
+  gap: 0.75rem;
+  padding: 1rem 1.125rem 1.25rem;
+  border: 1px solid var(--border);
+  border-radius: 0.5rem;
+  background: var(--surface);
+}
+
+.sensitive-override__heading {
+  margin: 0;
+  font-size: 1.125rem;
+  font-weight: 600;
+}
+
+.sensitive-override__copy {
+  margin: 0;
+  font-size: 0.875rem;
+  color: var(--muted);
+}
+
+.sensitive-override__meta {
+  margin: 0;
+  font-size: 0.75rem;
+  color: var(--muted);
+  word-break: break-all;
 }
 
 .onboarding {
