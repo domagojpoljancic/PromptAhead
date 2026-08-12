@@ -1,6 +1,6 @@
 # PromptAhead
 
-> **WIP — M3 Smart largely on `main`; M4 automation next.** Manual core (M1) is buildable and covered by Vitest/Playwright/CI. Nano UX, Smart grant/revoke, engagement, badge-first invites, caps/pause, sensitive-page proactive auto-block (DOM-37), and accept → panel + extract are on `main`. PromptAhead refuses weak surfaces unless the user selects text. DOM-38 / DOM-56 Done. Chrome Web Store packaging (M4) still ahead.
+> **WIP — M3 Smart on `main`; M4 automation in progress.** Manual core (M1) is buildable and covered by Vitest/Playwright/CI. Nano UX, Smart grant/revoke, engagement, badge-first invites, caps/pause, sensitive-page proactive auto-block (DOM-37 Done), and accept → panel + extract are on `main`. PromptAhead refuses weak surfaces unless the user selects text. DOM-38 / DOM-56 Done. Playwright flake harden (DOM-53) shipping; parallel PRs for axe (DOM-54) + coverage (DOM-55); store packaging still ahead.
 
 **Your next question, already prepared.**
 
