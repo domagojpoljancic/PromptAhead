@@ -152,13 +152,20 @@ async function persistAfterTransition(
 
 async function paintFromTransition(
   transition: InvitationTransition,
+  tabId: number | undefined,
   api?: ActionBadgeApi | null,
 ): Promise<void> {
   if (transition.showBadge) {
-    await applyInviteBadge(inviteBadgeFor(transition.session.pageType), api);
+    await applyInviteBadge(
+      inviteBadgeFor(transition.session.pageType),
+      api,
+      tabId,
+    );
     return;
   }
   if (transition.clearBadge || transition.openPanelAndAnalyze) {
+    await clearInviteBadge(clearInviteBadgePayload(), api, tabId);
+    // Heal any legacy global badge from older builds.
     await clearInviteBadge(clearInviteBadgePayload(), api);
   }
 }
@@ -245,7 +252,7 @@ export async function handleEngagementThreshold(
       domainsInvitedToday: [...transition.quota.domainsInvitedToday],
     },
   });
-  await paintFromTransition(transition, api);
+  await paintFromTransition(transition, detail.tabId, api);
 
   return resultFrom(transition, true);
 }
@@ -293,7 +300,8 @@ export async function handleInviteAction(
   }
 
   await persistAfterTransition(transition, dayKey, tabId, settings);
-  await paintFromTransition(transition, api);
+  const paintTabId = tabId ?? runtime.activeInvite?.tabId;
+  await paintFromTransition(transition, paintTabId, api);
 
   return resultFrom(transition, true);
 }
@@ -321,5 +329,8 @@ export async function clearInviteForTab(
   }
   await updateInviteRuntime({ activeInvite: null });
   activeInviteTabId = null;
+  // Clear the inviting tab’s badge, and also any legacy global badge left from
+  // older builds that painted without a tabId.
+  await clearInviteBadge(clearInviteBadgePayload(), api, tabId);
   await clearInviteBadge(clearInviteBadgePayload(), api);
 }

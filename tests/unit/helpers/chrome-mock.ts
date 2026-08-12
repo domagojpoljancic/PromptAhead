@@ -28,6 +28,7 @@ export type ChromeMockOptions = {
 export type BadgeCall = {
   kind: "text" | "background" | "title";
   value: string;
+  tabId?: number;
 };
 
 export type ChromeMock = {
@@ -39,6 +40,7 @@ export type ChromeMock = {
   badgeText: string;
   badgeBackground: string;
   actionTitle: string;
+  badgeTextFor: (tabId: number) => string;
   api: typeof chrome;
 };
 
@@ -70,6 +72,7 @@ export function createChromeMock(options: ChromeMockOptions = {}): ChromeMock {
   const sidePanelOpens: number[] = [];
   const injections: number[] = [];
   const badgeCalls: BadgeCall[] = [];
+  const badgeByTab = new Map<number, string>();
   let badgeText = "";
   let badgeBackground = "";
   let actionTitle = "PromptAhead";
@@ -157,19 +160,55 @@ export function createChromeMock(options: ChromeMockOptions = {}): ChromeMock {
       },
     },
     action: {
-      setBadgeText: async ({ text }: { text: string }) => {
+      setBadgeText: async ({
+        text,
+        tabId,
+      }: {
+        text: string;
+        tabId?: number;
+      }) => {
+        if (tabId !== undefined) {
+          badgeByTab.set(tabId, text);
+          badgeCalls.push({ kind: "text", value: text, tabId });
+          return;
+        }
         badgeText = text;
         badgeCalls.push({ kind: "text", value: text });
       },
-      setBadgeBackgroundColor: async ({ color }: { color: string }) => {
+      setBadgeBackgroundColor: async ({
+        color,
+        tabId,
+      }: {
+        color: string;
+        tabId?: number;
+      }) => {
         badgeBackground = color;
-        badgeCalls.push({ kind: "background", value: color });
+        badgeCalls.push({
+          kind: "background",
+          value: color,
+          ...(tabId !== undefined ? { tabId } : {}),
+        });
       },
-      setTitle: async ({ title }: { title: string }) => {
+      setTitle: async ({
+        title,
+        tabId,
+      }: {
+        title: string;
+        tabId?: number;
+      }) => {
         actionTitle = title;
-        badgeCalls.push({ kind: "title", value: title });
+        badgeCalls.push({
+          kind: "title",
+          value: title,
+          ...(tabId !== undefined ? { tabId } : {}),
+        });
       },
-      getBadgeText: async () => badgeText,
+      getBadgeText: async (details?: { tabId?: number }) => {
+        if (details?.tabId !== undefined) {
+          return badgeByTab.get(details.tabId) ?? "";
+        }
+        return badgeText;
+      },
     },
   } as unknown as typeof chrome;
 
@@ -189,6 +228,9 @@ export function createChromeMock(options: ChromeMockOptions = {}): ChromeMock {
     },
     get actionTitle() {
       return actionTitle;
+    },
+    badgeTextFor(tabId: number) {
+      return badgeByTab.get(tabId) ?? "";
     },
     api,
   };

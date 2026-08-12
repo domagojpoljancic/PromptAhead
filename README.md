@@ -21,7 +21,7 @@ Privacy-first Chrome extension (Manifest V3) that notices when you are genuinely
 | M0 spike harness (`spikes/`) | **Done** — S0.1–S0.7 implemented and run |
 | Spike results (`docs/technical-spikes.md`) | **Filled** — Chrome **150.0.0.0** (2026-08-01) |
 | Extraction | JSON-LD / Open Graph / semantic-HTML classification with size caps; 7 HTML fixtures; **page-value gate** (editors / home / listings → empty state unless selection); Readability deferred |
-| Engagement | Domain + content tracker; CRXJS `?script` / manifest-resolved boot path + open-tab inject after Smart grant; article invite **30s OR ~⅔ scroll**; skips low-value URLs (DOM-60); **sensitive URL/DOM proactive block** (DOM-37); Vitest resolve/register + fixture threshold fire |
+| Engagement | Domain + content tracker; CRXJS `?script` / manifest-resolved boot path + open-tab inject after Smart grant; article invite **30s OR ~⅓ scroll**; skips low-value URLs (DOM-60); **sensitive URL/DOM proactive block** (DOM-37); **per-tab invite badge**; Vitest resolve/register + fixture threshold fire |
 | Invitation (Smart) | State machine + **caps** (once/page · once/domain/day · ≤3/day) + snooze / exclude / global pause persistence (Vitest); SW badge on threshold (no extract); accept → panel + Manual extract/suggest; dismiss·snooze·exclude clear badge; Manual extract still works when proactive paused; Settings **Pause proactive Smart invites**; Playwright **badge→accept→extract** + **pause UI** + revoke→Manual; optional `chrome.notifications` deferred |
 | Suggestions + prompts | Curated + mock-Nano + real `NanoSuggestionEngine` (validate / repair / timeout / curated fallback) |
 | Product docs | Handoff + architecture / plan / privacy / test plan / Nano checklist |
