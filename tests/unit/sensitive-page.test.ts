@@ -55,15 +55,28 @@ describe("assessUrlSensitivity", () => {
     expect(
       assessUrlSensitivity("https://app.example.com/account/password").category,
     ).toBe("login");
+    expect(
+      assessUrlSensitivity(
+        "https://app.example.com/settings/change-password",
+      ).category,
+    ).toBe("login");
   });
 
-  it("blocks banking and email hosts", () => {
+  it("blocks banking, email, medical portal, and private workspace hosts/paths", () => {
     expect(
       assessUrlSensitivity("https://secure.chase.com/accounts/overview").category,
     ).toBe("banking");
     expect(assessUrlSensitivity("https://mail.google.com/mail/u/0/").category).toBe(
       "email",
     );
+    expect(
+      assessUrlSensitivity("https://health.example.com/patient/portal").category,
+    ).toBe("medical");
+    expect(
+      assessUrlSensitivity(
+        "https://docs.google.com/document/d/abc123/edit",
+      ).category,
+    ).toBe("private_workspace");
   });
 
   it("allows a news article URL that only mentions bank in the slug", () => {
@@ -71,6 +84,83 @@ describe("assessUrlSensitivity", () => {
       "https://news.example.com/why-banks-still-matter",
     );
     expect(result.blocked).toBe(false);
+  });
+});
+
+describe("test-plan sensitive fixture matrix (proactive never fires)", () => {
+  afterEach(() => {
+    document.body.innerHTML = "";
+  });
+
+  const rows: Array<{
+    name: string;
+    fixture: string;
+    url: string;
+    expectCategory?: string;
+  }> = [
+    {
+      name: "Login form",
+      fixture: "sensitive-login.html",
+      url: "https://shop.example.com/login",
+    },
+    {
+      name: "Password change",
+      fixture: "sensitive-password-change.html",
+      url: "https://app.example.com/settings/change-password",
+    },
+    {
+      name: "Checkout",
+      fixture: "sensitive-checkout.html",
+      url: "https://shop.example.com/checkout",
+    },
+    {
+      name: "Card payment",
+      fixture: "sensitive-card-payment.html",
+      url: "https://shop.example.com/pay",
+    },
+    {
+      name: "Banking dashboard",
+      fixture: "sensitive-banking.html",
+      url: "https://secure.chase.com/accounts/overview",
+      expectCategory: "banking",
+    },
+    {
+      name: "Webmail",
+      fixture: "sensitive-webmail.html",
+      url: "https://mail.google.com/mail/u/0/#inbox",
+      expectCategory: "email",
+    },
+    {
+      name: "Private doc editor",
+      fixture: "sensitive-private-doc.html",
+      url: "https://docs.google.com/document/d/abc123/edit",
+      expectCategory: "private_workspace",
+    },
+    {
+      name: "Medical portal",
+      fixture: "sensitive-medical-portal.html",
+      url: "https://clinic.example.com/patient/portal",
+      expectCategory: "medical",
+    },
+  ];
+
+  for (const row of rows) {
+    it(`blocks ${row.name}`, () => {
+      mountFixture(row.fixture, row.url);
+      const assessment = assessSensitivePage(row.url, document);
+      expect(assessment.blocked, row.name).toBe(true);
+      if (row.expectCategory) {
+        expect(assessment.category).toBe(row.expectCategory);
+      }
+      expect(isEngagementEligibleUrl(row.url)).toBe(false);
+    });
+  }
+
+  it("allows Benign article mentioning bank / password", () => {
+    const url = "https://news.example.com/why-banks-still-matter";
+    mountFixture("article-mentions-bank.html", url);
+    expect(assessSensitivePage(url, document).blocked).toBe(false);
+    expect(isEngagementEligibleUrl(url)).toBe(true);
   });
 });
 
@@ -91,6 +181,12 @@ describe("assessDocumentSensitivity", () => {
       "https://shop.example.com/checkout",
     );
     expect(assessDocumentSensitivity(document).blocked).toBe(true);
+
+    mountFixture(
+      "sensitive-password-change.html",
+      "https://app.example.com/settings/change-password",
+    );
+    expect(assessDocumentSensitivity(document).category).toBe("sensitive_input");
   });
 
   it("allows a benign article that mentions bank and password in prose", () => {

@@ -1,0 +1,29 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <title>Pay · Example Shop</title>
+  </head>
+  <body>
+    <h1>Card payment</h1>
+    <form>
+      <label>
+        Name on card
+        <input name="ccname" autocomplete="cc-name" />
+      </label>
+      <label>
+        Card number
+        <input name="cardnumber" autocomplete="cc-number" inputmode="numeric" />
+      </label>
+      <label>
+        Expiry
+        <input name="cc-exp" autocomplete="cc-exp" />
+      </label>
+      <label>
+        CVC
+        <input name="cvc" autocomplete="cc-csc" />
+      </label>
+      <button type="submit">Pay</button>
+    </form>
+  </body>
+</html>
