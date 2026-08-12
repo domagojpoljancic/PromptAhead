@@ -5,6 +5,8 @@
  */
 export type {
   ArticleContext,
+  ComparableItemKind,
+  ComparableSet,
   GenericContext,
   PageContext,
   PageType,
@@ -17,6 +19,8 @@ export {
   isPageContext,
   isPageType,
 } from "../../shared/types/page-context";
+
+export { extractComparableSet } from "./comparable-set";
 
 export {
   RAW_SNAPSHOT_LIMITS,

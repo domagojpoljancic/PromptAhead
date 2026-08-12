@@ -394,6 +394,19 @@ describe("side panel click-through", () => {
     expect(textOf("#fallback-message")).toMatch(/no content/i);
   });
 
+  it("re-shows choose after Refresh on the same page (does not stick on Re-reading)", async () => {
+    store.latest = { pageContext: samplePage, tabId: 7 };
+    await boot();
+    expect(isVisible("#choose")).toBe(true);
+    click("#refresh-context");
+    await flush();
+    expect(isVisible("#choose")).toBe(true);
+    expect(textOf("#status")).not.toMatch(/re-reading/i);
+    expect(
+      (document.querySelector("#refresh-context") as HTMLButtonElement).disabled,
+    ).toBe(false);
+  });
+
   it("completes onboarding with basic private mode and then shows the workflow", async () => {
     await boot({ onboardingIncomplete: true });
     expect(isVisible("#onboarding")).toBe(true);

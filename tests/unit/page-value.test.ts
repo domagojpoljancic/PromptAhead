@@ -127,6 +127,44 @@ describe("assessPagePromptValue", () => {
     };
     expect(assessPagePromptValue(shortArticle).worthPrompting).toBe(true);
   });
+
+  it("keeps small comparable sets worth prompting on listing URLs (DOM-64)", () => {
+    const listingWithThree: PageContext = {
+      schemaVersion: 1,
+      pageType: "generic",
+      language: "en",
+      title: "Laptops",
+      url: "https://shop.example.com/category/laptops",
+      generic: {
+        headings: ["Laptops"],
+        excerpts: ["Showing 3 of 148 laptops."],
+      },
+      comparableSet: {
+        kind: "product",
+        names: ["Aurora 14 Laptop", "Aurora 16 Laptop", "Nimbus Air 13"],
+      },
+    };
+    expect(assessPagePromptValue(listingWithThree)).toEqual({
+      worthPrompting: true,
+      reason: "worth-prompting",
+    });
+  });
+
+  it("still empties listing URLs without a small named set", () => {
+    expect(
+      assessPagePromptValue({
+        schemaVersion: 1,
+        pageType: "generic",
+        language: "en",
+        title: "Laptops",
+        url: "https://shop.example.com/category/laptops",
+        generic: {
+          headings: ["Laptops"],
+          excerpts: ["Hundreds of models — use filters to narrow the range."],
+        },
+      }),
+    ).toEqual({ worthPrompting: false, reason: "listing-or-search" });
+  });
 });
 
 describe("lowValueMessageFor", () => {

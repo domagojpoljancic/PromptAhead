@@ -45,6 +45,9 @@ export function applyContextInclusion(
     if (pageContext.generic) {
       next.generic = pageContext.generic;
     }
+    if (pageContext.comparableSet) {
+      next.comparableSet = pageContext.comparableSet;
+    }
   }
 
   if (inclusion.selectedText && pageContext.selectedText) {
@@ -71,7 +74,8 @@ export function inclusionAvailability(pageContext: PageContext): {
     pageContext.description ||
       pageContext.article ||
       pageContext.product ||
-      pageContext.generic,
+      pageContext.generic ||
+      pageContext.comparableSet,
   );
   return {
     titleUrl: Boolean(pageContext.title || pageContext.url),

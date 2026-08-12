@@ -973,20 +973,30 @@ export async function initSidePanel(
     refreshButton.disabled = true;
     showStep("understanding");
     setText(statusLine, "Re-reading this page…");
+    // Same-page refresh must not no-op on lastAcceptedKey (would stick on Re-reading).
+    lastAcceptedKey = null;
+    acceptingKey = null;
 
-    const response = await send({
-      type: "EXTRACT_ACTIVE_TAB",
-      ...(boundTabId !== null ? { tabId: boundTabId } : {}),
-    });
-    if (response.ok) {
-      await acceptPageContext(response.pageContext, response.tabId);
-    } else if (isExpectedReinvokeError(response.error)) {
-      // Expected after navigate / restricted URL — calm stale UX, not a generic failure.
-      renderStale(response.error);
-    } else {
-      renderFallback("extraction", response.error, { canChoose: false });
+    try {
+      const response = await send({
+        type: "EXTRACT_ACTIVE_TAB",
+        ...(boundTabId !== null ? { tabId: boundTabId } : {}),
+      });
+      if (response.ok) {
+        await acceptPageContext(response.pageContext, response.tabId);
+      } else if (isExpectedReinvokeError(response.error)) {
+        // Expected after navigate / restricted URL — calm stale UX, not a generic failure.
+        renderStale(response.error);
+      } else {
+        renderFallback("extraction", response.error, { canChoose: false });
+      }
+    } catch (error) {
+      const message =
+        error instanceof Error ? error.message : "Could not refresh this page";
+      renderFallback("extraction", message, { canChoose: false });
+    } finally {
+      refreshButton.disabled = false;
     }
-    refreshButton.disabled = false;
   }
 
   async function retryFallback(): Promise<void> {

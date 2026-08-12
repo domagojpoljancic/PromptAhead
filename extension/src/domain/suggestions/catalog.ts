@@ -7,7 +7,7 @@
  * direction means adding an entry here.
  */
 
-import type { PageType } from "../../shared/types/page-context";
+import type { ComparableItemKind, PageType } from "../../shared/types/page-context";
 import type { SuggestedAction } from "./types";
 
 type CatalogEntry = Omit<SuggestedAction, "pageType">;
@@ -333,16 +333,80 @@ function withPageType(entry: CatalogEntry, pageType: PageType): SuggestedAction 
   return { ...entry, pageType };
 }
 
+const KIND_NOUN: Record<ComparableItemKind, { singular: string; plural: string }> = {
+  product: { singular: "product", plural: "products" },
+  article: { singular: "article", plural: "articles" },
+  item: { singular: "item", plural: "items" },
+};
+
+/** Ids that are weak or redundant when a named comparable set is present. */
+const SKIP_WHEN_COMPARABLE = new Set(["generic.understand", "generic.compare"]);
+
+function joinNames(names: readonly string[]): string {
+  if (names.length === 1) {
+    return names[0]!;
+  }
+  if (names.length === 2) {
+    return `${names[0]} and ${names[1]}`;
+  }
+  return `${names.slice(0, -1).join(", ")}, and ${names.at(-1)}`;
+}
+
+function clampDescription(text: string, max = 90): string {
+  if (text.length <= max) {
+    return text;
+  }
+  return `${text.slice(0, max - 1).trimEnd()}…`;
+}
+
+/** Dynamic “compare these N …” action for a small named set (DOM-64). */
+export function compareTheseAction(
+  pageType: PageType,
+  comparable: { kind: ComparableItemKind; names: readonly string[] },
+): SuggestedAction {
+  const count = comparable.names.length;
+  const noun = KIND_NOUN[comparable.kind];
+  const label = count === 1 ? noun.singular : noun.plural;
+  const listed = joinNames(comparable.names);
+  return withPageType(
+    {
+      id: "generic.compare-these",
+      title: `Compare these ${count} ${label}`,
+      description: clampDescription(`Side-by-side on the dimensions that matter: ${listed}.`),
+      category: "alternatives",
+      outputFormat: "comparison",
+      task: `Compare these ${count} ${label} from the page — ${listed} — on the specifications, trade-offs, price and real-world fit that actually differ. Stay focused on the named items; do not expand into a broad market survey unless asked.`,
+      outputSpec: [
+        `A comparison table covering all ${count} named ${label}.`,
+        "The criteria you compared on, and why those matter for this choice.",
+        "Clear winners per criterion where the data supports it.",
+        "Who each option suits best, with a concise recommendation.",
+      ],
+    },
+    pageType,
+  );
+}
+
 /** Ranked catalog for a page type, best-first. */
 export function curatedActionsFor(
   pageType: PageType,
-  options: { hasSelectedText?: boolean } = {},
+  options: {
+    hasSelectedText?: boolean;
+    comparableSet?: { kind: ComparableItemKind; names: readonly string[] };
+  } = {},
 ): SuggestedAction[] {
-  const entries = [...BY_PAGE_TYPE[pageType]];
+  let entries = [...BY_PAGE_TYPE[pageType]];
+  if (options.comparableSet && options.comparableSet.names.length >= 2) {
+    entries = entries.filter((entry) => !SKIP_WHEN_COMPARABLE.has(entry.id));
+  }
   if (options.hasSelectedText) {
     entries.push(SELECTED_TEXT_ACTION);
   }
-  return entries.map((entry) => withPageType(entry, pageType));
+  const actions = entries.map((entry) => withPageType(entry, pageType));
+  if (options.comparableSet && options.comparableSet.names.length >= 2) {
+    return [compareTheseAction(pageType, options.comparableSet), ...actions];
+  }
+  return actions;
 }
 
 export const CURATED_CATALOG_IDS: readonly string[] = [
@@ -350,4 +414,6 @@ export const CURATED_CATALOG_IDS: readonly string[] = [
   ...PRODUCT_ACTIONS,
   ...GENERIC_ACTIONS,
   SELECTED_TEXT_ACTION,
-].map((entry) => entry.id);
+]
+  .map((entry) => entry.id)
+  .concat("generic.compare-these");

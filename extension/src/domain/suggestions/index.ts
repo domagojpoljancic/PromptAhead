@@ -12,7 +12,7 @@ export {
   MAX_ACTION_TITLE_CHARS,
   PRIMARY_ACTION_COUNT,
 } from "./types";
-export { curatedActionsFor } from "./catalog";
+export { curatedActionsFor, compareTheseAction } from "./catalog";
 export { CuratedSuggestionEngine } from "./curated";
 export { MockNanoSuggestionEngine } from "./mock-nano";
 export {
