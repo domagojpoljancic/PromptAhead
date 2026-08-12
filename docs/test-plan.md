@@ -44,7 +44,7 @@ Never call cloud models in tests. Playwright never opens live ChatGPT / Claude /
 - Messaging / storage integration with chrome mock
 - Side-panel and options jsdom click-through (DOM-10 / DOM-11 happy paths + key failures)
 - Playwright against built MV3: service-worker PING, options persistence, onboarding skip, local fixture extract → curated flow → copy, clear-all, **Nano forced off (Settings force basic) → curated extract → prompt → copy**, **Smart invite threshold → badge → accept → panel extract**, **Settings pause → no invite badge + Manual extract still works**, **Smart revoke → Manual extract → curated still works** (DOM-56 Done)
-- Sensitive-page **proactive** auto-block Vitest (URL + DOM fixtures; FP article mentioning “bank”) — DOM-37 in progress; Playwright protected e2e may follow
+- Sensitive-page **proactive** auto-block Vitest matrix (login, password-change, checkout, card, banking, webmail, private doc, medical + FP article) — [DOM-37](https://linear.app/domagojp/issue/DOM-37)
 - Production manifest stays `activeTab`-only; e2e copies `extension/dist/` and adds a **test-only** `host_permissions` entry for `http://127.0.0.1:<fixture-port>/*`
 - Real Nano hardware / Prompt API smoke stays manual: [`nano-verification-checklist.md`](./nano-verification-checklist.md) (DOM-31) — Playwright never downloads or runs Nano
 - Remaining OS permission-dialog edges: [DOM-38](https://linear.app/domagojp/issue/DOM-38) manual smoke (Done); Manual override modal on protected pages: [DOM-39](https://linear.app/domagojp/issue/DOM-39)
@@ -209,7 +209,7 @@ See §4 “Manual release smoke” — that is the only required pre-release Chr
 3. Dismiss / snooze / don’t suggest on this site / global pause — arithmetic in Vitest; Settings **Pause proactive Smart invites** → no badge + Manual extract still works — **automated** Playwright (DOM-56). Snooze/exclude UI edges remain manual/Vitest.
 4. Caps hold under repeated browsing — Vitest; flaky OS edges manual.
 5. Revoke host access → Manual still works — **automated** Playwright thin path (DOM-56); confirm once on real Chrome under [DOM-38](https://linear.app/domagojp/issue/DOM-38). Note: Chrome Details → Site access may still show “On all sites” after revoke; product truth is Settings / `permissions.contains`.
-6. Protected pages never proactive-trigger — **in progress** [DOM-37](https://linear.app/domagojp/issue/DOM-37) (Vitest URL/DOM gates); interim Manual toolbar extract on protected pages still allowed without override modal ([DOM-39](https://linear.app/domagojp/issue/DOM-39)).
+6. Protected pages never proactive-trigger — **automated** Vitest fixture matrix ([DOM-37](https://linear.app/domagojp/issue/DOM-37)); interim Manual toolbar extract on protected pages still allowed without override modal ([DOM-39](https://linear.app/domagojp/issue/DOM-39)).
 
 ### M4 a11y / polish
 
