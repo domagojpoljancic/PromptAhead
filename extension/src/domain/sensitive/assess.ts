@@ -211,23 +211,72 @@ export function assessUrlSensitivity(url: string): SensitiveAssessment {
   if (segments.some((segment) => PAYMENT_SEGMENTS.has(segment))) {
     return blocked("payment", "payment_path");
   }
+  // Path cues (incl. local fixtures like /sensitive-banking.html) — not bare "bank"
+  // in free text; require a path segment that clearly names the surface.
+  if (pathLooksLikeBanking(segments)) {
+    return blocked("banking", "banking_path");
+  }
+  if (pathLooksLikeWebmail(segments)) {
+    return blocked("email", "email_path");
+  }
+  if (pathLooksLikePrivateDoc(segments)) {
+    return blocked("private_workspace", "private_doc_path");
+  }
   // Medical: require a portal-ish segment pair or patient path — avoid
   // blocking news “portal” alone when it’s the only match under /news/.
   if (
-    segments.some((segment) => MEDICAL_SEGMENTS.has(segment)) &&
-    (segments.includes("patient") ||
-      segments.includes("patients") ||
-      segments.includes("mychart") ||
-      segments.includes("my-chart") ||
-      segments.includes("myhealth") ||
-      segments.includes("ehr") ||
-      (segments.includes("portal") &&
-        segments.some((s) => s === "health" || s === "medical" || s === "clinic")))
+    pathLooksLikeMedical(segments) ||
+    (segments.some((segment) => MEDICAL_SEGMENTS.has(segment)) &&
+      (segments.includes("patient") ||
+        segments.includes("patients") ||
+        segments.includes("mychart") ||
+        segments.includes("my-chart") ||
+        segments.includes("myhealth") ||
+        segments.includes("ehr") ||
+        (segments.includes("portal") &&
+          segments.some(
+            (s) => s === "health" || s === "medical" || s === "clinic",
+          ))))
   ) {
     return blocked("medical", "medical_path");
   }
 
   return ALLOWED;
+}
+
+function pathLooksLikeBanking(segments: string[]): boolean {
+  return segments.some(
+    (s) =>
+      s === "banking" ||
+      s.includes("banking") ||
+      s === "bank-account" ||
+      s === "bank-accounts",
+  );
+}
+
+function pathLooksLikeWebmail(segments: string[]): boolean {
+  return segments.some(
+    (s) => s.includes("webmail") || s === "mailbox" || s.endsWith("-mail"),
+  );
+}
+
+function pathLooksLikePrivateDoc(segments: string[]): boolean {
+  return segments.some(
+    (s) =>
+      s.includes("private-doc") ||
+      s.includes("private_doc") ||
+      s === "private-document",
+  );
+}
+
+function pathLooksLikeMedical(segments: string[]): boolean {
+  return segments.some(
+    (s) =>
+      s.includes("medical") ||
+      s.includes("mychart") ||
+      s.includes("my-chart") ||
+      s.includes("patient-portal"),
+  );
 }
 
 /**
