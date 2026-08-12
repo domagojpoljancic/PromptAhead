@@ -43,10 +43,10 @@ Never call cloud models in tests. Playwright never opens live ChatGPT / Claude /
 - Domain unit + HTML fixture extraction
 - Messaging / storage integration with chrome mock
 - Side-panel and options jsdom click-through (DOM-10 / DOM-11 happy paths + key failures)
-- Playwright against built MV3: service-worker PING, options persistence, onboarding skip, local fixture extract → curated flow → copy, clear-all, **Nano forced off (Settings force basic) → curated extract → prompt → copy**, **Smart invite threshold → badge → accept → panel extract** (message-driven; no real permission dialog / dwell), **Smart revoke → Manual extract → curated still works** (DOM-56; caps UI + protected-page e2e still open)
+- Playwright against built MV3: service-worker PING, options persistence, onboarding skip, local fixture extract → curated flow → copy, clear-all, **Nano forced off (Settings force basic) → curated extract → prompt → copy**, **Smart invite threshold → badge → accept → panel extract**, **Settings pause → no invite badge + Manual extract still works**, **Smart revoke → Manual extract → curated still works** (DOM-56; protected-page e2e deferred to DOM-37)
 - Production manifest stays `activeTab`-only; e2e copies `extension/dist/` and adds a **test-only** `host_permissions` entry for `http://127.0.0.1:<fixture-port>/*`
 - Real Nano hardware / Prompt API smoke stays manual: [`nano-verification-checklist.md`](./nano-verification-checklist.md) (DOM-31) — Playwright never downloads or runs Nano
-- Remaining Smart invite / caps / protected-page automation and OS permission-dialog edges: [DOM-56](https://linear.app/domagojp/issue/DOM-56) + [DOM-38](https://linear.app/domagojp/issue/DOM-38) manual smoke
+- Remaining Smart protected-page automation (DOM-37) and OS permission-dialog edges: [DOM-56](https://linear.app/domagojp/issue/DOM-56) notes + [DOM-38](https://linear.app/domagojp/issue/DOM-38) manual smoke (Done)
 
 
 ### Manual release smoke (keep tiny)
@@ -175,7 +175,8 @@ Scripts: `npm run test:e2e` / `test:e2e:headed` / included in `test:ci`.
 - Force basic private mode (Nano off) → curated suggestions still complete extract → prompt → copy (hardware Nano remains DOM-31).
 - Smart revoke → settings Manual → fixture extract → curated still completes (DOM-56).
 - Smart invite threshold message → `!` badge → accept → panel extract (DOM-56; no real permission dialog / dwell in CI).
-- Caps / pause UI path + protected-page (DOM-37 deferred) e2e still open; OS permission-dialog + notification edges: [DOM-38](https://linear.app/domagojp/issue/DOM-38) (Done manual smoke). Chrome Details → Site access may stay “On all sites” after `permissions.remove(<all_urls>)` — product truth is Settings / `permissions.contains`.
+- Settings pause checkbox → `proactive_paused` suppresses badge; Manual extract still completes (DOM-56).
+- Protected-page (DOM-37 deferred) e2e still open; OS permission-dialog + notification edges: [DOM-38](https://linear.app/domagojp/issue/DOM-38) (Done manual smoke). Chrome Details → Site access may stay “On all sites” after `permissions.remove(<all_urls>)` — product truth is Settings / `permissions.contains`.
 
 ## 8. Manual Chrome verification checklists
 
@@ -204,7 +205,7 @@ See §4 “Manual release smoke” — that is the only required pre-release Chr
 
 1. Education UI precedes Chrome permission dialog — **manual** ([DOM-38](https://linear.app/domagojp/issue/DOM-38) Done); CI does not drive the optional-host dialog.
 2. Engagement on article/product triggers badge once — **automated** Playwright path seeds Smart settings and fires `ENGAGEMENT_THRESHOLD` → `!` badge → accept → panel extract (DOM-56); real dwell/scroll + OS notification stay manual.
-3. Dismiss / snooze / don’t suggest on this site / global pause — arithmetic in Vitest; Settings pause UI e2e still open (DOM-56).
+3. Dismiss / snooze / don’t suggest on this site / global pause — arithmetic in Vitest; Settings **Pause proactive Smart invites** → no badge + Manual extract still works — **automated** Playwright (DOM-56). Snooze/exclude UI edges remain manual/Vitest.
 4. Caps hold under repeated browsing — Vitest; flaky OS edges manual.
 5. Revoke host access → Manual still works — **automated** Playwright thin path (DOM-56); confirm once on real Chrome under [DOM-38](https://linear.app/domagojp/issue/DOM-38). Note: Chrome Details → Site access may still show “On all sites” after revoke; product truth is Settings / `permissions.contains`.
 6. Protected pages never proactive-trigger — deferred until [DOM-37](https://linear.app/domagojp/issue/DOM-37); low-value homepage gate covered by Manual empty-state e2e + Vitest (DOM-60).

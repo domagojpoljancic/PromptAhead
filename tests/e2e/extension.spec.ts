@@ -254,6 +254,131 @@ test("Smart invite badge then accept starts panel extract", async () => {
 });
 
 /**
+ * DOM-56 slice: Settings “Pause proactive Smart invites” → threshold does not
+ * show a badge; Manual extract → curated still works. Exercises the options
+ * checkbox → storage → SW invite path (arithmetic already covered in Vitest).
+ *
+ * Playwright Chromium lacks a real `<all_urls>` optional grant, so opening
+ * Settings while `mode: "smart"` heals back to Manual. Toggle pause first
+ * (works in Manual), then seed Smart flags the same message way other Smart
+ * e2e tests do — still locks the checkbox → `proactivePaused` path.
+ */
+test("Settings pause blocks Smart invite badge; Manual extract still works", async () => {
+  test.setTimeout(30_000);
+  await seedCompletedOnboarding(session, {
+    nanoPreference: "basic",
+    mode: "manual",
+    smartModeAvailable: false,
+    proactivePaused: false,
+  });
+
+  const options = await openExtensionPage(session, session.optionsUrl);
+  await expect(options.locator("#proactive-pause")).not.toBeChecked();
+  await options.locator("#proactive-pause").check();
+  await expect(options.locator("#status")).toContainText(/proactive.*paused/i);
+  await expect
+    .poll(async () =>
+      options.evaluate(async () => {
+        const response = (await chrome.runtime.sendMessage({
+          type: "GET_SETTINGS",
+        })) as { ok: boolean; settings?: { proactivePaused: boolean } };
+        return response.settings?.proactivePaused ?? null;
+      }),
+    )
+    .toBe(true);
+
+  // Enable Smart without the real permission dialog (same pattern as other
+  // Smart e2e). Keep the pause flag the checkbox just wrote.
+  await options.evaluate(async () => {
+    await chrome.runtime.sendMessage({
+      type: "SET_SETTINGS",
+      patch: {
+        mode: "smart",
+        smartModeAvailable: true,
+        proactivePaused: true,
+      },
+    });
+  });
+  await expect
+    .poll(async () =>
+      options.evaluate(async () => {
+        const response = (await chrome.runtime.sendMessage({
+          type: "GET_SETTINGS",
+        })) as {
+          ok: boolean;
+          settings?: {
+            mode: string;
+            smartModeAvailable: boolean;
+            proactivePaused: boolean;
+          };
+        };
+        const s = response.settings;
+        return s
+          ? `${s.mode}:${s.smartModeAvailable}:${s.proactivePaused}`
+          : null;
+      }),
+    )
+    .toBe("smart:true:true");
+  await options.close();
+
+  const tab = await session.context.newPage();
+  await tab.goto(server.url("/article.html"), {
+    waitUntil: "domcontentloaded",
+  });
+  await expect(tab.locator("h1")).toContainText(/AI Act|EU/i);
+
+  const panel = await openExtensionPage(session, session.sidePanelUrl);
+  await expect.poll(async () => pingBackground(panel)).toBe(true);
+
+  const tabId = await findFixtureTabId(panel, tab);
+  expect(tabId).toBeGreaterThan(0);
+
+  const threshold = await panel.evaluate(
+    async ({ id, url }) => {
+      const response = (await chrome.runtime.sendMessage({
+        type: "ENGAGEMENT_THRESHOLD",
+        tabId: id,
+        pageType: "article",
+        url,
+        reason: "article-threshold-met",
+      })) as {
+        ok: boolean;
+        handled?: boolean;
+        showBadge?: boolean;
+        phase?: string | null;
+        suppression?: string | null;
+        error?: string;
+      };
+      if (!response.ok) {
+        throw new Error(response.error ?? "ENGAGEMENT_THRESHOLD failed");
+      }
+      return response;
+    },
+    { id: tabId, url: tab.url() },
+  );
+  expect(threshold.handled).toBe(true);
+  expect(threshold.showBadge).toBe(false);
+  expect(threshold.suppression).toBe("proactive_paused");
+  expect(threshold.phase).toBe("suppressed");
+
+  await expect
+    .poll(async () =>
+      panel.evaluate(async () => chrome.action.getBadgeText({})),
+    )
+    .toBe("");
+  await expect(panel.locator("#choose")).toBeHidden();
+
+  const extractedTabId = await extractActiveFixture(panel, tab);
+  expect(extractedTabId).toBe(tabId);
+  await expect(panel.locator("#choose")).toBeVisible({ timeout: 15_000 });
+  await expect(panel.locator("#context-title")).toContainText(/AI Act|EU/i);
+  await expect(panel.locator("#status")).toContainText(/curated/i);
+
+  await panel.close();
+  await tab.close();
+});
+
+/**
  * DOM-56 (thin slice): after Smart→Manual (revoke settings outcome), Manual
  * extract → curated still works. Real Chrome permission-dialog grant/revoke
  * stays on DOM-38 manual smoke.
