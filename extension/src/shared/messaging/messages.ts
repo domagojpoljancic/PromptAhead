@@ -89,6 +89,20 @@ type OkPayloads = {
     error?: string;
     /** Tab the panel should bind stale-context UX to. */
     tabId?: number;
+    /** Pending Manual sensitive override (DOM-39). */
+    sensitiveBlock?: {
+      category:
+        | "banking"
+        | "payment"
+        | "email"
+        | "login"
+        | "medical"
+        | "sensitive_input"
+        | "restricted_origin"
+        | "private_workspace";
+      reason: string;
+      url?: string;
+    };
   };
   EXTRACT_ACTIVE_TAB: { pageContext: PageContext; tabId: number };
   WATCH_SELECTION: { watching: boolean; tabId: number };

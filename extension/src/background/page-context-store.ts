@@ -15,9 +15,17 @@ import {
   SENSITIVE_PAGE_BLOCKED_ERROR,
 } from "./sensitive-gate";
 
+export type SensitiveBlockState = {
+  category: SensitiveCategory;
+  reason: string;
+  url?: string;
+};
+
 export type LatestPageContext = {
   pageContext: PageContext | null;
   error?: string;
+  /** Pending Manual override (DOM-39) — survives lost push events. */
+  sensitiveBlock?: SensitiveBlockState;
 };
 
 export type CaptureTabOptions = {
@@ -43,6 +51,17 @@ export function rememberPageContext(tabId: number, pageContext: PageContext): vo
 
 export function rememberExtractionError(tabId: number, error: string): void {
   latestByTab.set(tabId, { pageContext: null, error });
+}
+
+export function rememberSensitiveBlock(
+  tabId: number,
+  block: SensitiveBlockState,
+): void {
+  latestByTab.set(tabId, {
+    pageContext: null,
+    error: SENSITIVE_PAGE_BLOCKED_ERROR,
+    sensitiveBlock: block,
+  });
 }
 
 export function forgetPageContext(tabId: number): void {
@@ -84,7 +103,13 @@ export async function readLatestPageContext(tabId: number): Promise<LatestPageCo
       }),
     ]);
     if (!outcome.ok) {
-      return { pageContext: null, error: outcome.error };
+      // Prefer cached sensitive block written by the finished run (push may be lost).
+      return (
+        latestByTab.get(tabId) ?? {
+          pageContext: null,
+          error: outcome.error,
+        }
+      );
     }
   }
   return latestByTab.get(tabId) ?? { pageContext: null };
@@ -114,13 +139,24 @@ export function captureTabContext(
     if (!force) {
       const assessment = await assessTabForManualCapture(tabId, knownUrl);
       if (assessment.blocked && assessment.category) {
-        broadcastSensitiveBlocked(tabId, assessment.category, assessment.reason, knownUrl);
+        const block: SensitiveBlockState = {
+          category: assessment.category,
+          reason: assessment.reason,
+          ...(knownUrl !== undefined ? { url: knownUrl } : {}),
+        };
+        // Cache before broadcast so GET_LATEST can recover if the push is missed.
+        rememberSensitiveBlock(tabId, block);
+        broadcastSensitiveBlocked(
+          tabId,
+          assessment.category,
+          assessment.reason,
+          knownUrl,
+        );
         if (currentRunByTab.get(tabId) !== token) {
           return { ok: false, error: SENSITIVE_PAGE_BLOCKED_ERROR };
         }
         currentRunByTab.delete(tabId);
         inFlightByTab.delete(tabId);
-        // Do not cache as a generic extract error — panel uses the push event.
         return { ok: false, error: SENSITIVE_PAGE_BLOCKED_ERROR };
       }
     }

@@ -183,10 +183,18 @@ describe("Manual-mode extraction path", () => {
       ),
     ).toBe(true);
 
+    const latest = await sendToBackground({ type: "GET_LATEST_PAGE_CONTEXT" });
+    expect(latest.ok && latest.sensitiveBlock?.category).toBe("banking");
+    expect(latest.ok && latest.pageContext).toBeNull();
+
     const forced = await sendToBackground({
       type: "EXTRACT_ACTIVE_TAB",
       force: true,
     });
     expect(forced.ok).toBe(true);
+
+    const afterForce = await sendToBackground({ type: "GET_LATEST_PAGE_CONTEXT" });
+    expect(afterForce.ok && afterForce.sensitiveBlock).toBeUndefined();
+    expect(afterForce.ok && afterForce.pageContext).not.toBeNull();
   });
 });

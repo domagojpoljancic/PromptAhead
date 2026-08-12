@@ -1023,6 +1023,27 @@ export async function initSidePanel(
       renderEmpty(`Background unreachable — ${response.error}`);
       return;
     }
+    if (response.sensitiveBlock) {
+      presentSensitiveBlock({
+        tabId: response.tabId ?? boundTabId ?? 0,
+        category: response.sensitiveBlock.category,
+        url: response.sensitiveBlock.url,
+      });
+      return;
+    }
+    if (
+      response.error &&
+      isSensitiveBlockedError(response.error) &&
+      response.tabId !== undefined
+    ) {
+      // Fallback when category was not persisted (should be rare).
+      presentSensitiveBlock({
+        tabId: response.tabId,
+        category: "sensitive_input",
+        url: undefined,
+      });
+      return;
+    }
     if (response.pageContext) {
       await acceptPageContext(response.pageContext, response.tabId);
       return;
@@ -1343,6 +1364,9 @@ export async function initSidePanel(
     );
   });
 
+  removers.push(addMessageListener(handleBackgroundEvent));
+  void renderDebugLine();
+
   const onboardingShown = await maybeOnboarding(() => {
     resetWorkflowAfterOnboarding();
     void renderDebugLine();
@@ -1351,8 +1375,6 @@ export async function initSidePanel(
   if (!onboardingShown) {
     void loadLatestContext();
   }
-  removers.push(addMessageListener(handleBackgroundEvent));
-  void renderDebugLine();
 
   return {
     dispose: () => {
