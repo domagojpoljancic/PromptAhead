@@ -1,6 +1,6 @@
 # PromptAhead
 
-> **WIP — M3 Smart largely on `main`; M4 automation next.** Manual core (M1) is buildable and covered by Vitest/Playwright/CI. Nano UX, Smart grant/revoke, engagement, badge-first invites, caps/pause, sensitive-page proactive auto-block (DOM-37), and accept → panel + extract are on `main`. PromptAhead refuses weak surfaces unless the user selects text. DOM-38 / DOM-56 Done. Chrome Web Store packaging (M4) still ahead.
+> **WIP — M3 Smart on `main`; M4 automation in progress.** Manual core (M1) is buildable and covered by Vitest/Playwright/CI. Nano UX, Smart grant/revoke, engagement, badge-first invites, caps/pause, sensitive-page proactive auto-block (DOM-37 Done), and accept → panel + extract are on `main`. PromptAhead refuses weak surfaces unless the user selects text. DOM-38 / DOM-56 Done. M4 axe a11y CI (DOM-54) shipping; store packaging still ahead.
 
 **Your next question, already prepared.**
 
@@ -14,7 +14,7 @@ Privacy-first Chrome extension (Manifest V3) that notices when you are genuinely
 | Side panel | Workflow state machine; Nano thinking + curated fallback + **Retry local AI**; calm Nano panel notices + Smart permission education; **selection auto-refresh** on low-value empty state |
 | Onboarding + settings | Manual-first first-run; Nano ready/download/unsupported + onboarding gate; Settings Smart grant/revoke + education; **global proactive pause** toggle |
 | Destinations | Deep links with **app-first + web fallback**; Gemini / oversized prompts use **clipboard + open**; never auto-submit |
-| Automation | Vitest (unit + jsdom UI), Playwright (MV3 + navigate→stale + Nano-off curated + **Smart invite badge→accept** + **Settings pause** + **Smart revoke→Manual** + homepage empty-state), GitHub Actions (`test:ci`, Node 20.19+) |
+| Automation | Vitest (unit + jsdom UI), Playwright (MV3 + navigate→stale + Nano-off curated + **Smart invite badge→accept** + **Settings pause** + **Smart revoke→Manual** + homepage empty-state + **axe a11y** options/panel), GitHub Actions (`test:ci`, Node 20.19+) |
 | Nano CI | Curated path stays green with Nano forced off (`NANO_FORCE_DISABLED` + Playwright Settings force-basic → extract → copy); live hardware checklist remains DOM-31 / [`docs/nano-verification-checklist.md`](docs/nano-verification-checklist.md) |
 | Nano engine | Longer create/prompt budgets; prefer unconstrained prompt then constrain; retain failure reason on curated fallback |
 | M1 acceptance | Manual §25 map + smoke notes in [`docs/test-plan.md`](docs/test-plan.md) |
