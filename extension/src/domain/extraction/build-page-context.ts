@@ -22,6 +22,7 @@ import {
   type ProductContext,
   type ProductSpecification,
 } from "../../shared/types/page-context";
+import { extractComparableSet } from "./comparable-set";
 import {
   hasJsonLdType,
   jsonLdNumber,
@@ -309,6 +310,8 @@ export function buildPageContextWithReason(
     ? clampText(snapshot.selectedText, MAX_SELECTED_TEXT_CHARS)
     : "";
 
+  const comparableSet = extractComparableSet(nodes, snapshot.productNameCandidates);
+
   const pageContext: PageContext = {
     schemaVersion: PAGE_CONTEXT_SCHEMA_VERSION,
     pageType: classification.pageType,
@@ -319,6 +322,7 @@ export function buildPageContextWithReason(
       ? { description: clampText(description, MAX_DESCRIPTION_CHARS) }
       : {}),
     ...(selectedText ? { selectedText } : {}),
+    ...(comparableSet ? { comparableSet } : {}),
   };
 
   switch (classification.pageType) {

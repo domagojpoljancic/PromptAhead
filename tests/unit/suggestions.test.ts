@@ -168,6 +168,31 @@ describe("CuratedSuggestionEngine", () => {
     expect(prompt).toContain(article.title);
     expect(prompt).toContain("Focus on SMEs.");
   });
+
+  it("leads with Compare these N for a small product list (DOM-64)", async () => {
+    const listing: PageContext = {
+      schemaVersion: 1,
+      pageType: "generic",
+      language: "en",
+      title: "Laptops",
+      url: "http://localhost:8765/product-list",
+      generic: {
+        headings: ["Laptops"],
+        excerpts: ["Showing 3 of 148 laptops."],
+      },
+      comparableSet: {
+        kind: "product",
+        names: ["Aurora 14 Laptop", "Aurora 16 Laptop", "Nimbus Air 13"],
+      },
+    };
+    const result = await engine.suggestActions({ pageContext: listing });
+    expect(result.primary[0]?.id).toBe("generic.compare-these");
+    expect(result.primary[0]?.title).toBe("Compare these 3 products");
+    expect(result.primary[0]?.task).toContain("Aurora 14 Laptop");
+    expect(result.primary.map((action) => action.id)).not.toContain(
+      "generic.understand",
+    );
+  });
 });
 
 describe("MockNanoSuggestionEngine", () => {

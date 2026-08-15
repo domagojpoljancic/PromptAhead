@@ -102,6 +102,13 @@ export function renderSourceData(pageContext: PageContext): SourceDataBlock {
   writer.add("TITLE", pageContext.title);
   writer.add("DESCRIPTION", pageContext.description);
 
+  if (pageContext.comparableSet) {
+    writer.add("COMPARABLE_KIND", pageContext.comparableSet.kind);
+    for (const name of pageContext.comparableSet.names) {
+      writer.add("COMPARABLE_ITEM", name);
+    }
+  }
+
   const { article, product, generic } = pageContext;
 
   if (article) {

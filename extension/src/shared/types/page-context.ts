@@ -38,6 +38,17 @@ export type GenericContext = {
   excerpts: string[];
 };
 
+/**
+ * Small named set on a listing / ItemList page (DOM-64).
+ * Present only when extraction found 2–10 distinct named entities worth comparing.
+ */
+export type ComparableItemKind = "product" | "article" | "item";
+
+export type ComparableSet = {
+  kind: ComparableItemKind;
+  names: string[];
+};
+
 export type PageContext = {
   schemaVersion: 1;
   pageType: PageType;
@@ -49,6 +60,8 @@ export type PageContext = {
   article?: ArticleContext;
   product?: ProductContext;
   generic?: GenericContext;
+  /** Set when the page lists a small, named comparable group (≤10). */
+  comparableSet?: ComparableSet;
 };
 
 /** Compactness caps from handoff §31; extraction (DOM-9) enforces them. */
@@ -58,6 +71,9 @@ export const EXTRACTION_CAPS = {
   productSpecifications: 12,
   productExcerpts: 4,
   totalCharacters: 6000,
+  /** Inclusive bounds for `comparableSet` (DOM-64). */
+  comparableSetMin: 2,
+  comparableSetMax: 10,
 } as const;
 
 export function isPageType(value: unknown): value is PageType {

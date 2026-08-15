@@ -6,7 +6,10 @@
  */
 
 import { looksLikeProductListing } from "../classification";
-import type { PageContext } from "../../shared/types/page-context";
+import {
+  EXTRACTION_CAPS,
+  type PageContext,
+} from "../../shared/types/page-context";
 import { isAppOrEditorHost } from "./hosts";
 
 export type PromptValueReason =
@@ -122,10 +125,15 @@ export function assessUrlPromptValue(url: string): PromptValueAssessment {
   return { worthPrompting: true, reason: "worth-prompting" };
 }
 
-/** Full assessment after extraction — URL rules plus thin-content. */
+/** Full assessment after extraction — URL rules, thin-content, comparable sets. */
 export function assessPagePromptValue(
   pageContext: PageContext,
 ): PromptValueAssessment {
+  // Small named lists (2–10) are worth prompting even on listing URLs (DOM-64).
+  if (hasComparableSet(pageContext)) {
+    return { worthPrompting: true, reason: "worth-prompting" };
+  }
+
   const fromUrl = assessUrlPromptValue(pageContext.url);
   if (!fromUrl.worthPrompting) {
     return fromUrl;
@@ -134,4 +142,15 @@ export function assessPagePromptValue(
     return { worthPrompting: false, reason: "thin-content" };
   }
   return { worthPrompting: true, reason: "worth-prompting" };
+}
+
+function hasComparableSet(pageContext: PageContext): boolean {
+  const set = pageContext.comparableSet;
+  if (!set) {
+    return false;
+  }
+  const { comparableSetMin, comparableSetMax } = EXTRACTION_CAPS;
+  return (
+    set.names.length >= comparableSetMin && set.names.length <= comparableSetMax
+  );
 }

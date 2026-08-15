@@ -28,6 +28,7 @@ export class CuratedSuggestionEngine implements SuggestionEngine {
     const { pageContext } = input;
     const actions = curatedActionsFor(pageContext.pageType, {
       hasSelectedText: Boolean(pageContext.selectedText),
+      comparableSet: pageContext.comparableSet,
     });
 
     return Promise.resolve({

@@ -83,6 +83,31 @@ describe("classification on HTML fixtures", () => {
     expect(pageContext.pageType).toBe("generic");
     expect(pageContext.product).toBeUndefined();
     expect(classification.reason).toBe("multiple-product-nodes");
+    expect(pageContext.comparableSet).toEqual({
+      kind: "product",
+      names: ["Aurora 14 Laptop", "Aurora 16 Laptop", "Nimbus Air 13"],
+    });
+  });
+
+  it("extracts a comparable set from /product-list style URLs too", () => {
+    const pageContext = buildPageContext(
+      snapshotFromFixture("product-list", "http://localhost:8765/product-list"),
+    );
+    expect(pageContext.comparableSet?.names).toHaveLength(3);
+    expect(pageContext.comparableSet?.kind).toBe("product");
+  });
+
+  it("builds a comparable set from DOM product cards without JSON-LD (DOM-64)", () => {
+    const pageContext = buildPageContext(
+      snapshotFromFixture(
+        "product-list-dom",
+        "https://shop.example.com/herrenschuhe/?size=55",
+      ),
+    );
+    expect(pageContext.pageType).toBe("generic");
+    expect(pageContext.comparableSet?.kind).toBe("product");
+    expect(pageContext.comparableSet?.names).toHaveLength(4);
+    expect(pageContext.comparableSet?.names[0]).toMatch(/CAMPUS 00S/i);
   });
 
   it("recognises listing URLs without help from markup", () => {

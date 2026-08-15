@@ -17,6 +17,7 @@ export type SnapshotLimits = {
   jsonLdBlockChars: number;
   textBlockChars: number;
   selectedTextChars: number;
+  productNameCandidates: number;
 };
 
 export const RAW_SNAPSHOT_LIMITS: SnapshotLimits = {
@@ -27,6 +28,8 @@ export const RAW_SNAPSHOT_LIMITS: SnapshotLimits = {
   jsonLdBlockChars: 40000,
   textBlockChars: 1200,
   selectedTextChars: 2000,
+  /** Raw DOM product titles before comparable-set capping (DOM-64). */
+  productNameCandidates: 12,
 };
 
 export type RawMetaTag = { key: string; content: string };
@@ -48,6 +51,8 @@ export type RawPageSnapshot = {
   articleTextChars: number;
   hasTimeElement: boolean;
   microdataProductCount: number;
+  /** Visible product-card titles when JSON-LD ItemList is absent (e.g. Zalando). */
+  productNameCandidates: string[];
 };
 
 export type SnapshotCollectionResult =
@@ -217,6 +222,95 @@ export function collectPageSnapshotInPage(
         ? clamp(normalize(window.getSelection()?.toString()), limits.selectedTextChars)
         : "";
 
+    // Product-card titles for short shop grids without ItemList JSON-LD (DOM-64).
+    const productNameCandidates: string[] = [];
+    const seenProductNames = new Set<string>();
+    const pricePattern =
+      /(?:€|\$|£|eur|usd|gbp)\s*\d|\d{1,5}(?:[.,]\d{2})?\s*(?:€|\$|£|eur|usd)/i;
+    const skipProductName =
+      /^(home|menu|filter|sort|search|login|cart|wishlist|größe|size|farbe|color|marke|brand|preis|price|sale|neu|new)$/i;
+
+    const addProductName = (raw: string): void => {
+      if (productNameCandidates.length >= limits.productNameCandidates) {
+        return;
+      }
+      const text = normalize(raw)
+        .replace(/(?:€|\$|£)\s*[\d.,]+.*$/i, "")
+        .replace(/\b\d{1,5}(?:[.,]\d{2})?\s*(?:€|\$|£)\b.*$/i, "")
+        .replace(/\s*[·|—–-]\s*$/, "")
+        .trim();
+      if (text.length < 4 || text.length > 120 || skipProductName.test(text)) {
+        return;
+      }
+      const key = text.toLowerCase();
+      if (seenProductNames.has(key)) {
+        return;
+      }
+      seenProductNames.add(key);
+      productNameCandidates.push(clamp(text, 120));
+    };
+
+    mainRoot
+      .querySelectorAll(
+        "[itemtype*='Product'] [itemprop='name'], [itemtype*='Product'][itemprop='name'], [itemtype*='product'] [itemprop='name']",
+      )
+      .forEach((element) => {
+        if (isUsable(element)) {
+          addProductName(element.textContent ?? "");
+        }
+      });
+
+    const cardSelector =
+      "article, li, [data-testid*='product'], [data-testid*='Product'], [class*='productCard'], [class*='product-card'], [class*='product_card'], [class*='ProductCard']";
+    mainRoot.querySelectorAll(cardSelector).forEach((card) => {
+      if (
+        productNameCandidates.length >= limits.productNameCandidates ||
+        !isUsable(card)
+      ) {
+        return;
+      }
+      const cardText = normalize(card.textContent);
+      if (!pricePattern.test(cardText)) {
+        return;
+      }
+      const named =
+        card.querySelector("[itemprop='name']") ??
+        card.querySelector("h2, h3, h4");
+      if (named && isUsable(named)) {
+        addProductName(named.textContent ?? "");
+        return;
+      }
+      const labelled = card.querySelector("a[aria-label]");
+      if (labelled) {
+        addProductName(labelled.getAttribute("aria-label") ?? "");
+        return;
+      }
+      const link = card.querySelector("a[href]");
+      if (link) {
+        addProductName(link.getAttribute("title") || link.textContent || "");
+      }
+    });
+
+    // Shop grids often use plain divs + aria-label links (Zalando-style CSR).
+    if (productNameCandidates.length < 2) {
+      mainRoot.querySelectorAll("a[href][aria-label]").forEach((link) => {
+        if (productNameCandidates.length >= limits.productNameCandidates) {
+          return;
+        }
+        if (!isUsable(link)) {
+          return;
+        }
+        const root =
+          link.closest("article, li, [role='listitem']") ??
+          link.parentElement?.parentElement ??
+          link.parentElement;
+        if (!root || !pricePattern.test(normalize(root.textContent))) {
+          return;
+        }
+        addProductName(link.getAttribute("aria-label") ?? "");
+      });
+    }
+
     return {
       ok: true,
       snapshot: {
@@ -237,6 +331,7 @@ export function collectPageSnapshotInPage(
         microdataProductCount: document.querySelectorAll(
           "[itemtype*='schema.org/Product']",
         ).length,
+        productNameCandidates,
       },
     };
   } catch (error) {
