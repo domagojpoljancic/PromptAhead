@@ -35,6 +35,14 @@ export async function startFixtureServer(): Promise<FixtureServer> {
       join(FIXTURE_DIR, "product-list.html"),
       "utf8",
     ),
+    "/sensitive-login.html": readFileSync(
+      join(FIXTURE_DIR, "sensitive-login.html"),
+      "utf8",
+    ),
+    "/article-mentions-bank.html": readFileSync(
+      join(FIXTURE_DIR, "article-mentions-bank.html"),
+      "utf8",
+    ),
   };
 
   const server: Server = createServer((req, res) => {

@@ -396,10 +396,13 @@ describe("side panel click-through", () => {
 
   it("re-shows choose after Refresh on the same page (does not stick on Re-reading)", async () => {
     store.latest = { pageContext: samplePage, tabId: 7 };
-    await boot();
+    const { send } = await boot();
     expect(isVisible("#choose")).toBe(true);
     click("#refresh-context");
     await flush();
+    expect(send).toHaveBeenCalledWith(
+      expect.objectContaining({ type: "EXTRACT_ACTIVE_TAB", tabId: 7 }),
+    );
     expect(isVisible("#choose")).toBe(true);
     expect(textOf("#status")).not.toMatch(/re-reading/i);
     expect(

@@ -43,6 +43,9 @@ describe("selection-watch SW helpers", () => {
         if (!details.args || details.args.length === 0) {
           return { stopped: true };
         }
+        if (details.args[0] === "pa-sensitive") {
+          return { blocked: false, category: null, reason: "not_sensitive" };
+        }
         return {
           ok: true,
           snapshot: {

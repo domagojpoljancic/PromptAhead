@@ -7,12 +7,31 @@
  */
 
 import type { PageContext } from "../domain/extraction";
+import type { SensitiveCategory } from "../domain/sensitive";
 import { broadcastBackgroundEvent } from "../shared/messaging";
 import { extractPageContextForTab, type ExtractionOutcome } from "./extraction";
+import {
+  assessTabForManualCapture,
+  SENSITIVE_PAGE_BLOCKED_ERROR,
+} from "./sensitive-gate";
+
+export type SensitiveBlockState = {
+  category: SensitiveCategory;
+  reason: string;
+  url?: string;
+};
 
 export type LatestPageContext = {
   pageContext: PageContext | null;
   error?: string;
+  /** Pending Manual override (DOM-39) — survives lost push events. */
+  sensitiveBlock?: SensitiveBlockState;
+};
+
+export type CaptureTabOptions = {
+  source?: "gesture" | "selection" | "navigation";
+  /** One-shot Manual override after the sensitive confirm CTA (DOM-39). */
+  force?: boolean;
 };
 
 const latestByTab = new Map<number, LatestPageContext>();
@@ -32,6 +51,17 @@ export function rememberPageContext(tabId: number, pageContext: PageContext): vo
 
 export function rememberExtractionError(tabId: number, error: string): void {
   latestByTab.set(tabId, { pageContext: null, error });
+}
+
+export function rememberSensitiveBlock(
+  tabId: number,
+  block: SensitiveBlockState,
+): void {
+  latestByTab.set(tabId, {
+    pageContext: null,
+    error: SENSITIVE_PAGE_BLOCKED_ERROR,
+    sensitiveBlock: block,
+  });
 }
 
 export function forgetPageContext(tabId: number): void {
@@ -73,7 +103,13 @@ export async function readLatestPageContext(tabId: number): Promise<LatestPageCo
       }),
     ]);
     if (!outcome.ok) {
-      return { pageContext: null, error: outcome.error };
+      // Prefer cached sensitive block written by the finished run (push may be lost).
+      return (
+        latestByTab.get(tabId) ?? {
+          pageContext: null,
+          error: outcome.error,
+        }
+      );
     }
   }
   return latestByTab.get(tabId) ?? { pageContext: null };
@@ -87,9 +123,10 @@ export async function readLatestPageContext(tabId: number): Promise<LatestPageCo
 export function captureTabContext(
   tabId: number,
   knownUrl?: string,
-  options: { source?: "gesture" | "selection" | "navigation" } = {},
+  options: CaptureTabOptions = {},
 ): Promise<ExtractionOutcome> {
   const source = options.source ?? "gesture";
+  const force = options.force === true;
   // Selection-driven re-extract must not steal the gesture-tab pointer used
   // by GET_LATEST when the panel first opens.
   if (source === "gesture") {
@@ -98,7 +135,33 @@ export function captureTabContext(
   const token = {};
   currentRunByTab.set(tabId, token);
 
-  const run = extractPageContextForTab(tabId, knownUrl).then((outcome) => {
+  const run = (async (): Promise<ExtractionOutcome> => {
+    if (!force) {
+      const assessment = await assessTabForManualCapture(tabId, knownUrl);
+      if (assessment.blocked && assessment.category) {
+        const block: SensitiveBlockState = {
+          category: assessment.category,
+          reason: assessment.reason,
+          ...(knownUrl !== undefined ? { url: knownUrl } : {}),
+        };
+        // Cache before broadcast so GET_LATEST can recover if the push is missed.
+        rememberSensitiveBlock(tabId, block);
+        broadcastSensitiveBlocked(
+          tabId,
+          assessment.category,
+          assessment.reason,
+          knownUrl,
+        );
+        if (currentRunByTab.get(tabId) !== token) {
+          return { ok: false, error: SENSITIVE_PAGE_BLOCKED_ERROR };
+        }
+        currentRunByTab.delete(tabId);
+        inFlightByTab.delete(tabId);
+        return { ok: false, error: SENSITIVE_PAGE_BLOCKED_ERROR };
+      }
+    }
+
+    const outcome = await extractPageContextForTab(tabId, knownUrl);
     if (currentRunByTab.get(tabId) !== token) {
       return outcome;
     }
@@ -116,8 +179,25 @@ export function captureTabContext(
       rememberExtractionError(tabId, outcome.error);
     }
     return outcome;
-  });
+  })();
 
   inFlightByTab.set(tabId, run);
   return run;
 }
+
+function broadcastSensitiveBlocked(
+  tabId: number,
+  category: SensitiveCategory,
+  reason: string,
+  url: string | undefined,
+): void {
+  broadcastBackgroundEvent({
+    type: "SENSITIVE_PAGE_BLOCKED",
+    tabId,
+    category,
+    reason,
+    ...(url !== undefined ? { url } : {}),
+  });
+}
+
+export { SENSITIVE_PAGE_BLOCKED_ERROR };

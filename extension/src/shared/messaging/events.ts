@@ -5,8 +5,20 @@
 
 import type { PageContext } from "../types/page-context";
 import { isPageContext } from "../types/page-context";
+import type { SensitiveCategory } from "../../domain/sensitive";
 
 export type PageContextClearedReason = "navigated" | "closed" | "cleared";
+
+const SENSITIVE_CATEGORIES: ReadonlySet<string> = new Set([
+  "banking",
+  "payment",
+  "email",
+  "login",
+  "medical",
+  "sensitive_input",
+  "restricted_origin",
+  "private_workspace",
+]);
 
 export type BackgroundEvent =
   | {
@@ -20,11 +32,19 @@ export type BackgroundEvent =
       pageContext: PageContext;
       /** Why this capture was pushed — panel gates selection/navigation auto-apply. */
       source?: "gesture" | "selection" | "navigation";
+    }
+  | {
+      type: "SENSITIVE_PAGE_BLOCKED";
+      tabId: number;
+      category: SensitiveCategory;
+      reason: string;
+      url?: string;
     };
 
 export const BACKGROUND_EVENT_TYPES = [
   "PAGE_CONTEXT_CLEARED",
   "PAGE_CONTEXT_UPDATED",
+  "SENSITIVE_PAGE_BLOCKED",
 ] as const;
 
 const EVENT_TYPES: ReadonlySet<string> = new Set(BACKGROUND_EVENT_TYPES);
@@ -58,6 +78,15 @@ export function isBackgroundEvent(value: unknown): value is BackgroundEvent {
       typeof value.tabId === "number" &&
       isPageContext(value.pageContext) &&
       sourceOk
+    );
+  }
+  if (value.type === "SENSITIVE_PAGE_BLOCKED") {
+    return (
+      typeof value.tabId === "number" &&
+      typeof value.category === "string" &&
+      SENSITIVE_CATEGORIES.has(value.category) &&
+      typeof value.reason === "string" &&
+      (value.url === undefined || typeof value.url === "string")
     );
   }
   return false;

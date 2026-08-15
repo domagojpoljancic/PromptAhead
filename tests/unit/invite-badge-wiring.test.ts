@@ -43,10 +43,15 @@ beforeEach(async () => {
   mock = installChromeMock({
     activeTab: { id: TAB_ID, url: STORY_URL },
     senderTabId: TAB_ID,
-    executeScript: () => ({
-      ok: true,
-      snapshot: snapshotFromFixture("article-jsonld", STORY_URL),
-    }),
+    executeScript: (details) => {
+      if (details.args?.[0] === "pa-sensitive") {
+        return { blocked: false, category: null, reason: "not_sensitive" };
+      }
+      return {
+        ok: true,
+        snapshot: snapshotFromFixture("article-jsonld", STORY_URL),
+      };
+    },
   });
   rememberActiveInviteTab(null);
   await updateSettings({
@@ -185,7 +190,7 @@ describe("invite controller SW wiring", () => {
 
     const { capture, panel } = kickOffPanelAnalysis(TAB_ID, STORY_URL);
     await Promise.all([capture, panel]);
-    expect(mock.injections).toEqual([TAB_ID]);
+    expect(mock.injections).toEqual([TAB_ID, TAB_ID]);
     expect(mock.sidePanelOpens).toEqual([TAB_ID]);
   });
 
@@ -270,7 +275,7 @@ describe("invite controller SW wiring", () => {
     // Toolbar Manual path: capture still runs while proactive is paused.
     const result = await captureTabContext(TAB_ID);
     expect(result.ok).toBe(true);
-    expect(mock.injections).toEqual([TAB_ID]);
+    expect(mock.injections).toEqual([TAB_ID, TAB_ID]);
   });
 
   it("persists domain exclude and once-per-page page keys", async () => {
@@ -351,9 +356,9 @@ describe("router invite messages", () => {
     }
     expect(mock.badgeTextFor(TAB_ID)).toBe("");
     expect(mock.sidePanelOpens).toEqual([TAB_ID]);
-    // Extraction is fire-and-forget; wait for the injection to land.
+    // Extraction is fire-and-forget; wait for assess + snapshot injections.
     await vi.waitFor(() => {
-      expect(mock.injections).toEqual([TAB_ID]);
+      expect(mock.injections).toEqual([TAB_ID, TAB_ID]);
     });
   });
 

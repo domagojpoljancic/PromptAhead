@@ -43,16 +43,26 @@ import {
   refreshOnboardingAfterClear as defaultRefreshOnboardingAfterClear,
 } from "./onboarding";
 import {
+  hideSensitiveOverride,
+  isSensitiveOverrideVisible,
+  showSensitiveOverride,
+} from "./sensitive-override";
+import {
   assessPagePromptValue,
   lowValueMessageFor,
   toSelectionOnlyContext,
 } from "../domain/page-value";
+import type { SensitiveCategory } from "../domain/sensitive";
 import {
   NAVIGATED_FROM_EMPTY_MESSAGE,
   STALE_CONTEXT_MESSAGE,
   type PanelStep,
   type WorkflowCardStep,
 } from "./workflow";
+
+/** Must match `SENSITIVE_PAGE_BLOCKED_ERROR` in background/sensitive-gate.ts */
+const SENSITIVE_PAGE_BLOCKED_ERROR =
+  "This page looks sensitive. Confirm in the side panel to analyze it anyway.";
 
 const PAGE_TYPE_LABELS: Record<PageContext["pageType"], string> = {
   article: "Article",
@@ -203,6 +213,8 @@ export async function initSidePanel(
   /** Bumps when onboarding completes or a new accept starts — stale loads bail out. */
   let suggestionGeneration = 0;
   let nanoPanelNotice: NanoPanelNotice = "none";
+  /** Tab waiting on Manual sensitive confirm (DOM-39) — confirm is never sticky. */
+  let pendingSensitiveTabId: number | null = null;
 
   function resetWorkflowAfterOnboarding(): void {
     suggestionGeneration += 1;
@@ -210,6 +222,8 @@ export async function initSidePanel(
     lastAcceptedKey = null;
     pageContext = null;
     boundTabId = null;
+    pendingSensitiveTabId = null;
+    hideSensitiveOverride();
     suggestions = null;
     selectedAction = null;
     builtPrompt = "";
@@ -517,10 +531,68 @@ export async function initSidePanel(
     setHidden(fallbackChoose, !options.canChoose);
   }
 
+  function presentSensitiveBlock(detail: {
+    tabId: number;
+    category: SensitiveCategory;
+    url?: string;
+  }): void {
+    if (isOnboardingBlocking()) {
+      return;
+    }
+    pendingSensitiveTabId = detail.tabId;
+    boundTabId = detail.tabId;
+    pageContext = null;
+    showSensitiveOverride({
+      tabId: detail.tabId,
+      category: detail.category,
+      url: detail.url,
+    });
+    setText(statusLine, "");
+  }
+
+  async function confirmSensitiveOverride(): Promise<void> {
+    const tabId = pendingSensitiveTabId ?? boundTabId;
+    hideSensitiveOverride();
+    pendingSensitiveTabId = null;
+    if (tabId === null) {
+      renderEmpty("Click the PromptAhead icon on the page you want to use.");
+      return;
+    }
+    showStep("understanding");
+    setText(statusLine, "Reading this page…");
+    const response = await send({
+      type: "EXTRACT_ACTIVE_TAB",
+      tabId,
+      force: true,
+    });
+    if (response.ok) {
+      await acceptPageContext(response.pageContext, response.tabId);
+    } else if (isExpectedReinvokeError(response.error)) {
+      renderStale(response.error);
+    } else {
+      renderFallback("extraction", response.error, { canChoose: false });
+    }
+  }
+
+  function cancelSensitiveOverride(): void {
+    hideSensitiveOverride();
+    pendingSensitiveTabId = null;
+    renderEmpty(
+      "This page was not analyzed. Click the PromptAhead icon on a page you want to use.",
+    );
+  }
+
   function isExpectedReinvokeError(message: string): boolean {
     return (
       /no longer has access to this tab/i.test(message) ||
       /can't read this page/i.test(message)
+    );
+  }
+
+  function isSensitiveBlockedError(message: string): boolean {
+    return (
+      message === SENSITIVE_PAGE_BLOCKED_ERROR ||
+      /looks sensitive/i.test(message)
     );
   }
 
@@ -951,6 +1023,27 @@ export async function initSidePanel(
       renderEmpty(`Background unreachable — ${response.error}`);
       return;
     }
+    if (response.sensitiveBlock) {
+      presentSensitiveBlock({
+        tabId: response.tabId ?? boundTabId ?? 0,
+        category: response.sensitiveBlock.category,
+        url: response.sensitiveBlock.url,
+      });
+      return;
+    }
+    if (
+      response.error &&
+      isSensitiveBlockedError(response.error) &&
+      response.tabId !== undefined
+    ) {
+      // Fallback when category was not persisted (should be rare).
+      presentSensitiveBlock({
+        tabId: response.tabId,
+        category: "sensitive_input",
+        url: undefined,
+      });
+      return;
+    }
     if (response.pageContext) {
       await acceptPageContext(response.pageContext, response.tabId);
       return;
@@ -984,6 +1077,20 @@ export async function initSidePanel(
       });
       if (response.ok) {
         await acceptPageContext(response.pageContext, response.tabId);
+      } else if (isSensitiveBlockedError(response.error)) {
+        const latest = await send({
+          type: "GET_LATEST_PAGE_CONTEXT",
+          ...(boundTabId !== null ? { tabId: boundTabId } : {}),
+        });
+        if (latest.ok && latest.sensitiveBlock) {
+          presentSensitiveBlock({
+            tabId: latest.tabId ?? boundTabId ?? 0,
+            category: latest.sensitiveBlock.category,
+            url: latest.sensitiveBlock.url,
+          });
+        } else if (!isSensitiveOverrideVisible()) {
+          renderEmpty(response.error);
+        }
       } else if (isExpectedReinvokeError(response.error)) {
         // Expected after navigate / restricted URL — calm stale UX, not a generic failure.
         renderStale(response.error);
@@ -1054,10 +1161,20 @@ export async function initSidePanel(
     if (!isBackgroundEvent(message)) {
       return;
     }
+    if (message.type === "SENSITIVE_PAGE_BLOCKED") {
+      presentSensitiveBlock({
+        tabId: message.tabId,
+        category: message.category,
+        url: message.url,
+      });
+      return;
+    }
     if (message.type === "PAGE_CONTEXT_UPDATED") {
       if (isOnboardingBlocking()) {
         return;
       }
+      hideSensitiveOverride();
+      pendingSensitiveTabId = null;
       // Selection / post-empty navigation auto-refresh only applies while idle
       // on empty/stale so a mid-prompt highlight does not reset the workflow.
       if (
@@ -1074,6 +1191,8 @@ export async function initSidePanel(
     if (message.type !== "PAGE_CONTEXT_CLEARED") {
       return;
     }
+    hideSensitiveOverride();
+    pendingSensitiveTabId = null;
     // Clear-all uses tabId -1; otherwise only the bound tab invalidates the panel.
     const matchesBound =
       message.reason === "cleared" ||
@@ -1130,6 +1249,14 @@ export async function initSidePanel(
 
   on(refreshButton, "click", () => {
     void refreshFromPage();
+  });
+
+  on(document.getElementById("sensitive-override-confirm"), "click", () => {
+    void confirmSensitiveOverride();
+  });
+
+  on(document.getElementById("sensitive-override-cancel"), "click", () => {
+    cancelSensitiveOverride();
   });
 
   on(showMoreButton, "click", () => {
@@ -1237,6 +1364,9 @@ export async function initSidePanel(
     );
   });
 
+  removers.push(addMessageListener(handleBackgroundEvent));
+  void renderDebugLine();
+
   const onboardingShown = await maybeOnboarding(() => {
     resetWorkflowAfterOnboarding();
     void renderDebugLine();
@@ -1245,8 +1375,6 @@ export async function initSidePanel(
   if (!onboardingShown) {
     void loadLatestContext();
   }
-  removers.push(addMessageListener(handleBackgroundEvent));
-  void renderDebugLine();
 
   return {
     dispose: () => {

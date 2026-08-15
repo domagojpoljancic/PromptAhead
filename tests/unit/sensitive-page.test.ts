@@ -162,6 +162,25 @@ describe("test-plan sensitive fixture matrix (proactive never fires)", () => {
     expect(assessSensitivePage(url, document).blocked).toBe(false);
     expect(isEngagementEligibleUrl(url)).toBe(true);
   });
+
+  it("blocks local fixture paths without production hosts", () => {
+    expect(
+      assessUrlSensitivity("http://127.0.0.1:8765/sensitive-banking.html").category,
+    ).toBe("banking");
+    expect(
+      assessUrlSensitivity("http://127.0.0.1:8765/sensitive-webmail.html").category,
+    ).toBe("email");
+    expect(
+      assessUrlSensitivity(
+        "http://127.0.0.1:8765/sensitive-medical-portal.html",
+      ).category,
+    ).toBe("medical");
+    expect(
+      assessUrlSensitivity(
+        "http://127.0.0.1:8765/sensitive-private-doc.html",
+      ).category,
+    ).toBe("private_workspace");
+  });
 });
 
 describe("assessDocumentSensitivity", () => {

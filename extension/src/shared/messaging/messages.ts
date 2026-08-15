@@ -42,8 +42,11 @@ export type BackgroundRequest =
   | { type: "CLEAR_ALL_DATA" }
   /** Whatever the last gesture extracted for this tab, if anything. */
   | { type: "GET_LATEST_PAGE_CONTEXT"; tabId?: number }
-  /** Re-runs extraction on a tab the current gesture still has access to. */
-  | { type: "EXTRACT_ACTIVE_TAB"; tabId?: number }
+  /**
+   * Re-runs extraction on a tab the current gesture still has access to.
+   * `force: true` is the one-shot Manual sensitive override (DOM-39) — never sticky.
+   */
+  | { type: "EXTRACT_ACTIVE_TAB"; tabId?: number; force?: boolean }
   /** Panel: watch bound tab for selection after low-value empty state (DOM-61). */
   | { type: "WATCH_SELECTION"; tabId: number }
   | { type: "STOP_WATCH_SELECTION"; tabId?: number }
@@ -86,6 +89,20 @@ type OkPayloads = {
     error?: string;
     /** Tab the panel should bind stale-context UX to. */
     tabId?: number;
+    /** Pending Manual sensitive override (DOM-39). */
+    sensitiveBlock?: {
+      category:
+        | "banking"
+        | "payment"
+        | "email"
+        | "login"
+        | "medical"
+        | "sensitive_input"
+        | "restricted_origin"
+        | "private_workspace";
+      reason: string;
+      url?: string;
+    };
   };
   EXTRACT_ACTIVE_TAB: { pageContext: PageContext; tabId: number };
   WATCH_SELECTION: { watching: boolean; tabId: number };
@@ -208,10 +225,14 @@ export function isBackgroundRequest(value: unknown): value is BackgroundRequest 
     case "ADD_RECENT_PROMPT":
       return isAddRecentPromptPayload(value.entry);
     case "GET_LATEST_PAGE_CONTEXT":
-    case "EXTRACT_ACTIVE_TAB":
     case "OPEN_SIDE_PANEL":
     case "STOP_WATCH_SELECTION":
       return hasOptionalTabId(value);
+    case "EXTRACT_ACTIVE_TAB":
+      return (
+        hasOptionalTabId(value) &&
+        (value.force === undefined || value.force === true || value.force === false)
+      );
     case "WATCH_SELECTION":
       return typeof value.tabId === "number";
     case "SELECTION_READY":
