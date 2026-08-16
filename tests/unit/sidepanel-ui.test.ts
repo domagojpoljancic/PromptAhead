@@ -9,8 +9,10 @@ import {
 } from "../../extension/src/sidepanel/sidepanel";
 import { resetOnboardingForTests } from "../../extension/src/sidepanel/onboarding";
 import {
+  AI_LOADING_STATUS,
   MICROCOPY_POOLS,
   NANO_THINKING_ROTATE_MS,
+  PAGE_BUSY_STATUS,
   resetMicrocopyRandomForTests,
   setMicrocopyRandomForTests,
 } from "../../extension/src/shared/microcopy";
@@ -750,7 +752,59 @@ describe("side panel click-through", () => {
         "TASK: Summarize\n\n<SOURCE_DATA>\nEU AI Act\n</SOURCE_DATA>",
     };
 
-    const bootPromise = boot({ engine: slowNano, nanoReadiness: "ready" });
+    let releaseProbe!: () => void;
+    const probeGate = new Promise<void>((resolve) => {
+      releaseProbe = resolve;
+    });
+    const { send, listeners } = createSend(store);
+    controller = await initSidePanel({
+      sendToBackground: send,
+      selectSuggestionEngine: async () => slowNano,
+      openLLMWithFallback: async () => ({
+        copied: true,
+        openedUrl: null,
+        mode: "copy-only" as const,
+        usedModel: null,
+      }),
+      openOptionsPage: vi.fn(),
+      probeNanoReadiness: async () => {
+        await probeGate;
+        return {
+          state: "ready" as const,
+          availability: "available" as const,
+          apiPresent: true,
+        };
+      },
+      addMessageListener: (listener) => {
+        listeners.push(listener);
+        return () => {
+          const index = listeners.indexOf(listener);
+          if (index >= 0) {
+            listeners.splice(index, 1);
+          }
+        };
+      },
+    });
+
+    let loadingVisible = false;
+    for (let i = 0; i < 40; i++) {
+      await flush();
+      if (textOf("#status-text") === AI_LOADING_STATUS.title) {
+        loadingVisible = true;
+        break;
+      }
+    }
+    expect(loadingVisible).toBe(true);
+    expect(isVisible("#understanding")).toBe(false);
+    expect(isVisible("#status-ai-label")).toBe(false);
+    expect(isVisible("#status-benefit")).toBe(true);
+    expect(textOf("#status-benefit")).toBe(AI_LOADING_STATUS.benefit);
+    expect(document.querySelector(".shell")?.classList.contains("shell--ai-loading")).toBe(
+      true,
+    );
+    expect(isVisible("#nano-use-basic")).toBe(false);
+
+    releaseProbe!();
     let busyVisible = false;
     for (let i = 0; i < 40; i++) {
       await flush();
@@ -766,22 +820,87 @@ describe("side panel click-through", () => {
     expect(isVisible("#nano-use-basic")).toBe(true);
     expect(isVisible("#nano-retry")).toBe(false);
     expect(isVisible("#status-nano-pulse")).toBe(true);
+    expect(isVisible("#status-ai-label")).toBe(true);
+    expect(textOf("#status-ai-label")).toBe("AI");
+    expect(isVisible("#status-benefit")).toBe(false);
+    expect(document.querySelector(".shell")?.classList.contains("shell--status-busy")).toBe(
+      true,
+    );
+    expect(document.querySelector(".shell")?.classList.contains("shell--nano-thinking")).toBe(
+      true,
+    );
+    expect(document.querySelector(".shell")?.classList.contains("shell--ai-loading")).toBe(
+      false,
+    );
     expect(textOf("#status-text")).toBe(MICROCOPY_POOLS.nanoThinking[0]);
 
     await waitMs(NANO_THINKING_ROTATE_MS + 80);
     expect(textOf("#status-text")).toBe(MICROCOPY_POOLS.nanoThinking[1]);
     expect(isVisible("#understanding")).toBe(false);
+    expect(isVisible("#status-ai-label")).toBe(true);
 
     resolveSuggest!({
       engineId: "nano",
       primary: [primaryAction],
       more: [moreAction],
     });
-    await bootPromise;
+    await flush();
+    await waitMs(20);
     expect(isVisible("#status-nano-pulse")).toBe(false);
+    expect(isVisible("#status-ai-label")).toBe(false);
     expect(isVisible("#nano-use-basic")).toBe(false);
     expect(isVisible("#choose")).toBe(true);
     expect(isVisible(".app-header")).toBe(false);
+  });
+
+  it("shows status busy (not Understanding card) while curated suggests", async () => {
+    setMicrocopyRandomForTests(() => 0);
+    store.settings = { ...DEFAULT_SETTINGS, nanoPreference: "basic" };
+    let resolveSuggest!: (value: SuggestionResult) => void;
+    const slowCurated: SuggestionEngine = {
+      id: "curated",
+      isAvailable: async () => true,
+      suggestActions: () =>
+        new Promise((resolve) => {
+          resolveSuggest = resolve;
+        }),
+      generatePrompt: async () => "TASK: Summarize",
+    };
+
+    const bootPromise = boot({ engine: slowCurated });
+    let busyVisible = false;
+    for (let i = 0; i < 40; i++) {
+      await flush();
+      if (isVisible("#status-nano-pulse")) {
+        busyVisible = true;
+        break;
+      }
+    }
+    expect(busyVisible).toBe(true);
+    expect(isVisible("#understanding")).toBe(false);
+    expect(isVisible("#nano-use-basic")).toBe(false);
+    expect(isVisible("#status-ai-label")).toBe(false);
+    expect(isVisible("#status-benefit")).toBe(true);
+    expect(document.querySelector(".shell")?.classList.contains("shell--status-busy")).toBe(
+      true,
+    );
+    expect(document.querySelector(".shell")?.classList.contains("shell--nano-thinking")).toBe(
+      false,
+    );
+    expect(document.querySelector(".shell")?.classList.contains("shell--ai-loading")).toBe(
+      false,
+    );
+    expect(textOf("#status-text")).toBe(PAGE_BUSY_STATUS.title);
+    expect(textOf("#status-benefit")).toBe(PAGE_BUSY_STATUS.benefit);
+
+    resolveSuggest!({
+      engineId: "curated",
+      primary: [primaryAction],
+      more: [moreAction],
+    });
+    await bootPromise;
+    expect(isVisible("#status-nano-pulse")).toBe(false);
+    expect(isVisible("#choose")).toBe(true);
   });
 
   it("cancels Nano busy chrome when the bound tab goes stale", async () => {

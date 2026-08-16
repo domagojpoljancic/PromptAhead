@@ -3,7 +3,9 @@ import {
   sendToBackground as defaultSendToBackground,
 } from "../shared/messaging";
 import {
+  AI_LOADING_STATUS,
   NANO_THINKING_ROTATE_MS,
+  PAGE_BUSY_STATUS,
   nextMicrocopyAfter,
   pickMicrocopy,
 } from "../shared/microcopy";
@@ -158,7 +160,6 @@ export async function initSidePanel(
   const contextSelection = document.getElementById("context-selection");
   const contextSelected = document.getElementById("context-selected");
   const refreshButton = document.getElementById("refresh-context");
-  const understandingMessage = document.getElementById("understanding-message");
 
   const stepElements: Record<
     WorkflowCardStep | "empty" | "stale",
@@ -230,6 +231,9 @@ export async function initSidePanel(
   let pendingSensitiveTabId: number | null = null;
   let nanoThinkingTimer: ReturnType<typeof setInterval> | null = null;
   let nanoThinkingStatusLine: string | null = null;
+  let busyHandoffTimer: ReturnType<typeof setTimeout> | null = null;
+  /** `ai-loading` = fixed AI warmup; `understanding` = curated; `nano` = AI thinking. */
+  let statusBusyMode: "ai-loading" | "understanding" | "nano" | null = null;
 
   function resetWorkflowAfterOnboarding(): void {
     suggestionGeneration += 1;
@@ -282,19 +286,18 @@ export async function initSidePanel(
   function showStep(next: PanelStep): void {
     currentStep = next;
     for (const [id, element] of Object.entries(stepElements)) {
-      // Nano busy owns the loading signal — skip the Understanding card.
-      const hide =
-        id !== next || (id === "understanding" && nanoThinkingTimer !== null);
+      // Loading copy lives in #status only — never show the Understanding card.
+      const hide = id === "understanding" || id !== next;
       setHidden(element, hide);
     }
     updateRefreshVisibility(next);
     updateHeaderPitch(next);
   }
 
-  /** Refresh only on orientation / choose / hard fallback — not mid-flow or Nano busy. */
+  /** Refresh only on orientation / choose / hard fallback — not mid-flow or busy. */
   function updateRefreshVisibility(step: PanelStep = currentStep): void {
     const show =
-      nanoThinkingTimer === null &&
+      statusBusyMode === null &&
       (step === "empty" ||
         step === "stale" ||
         step === "choose" ||
@@ -352,51 +355,157 @@ export async function initSidePanel(
     }
   }
 
-  function applyNanoThinkingCopy(): void {
+  function applyStatusBusyCopy(): void {
     setStatusMessage(nanoThinkingStatusLine ?? "");
   }
 
-  function stopNanoThinkingBusy(): void {
+  function clearBusyHandoff(): void {
+    if (busyHandoffTimer !== null) {
+      clearTimeout(busyHandoffTimer);
+      busyHandoffTimer = null;
+    }
+    document.querySelector(".shell")?.classList.remove("shell--busy-handoff");
+  }
+
+  function setStatusBenefit(text: string | null): void {
+    const benefit = document.getElementById("status-benefit");
+    if (text) {
+      setText(benefit, text);
+      setHidden(benefit, false);
+    } else {
+      setHidden(benefit, true);
+      setText(benefit, "");
+    }
+  }
+
+  function stopStatusBusy(): void {
+    const previousMode = statusBusyMode;
+    const previousLine = nanoThinkingStatusLine;
     if (nanoThinkingTimer !== null) {
       clearInterval(nanoThinkingTimer);
       nanoThinkingTimer = null;
     }
     nanoThinkingStatusLine = null;
-    document.querySelector(".shell")?.classList.remove("shell--nano-thinking");
+    statusBusyMode = null;
+    clearBusyHandoff();
+    document
+      .querySelector(".shell")
+      ?.classList.remove(
+        "shell--status-busy",
+        "shell--ai-loading",
+        "shell--nano-thinking",
+      );
     setHidden(document.getElementById("status-nano-pulse"), true);
     setHidden(document.getElementById("status-nano-track"), true);
+    const aiLabel = document.getElementById("status-ai-label");
+    setHidden(aiLabel, true);
+    setText(aiLabel, "");
+    setStatusBenefit(null);
     setNanoBusyCancelVisible(false);
     updateRefreshVisibility();
+
+    // Never leave a busy title stranded in the plain dashed status strip.
+    const current = document.getElementById("status-text")?.textContent?.trim() ?? "";
+    if (
+      previousMode !== null &&
+      (current === previousLine ||
+        current === AI_LOADING_STATUS.title ||
+        current === PAGE_BUSY_STATUS.title)
+    ) {
+      setStatusMessage("");
+    }
   }
 
-  function startNanoThinkingBusy(): void {
-    stopNanoThinkingBusy();
+  /** Alias used by stale/dispose paths. */
+  function stopNanoThinkingBusy(): void {
+    stopStatusBusy();
+  }
+
+  /**
+   * Status-strip busy chrome.
+   * `ai-loading` = one calm “AI is loading” + benefit; `understanding` = curated;
+   * `nano` = fancy AI thinking. Loading → nano slides the copy in.
+   */
+  function startStatusBusy(
+    mode: "ai-loading" | "understanding" | "nano",
+  ): void {
+    const previousMode = statusBusyMode;
+    if (nanoThinkingTimer !== null) {
+      clearInterval(nanoThinkingTimer);
+      nanoThinkingTimer = null;
+    }
+
     const shell = document.querySelector(".shell");
     const pulse = document.getElementById("status-nano-pulse");
     const track = document.getElementById("status-nano-track");
-    shell?.classList.add("shell--nano-thinking");
+    const aiLabel = document.getElementById("status-ai-label");
     setHidden(stepElements.understanding, true);
     setHidden(pulse, false);
     setHidden(track, false);
-    setNanoBusyCancelVisible(true);
-    updateRefreshVisibility("understanding");
-    const bar = track?.querySelector(".build-busy__bar");
-    if (bar instanceof HTMLElement) {
-      bar.style.animation = "none";
-      void bar.offsetWidth;
-      bar.style.animation = "";
+    shell?.classList.add("shell--status-busy");
+
+    // Apply busy copy before swapping chrome so loading title never sits in the
+    // plain dashed strip between ai-loading and nano-thinking.
+    if (mode === "nano") {
+      setStatusBenefit(null);
+      nanoThinkingStatusLine = pickMicrocopy("nanoThinking");
+      applyStatusBusyCopy();
+      setText(aiLabel, "AI");
+      setHidden(aiLabel, false);
+    } else {
+      setHidden(aiLabel, true);
+      setText(aiLabel, "");
+      const fixed = mode === "ai-loading" ? AI_LOADING_STATUS : PAGE_BUSY_STATUS;
+      nanoThinkingStatusLine = fixed.title;
+      applyStatusBusyCopy();
+      setStatusBenefit(fixed.benefit);
     }
-    // Hide product pitch while Nano is working (mid-flow).
+
+    shell?.classList.toggle("shell--ai-loading", mode === "ai-loading");
+    shell?.classList.toggle("shell--nano-thinking", mode === "nano");
+    setNanoBusyCancelVisible(mode === "nano");
+    statusBusyMode = mode;
+    updateRefreshVisibility("understanding");
     updateHeaderPitch("choose");
-    nanoThinkingStatusLine = pickMicrocopy("nanoThinking");
-    applyNanoThinkingCopy();
-    nanoThinkingTimer = setInterval(() => {
-      nanoThinkingStatusLine = nextMicrocopyAfter(
-        "nanoThinking",
-        nanoThinkingStatusLine,
-      );
-      applyNanoThinkingCopy();
-    }, NANO_THINKING_ROTATE_MS);
+
+    if (previousMode !== mode) {
+      const bar = track?.querySelector(".build-busy__bar");
+      if (bar instanceof HTMLElement) {
+        bar.style.animation = "none";
+        void bar.offsetWidth;
+        bar.style.animation = "";
+      }
+    }
+
+    if (previousMode === "ai-loading" && mode === "nano") {
+      clearBusyHandoff();
+      shell?.classList.add("shell--busy-handoff");
+      busyHandoffTimer = setTimeout(() => {
+        shell?.classList.remove("shell--busy-handoff");
+        busyHandoffTimer = null;
+      }, 480);
+    } else {
+      clearBusyHandoff();
+    }
+
+    if (mode === "nano") {
+      nanoThinkingTimer = setInterval(() => {
+        nanoThinkingStatusLine = nextMicrocopyAfter(
+          "nanoThinking",
+          nanoThinkingStatusLine,
+        );
+        applyStatusBusyCopy();
+      }, NANO_THINKING_ROTATE_MS);
+    }
+  }
+
+  function startNanoThinkingBusy(): void {
+    startStatusBusy("nano");
+  }
+
+  async function startBusyForCurrentPreference(): Promise<void> {
+    const preference = await resolveNanoPreference();
+    startStatusBusy(preference === "enabled" ? "ai-loading" : "understanding");
   }
 
   async function cancelNanoToCurated(): Promise<void> {
@@ -406,9 +515,7 @@ export async function initSidePanel(
     const ctx = pageContext;
     suggestionGeneration += 1;
     const generation = suggestionGeneration;
-    stopNanoThinkingBusy();
-    setText(understandingMessage, pickMicrocopy("understanding"));
-    setStatusMessage(pickMicrocopy("building"));
+    startStatusBusy("understanding");
     try {
       const curated = await selectEngine("basic");
       if (generation !== suggestionGeneration) {
@@ -434,6 +541,10 @@ export async function initSidePanel(
       renderFallback("suggestions", `${message}. You can retry.`, {
         canChoose: false,
       });
+    } finally {
+      if (generation === suggestionGeneration) {
+        stopStatusBusy();
+      }
     }
   }
 
@@ -707,6 +818,7 @@ export async function initSidePanel(
 
   function renderEmpty(message: string): void {
     stopSelectionWatchIfBound();
+    stopStatusBusy();
     clearWorkflowData();
     boundTabId = null;
     showStep("empty");
@@ -720,6 +832,7 @@ export async function initSidePanel(
    * toolbar click.
    */
   function renderLowValue(message: string, tabId?: number): void {
+    stopStatusBusy();
     clearWorkflowData();
     if (typeof tabId === "number") {
       boundTabId = tabId;
@@ -752,6 +865,7 @@ export async function initSidePanel(
     options: { canChoose?: boolean } = {},
   ): void {
     lastFallback = kind;
+    stopStatusBusy();
     showStep("fallback");
     setText(
       fallbackHeading,
@@ -770,6 +884,7 @@ export async function initSidePanel(
     if (isOnboardingBlocking()) {
       return;
     }
+    stopStatusBusy();
     pendingSensitiveTabId = detail.tabId;
     boundTabId = detail.tabId;
     pageContext = null;
@@ -831,6 +946,7 @@ export async function initSidePanel(
     ctx: PageContext,
     options: { forceNanoRetry?: boolean } = {},
   ): Promise<void> {
+    suggestionGeneration += 1;
     const generation = suggestionGeneration;
     const preference = await resolveNanoPreference();
     if (generation !== suggestionGeneration) {
@@ -858,11 +974,9 @@ export async function initSidePanel(
 
     const willTryNano = preferNano && preflightNotice === "none";
     if (willTryNano) {
-      startNanoThinkingBusy();
+      startStatusBusy("nano");
     } else {
-      stopNanoThinkingBusy();
-      setText(understandingMessage, pickMicrocopy("understanding"));
-      setStatusMessage(pickMicrocopy("building"));
+      startStatusBusy("understanding");
     }
     try {
       if (preferNano && preflightNotice !== "none") {
@@ -992,7 +1106,9 @@ export async function initSidePanel(
         canChoose: false,
       });
     } finally {
-      stopNanoThinkingBusy();
+      if (generation === suggestionGeneration) {
+        stopNanoThinkingBusy();
+      }
     }
   }
 
@@ -1056,14 +1172,17 @@ export async function initSidePanel(
       currentStep !== "empty" &&
       currentStep !== "fallback"
     ) {
+      // Parent fetch may have started busy chrome — drop it cleanly and stay put.
+      stopStatusBusy();
+      if (suggestions) {
+        showStep("choose");
+      }
       return;
     }
     if (acceptingKey === key) {
       return;
     }
     acceptingKey = key;
-    const generation = suggestionGeneration;
-
     pageContext = ctx;
     if (typeof tabId === "number") {
       boundTabId = tabId;
@@ -1073,10 +1192,10 @@ export async function initSidePanel(
     inclusion = { ...DEFAULT_CONTEXT_INCLUSION };
     renderPageIdentity(ctx);
     showStep("understanding");
-    setStatusMessage("Understanding this page…");
+    await startBusyForCurrentPreference();
     try {
       await loadSuggestions(ctx);
-      if (generation === suggestionGeneration) {
+      if (pageContext === ctx) {
         lastAcceptedKey = key;
       }
     } finally {
@@ -1312,7 +1431,7 @@ export async function initSidePanel(
     }
     refreshButton.disabled = true;
     showStep("understanding");
-    setStatusMessage("Re-reading this page…");
+    await startBusyForCurrentPreference();
     // Same-page refresh must not no-op on lastAcceptedKey (would stick on Re-reading).
     lastAcceptedKey = null;
     acceptingKey = null;

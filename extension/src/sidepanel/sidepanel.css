@@ -86,8 +86,35 @@ h1 {
 
 .shell__status-row {
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   gap: 0.55rem;
+}
+
+.shell__status-copy {
+  display: grid;
+  gap: 0.15rem;
+  min-width: 0;
+  flex: 1;
+}
+
+.shell__status-ai {
+  font-size: 0.6875rem;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--accent);
+  line-height: 1.2;
+}
+
+.shell__status-ai[hidden],
+.shell__status-benefit[hidden] {
+  display: none !important;
+}
+
+.shell__status-benefit {
+  font-size: 0.75rem;
+  line-height: 1.35;
+  color: var(--muted);
 }
 
 .shell__status-pulse[hidden],
@@ -111,27 +138,171 @@ h1 {
   display: none !important;
 }
 
-.shell--nano-thinking .shell__status {
-  border-color: color-mix(in srgb, var(--accent) 45%, var(--border));
-  background: color-mix(in srgb, var(--accent) 8%, var(--surface));
+/* Shared calm busy (page / AI-loading) — one soft motion, no copy churn. */
+.shell--status-busy:not(.shell--nano-thinking) .shell__status {
+  border-style: dashed;
+  border-color: color-mix(in srgb, var(--muted) 35%, var(--border));
+  background: color-mix(in srgb, var(--surface) 92%, var(--bg));
+  color: var(--muted);
+  transition:
+    border-color 0.4s ease,
+    background 0.4s ease,
+    color 0.35s ease,
+    box-shadow 0.4s ease;
+}
+
+.shell--status-busy:not(.shell--nano-thinking) .shell__status-pulse {
+  animation: page-busy-pulse 2s ease-in-out infinite;
+}
+
+.shell--status-busy:not(.shell--nano-thinking) .build-busy__bar--indeterminate {
+  width: 36%;
+  background: color-mix(in srgb, var(--muted) 45%, var(--border));
+  animation: page-busy-breathe 2.4s ease-in-out infinite;
+}
+
+/* AI is loading — same calm motion, light accent so it leads into thinking. */
+.shell--ai-loading .shell__status {
+  border-color: color-mix(in srgb, var(--accent) 28%, var(--border));
+  background: color-mix(in srgb, var(--accent) 5%, var(--surface));
   color: var(--text);
 }
 
+.shell--ai-loading .shell__status-ai {
+  opacity: 0.85;
+}
+
+.shell--ai-loading .build-busy__bar--indeterminate {
+  background: color-mix(in srgb, var(--accent) 55%, var(--border));
+}
+
+/* Local AI working — denser motion + accent. */
+.shell--nano-thinking .shell__status {
+  border-style: solid;
+  border-color: color-mix(in srgb, var(--accent) 55%, var(--border));
+  background:
+    linear-gradient(
+      120deg,
+      color-mix(in srgb, var(--accent) 10%, var(--surface)) 0%,
+      var(--surface) 42%,
+      color-mix(in srgb, var(--accent) 8%, var(--surface)) 100%
+    );
+  background-size: 200% 100%;
+  color: var(--text);
+  animation: ai-busy-sheen 3.2s ease-in-out infinite;
+  transition:
+    border-color 0.4s ease,
+    background 0.4s ease,
+    color 0.35s ease,
+    box-shadow 0.4s ease;
+}
+
 .shell--nano-thinking .shell__status-pulse {
-  animation: build-pulse 1.4s ease-in-out infinite;
+  box-shadow: 0 0 0 0 color-mix(in srgb, var(--accent) 45%, transparent);
+  animation: ai-busy-pulse 1.15s ease-out infinite;
+}
+
+.shell--nano-thinking .shell__status-ai {
+  animation: ai-label-glow 1.6s ease-in-out infinite;
 }
 
 .shell--nano-thinking .build-busy__bar--indeterminate {
-  width: 42%;
-  animation: nano-think-shimmer 1.4s ease-in-out infinite;
+  width: 38%;
+  background: linear-gradient(
+    90deg,
+    color-mix(in srgb, var(--accent) 35%, transparent),
+    var(--accent),
+    color-mix(in srgb, var(--accent) 35%, transparent)
+  );
+  animation: ai-busy-shimmer 1.05s ease-in-out infinite;
 }
 
-@keyframes nano-think-shimmer {
+.shell--busy-handoff .shell__status-copy {
+  animation: status-copy-slide-in 0.45s ease-out;
+}
+
+@keyframes page-busy-pulse {
+  0%,
+  100% {
+    opacity: 0.4;
+    transform: scale(0.94);
+  }
+  50% {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+/* Single calm motion: bar eases in place (no back-and-forth scan). */
+@keyframes page-busy-breathe {
+  0%,
+  100% {
+    opacity: 0.35;
+    transform: scaleX(0.85);
+    transform-origin: left center;
+  }
+  50% {
+    opacity: 1;
+    transform: scaleX(1);
+    transform-origin: left center;
+  }
+}
+
+@keyframes status-copy-slide-in {
+  from {
+    opacity: 0;
+    transform: translateY(0.4rem);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes ai-busy-sheen {
+  0%,
+  100% {
+    background-position: 0% 50%;
+  }
+  50% {
+    background-position: 100% 50%;
+  }
+}
+
+@keyframes ai-busy-pulse {
   0% {
-    transform: translateX(-120%);
+    opacity: 1;
+    transform: scale(1);
+    box-shadow: 0 0 0 0 color-mix(in srgb, var(--accent) 40%, transparent);
+  }
+  70% {
+    opacity: 0.55;
+    transform: scale(1.15);
+    box-shadow: 0 0 0 8px color-mix(in srgb, var(--accent) 0%, transparent);
   }
   100% {
-    transform: translateX(280%);
+    opacity: 1;
+    transform: scale(1);
+    box-shadow: 0 0 0 0 color-mix(in srgb, var(--accent) 0%, transparent);
+  }
+}
+
+@keyframes ai-label-glow {
+  0%,
+  100% {
+    opacity: 0.72;
+  }
+  50% {
+    opacity: 1;
+  }
+}
+
+@keyframes ai-busy-shimmer {
+  0% {
+    transform: translateX(-130%);
+  }
+  100% {
+    transform: translateX(290%);
   }
 }
 
@@ -424,14 +595,27 @@ h1 {
     width: 70%;
   }
 
+  .shell--status-busy .shell__status-pulse,
+  .shell--status-busy .build-busy__bar--indeterminate,
+  .shell--nano-thinking .shell__status,
   .shell--nano-thinking .shell__status-pulse,
+  .shell--nano-thinking .shell__status-ai,
   .shell--nano-thinking .build-busy__bar--indeterminate {
     animation: none;
   }
 
+  .shell--status-busy .build-busy__bar--indeterminate,
   .shell--nano-thinking .build-busy__bar--indeterminate {
     width: 55%;
     transform: none;
+  }
+
+  .shell--nano-thinking .shell__status-pulse {
+    box-shadow: none;
+  }
+
+  .shell--busy-handoff .shell__status-copy {
+    animation: none;
   }
 
   .onboarding__progress-bar[data-indeterminate="true"]::after {

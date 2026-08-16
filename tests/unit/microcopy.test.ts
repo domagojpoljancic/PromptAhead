@@ -52,6 +52,13 @@ describe("microcopy pools", () => {
     );
   });
 
+  it("never names Nano in end-user thinking copy", () => {
+    for (const line of MICROCOPY_POOLS.nanoThinking) {
+      expect(line).not.toMatch(/\bnano\b/i);
+      expect(line).not.toMatch(/gemini/i);
+    }
+  });
+
   it("documents sober surfaces that must stay fixed (not pooled)", () => {
     expect(SOBER_MICROCOPY_SURFACES).toEqual(
       expect.arrayContaining([
