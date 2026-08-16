@@ -194,6 +194,13 @@ export async function initSidePanel(
   const includeSelectedText = document.getElementById("include-selected-text");
   const includeSelectedWrap = document.getElementById("include-selected-wrap");
   const includeUserNote = document.getElementById("include-user-note");
+  const includeAllProducts = document.getElementById("include-all-products");
+  const includeAllProductsWrap = document.getElementById(
+    "include-all-products-wrap",
+  );
+  const includeAllProductsLabel = document.getElementById(
+    "include-all-products-label",
+  );
   const buildPromptButton = document.getElementById("build-prompt");
 
   let pageContext: PageContext | null = null;
@@ -310,6 +317,10 @@ export async function initSidePanel(
         includeUserNote instanceof HTMLInputElement
           ? includeUserNote.checked
           : true,
+      expandNamedProducts:
+        includeAllProducts instanceof HTMLInputElement
+          ? includeAllProducts.checked
+          : false,
     };
   }
 
@@ -329,6 +340,23 @@ export async function initSidePanel(
     setHidden(includeSelectedWrap, !availability.selectedText);
     if (includeUserNote instanceof HTMLInputElement) {
       includeUserNote.checked = inclusion.userNote;
+    }
+    const expand = ctx.expandableNamedSet;
+    const canExpand = Boolean(expand && expand.totalFound > 10);
+    setHidden(includeAllProductsWrap, !canExpand);
+    if (includeAllProducts instanceof HTMLInputElement) {
+      includeAllProducts.checked = Boolean(
+        inclusion.expandNamedProducts && canExpand,
+      );
+      includeAllProducts.disabled = !canExpand || !inclusion.pageBody;
+    }
+    if (includeAllProductsLabel && expand && canExpand) {
+      const n = expand.totalFound;
+      const capped = expand.names.length;
+      includeAllProductsLabel.textContent =
+        capped < n
+          ? `Include up to ${capped} of ${n} named products from this page`
+          : `Include all ${n} products from this page`;
     }
   }
 
@@ -1376,6 +1404,7 @@ export async function initSidePanel(
     includePageBody,
     includeSelectedText,
     includeUserNote,
+    includeAllProducts,
   ]) {
     on(control, "change", () => {
       renderContextPreview();

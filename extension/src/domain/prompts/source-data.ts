@@ -107,6 +107,25 @@ export function renderSourceData(pageContext: PageContext): SourceDataBlock {
     for (const name of pageContext.comparableSet.names) {
       writer.add("COMPARABLE_ITEM", name);
     }
+    const expand = pageContext.expandableNamedSet;
+    if (
+      expand &&
+      pageContext.comparableSet.names.length === expand.names.length &&
+      expand.totalFound > expand.names.length
+    ) {
+      writer.add(
+        "COMPARABLE_NOTE",
+        `Included ${expand.names.length} of ${expand.totalFound} named products from this page (prompt size limit).`,
+      );
+    } else if (
+      expand &&
+      pageContext.comparableSet.names.length === expand.names.length
+    ) {
+      writer.add(
+        "COMPARABLE_NOTE",
+        `Included all ${expand.names.length} named products from this page.`,
+      );
+    }
   }
 
   const { article, product, generic } = pageContext;

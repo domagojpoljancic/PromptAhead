@@ -2,13 +2,20 @@
  * Detect a small named set (2–10 products / articles / items) from JSON-LD
  * and/or DOM product-card titles. Used so short lists can offer “compare these N”
  * instead of empty or generic article-style directions.
+ *
+ * When more than 10 named **products** exist, still expose a compact ≤10 set for
+ * default compare, plus an expandable pool (≤40) for opt-in (DOM-68).
  */
 
 import {
   ARTICLE_JSON_LD_TYPES,
   PRODUCT_JSON_LD_TYPES,
 } from "../classification";
-import { EXTRACTION_CAPS, type ComparableSet } from "../../shared/types/page-context";
+import {
+  EXTRACTION_CAPS,
+  type ComparableSet,
+  type ExpandableNamedSet,
+} from "../../shared/types/page-context";
 import {
   hasJsonLdType,
   jsonLdString,
@@ -16,6 +23,11 @@ import {
 } from "./json-ld";
 
 const MAX_NAME_CHARS = 120;
+
+export type NamedComparableExtraction = {
+  comparableSet?: ComparableSet;
+  expandableNamedSet?: ExpandableNamedSet;
+};
 
 function clampName(raw: string): string {
   const text = raw.replace(/\s+/g, " ").trim();
@@ -27,9 +39,13 @@ function clampName(raw: string): string {
     : text;
 }
 
-function uniqueNames(values: readonly string[]): string[] {
+function uniqueNames(
+  values: readonly string[],
+  maxNames: number,
+): { names: string[]; totalFound: number } {
   const seen = new Set<string>();
   const names: string[] = [];
+  let totalFound = 0;
   for (const value of values) {
     const name = clampName(value);
     if (!name) {
@@ -40,15 +56,15 @@ function uniqueNames(values: readonly string[]): string[] {
       continue;
     }
     seen.add(key);
-    names.push(name);
-    if (names.length > EXTRACTION_CAPS.comparableSetMax) {
-      break;
+    totalFound += 1;
+    if (names.length < maxNames) {
+      names.push(name);
     }
   }
-  return names;
+  return { names, totalFound };
 }
 
-function uniqueJsonLdNames(
+function collectJsonLdNames(
   nodes: readonly JsonLdNode[],
   types: ReadonlySet<string>,
 ): string[] {
@@ -62,38 +78,79 @@ function uniqueJsonLdNames(
       values.push(raw);
     }
   }
-  return uniqueNames(values);
+  return values;
 }
 
-function inComparableWindow(names: readonly string[]): boolean {
+function inComparableWindow(count: number): boolean {
   return (
-    names.length >= EXTRACTION_CAPS.comparableSetMin &&
-    names.length <= EXTRACTION_CAPS.comparableSetMax
+    count >= EXTRACTION_CAPS.comparableSetMin &&
+    count <= EXTRACTION_CAPS.comparableSetMax
   );
 }
 
 /**
  * Prefer JSON-LD products, then articles, then DOM product-card titles.
- * Returns undefined when the count is outside the comparable window.
+ * Products may also yield an expandable pool when totalFound > 10.
  */
+export function extractNamedComparableSets(
+  nodes: readonly JsonLdNode[],
+  domProductNames: readonly string[] = [],
+): NamedComparableExtraction {
+  const productRaw = collectJsonLdNames(nodes, PRODUCT_JSON_LD_TYPES);
+  const productPool = uniqueNames(
+    productRaw,
+    EXTRACTION_CAPS.comparableSetExpandMax,
+  );
+  if (productPool.totalFound >= EXTRACTION_CAPS.comparableSetMin) {
+    return buildProductResult(productPool);
+  }
+
+  const articleRaw = collectJsonLdNames(nodes, ARTICLE_JSON_LD_TYPES);
+  const articlePool = uniqueNames(
+    articleRaw,
+    EXTRACTION_CAPS.comparableSetMax,
+  );
+  if (inComparableWindow(articlePool.totalFound)) {
+    return {
+      comparableSet: { kind: "article", names: articlePool.names },
+    };
+  }
+
+  const fromDom = uniqueNames(
+    domProductNames,
+    EXTRACTION_CAPS.comparableSetExpandMax,
+  );
+  if (fromDom.totalFound >= EXTRACTION_CAPS.comparableSetMin) {
+    return buildProductResult(fromDom);
+  }
+
+  return {};
+}
+
+function buildProductResult(pool: {
+  names: string[];
+  totalFound: number;
+}): NamedComparableExtraction {
+  const compact = pool.names.slice(0, EXTRACTION_CAPS.comparableSetMax);
+  if (pool.totalFound <= EXTRACTION_CAPS.comparableSetMax) {
+    return {
+      comparableSet: { kind: "product", names: compact },
+    };
+  }
+  return {
+    comparableSet: { kind: "product", names: compact },
+    expandableNamedSet: {
+      kind: "product",
+      names: pool.names,
+      totalFound: pool.totalFound,
+    },
+  };
+}
+
+/** @deprecated Prefer extractNamedComparableSets — kept for call-site clarity. */
 export function extractComparableSet(
   nodes: readonly JsonLdNode[],
   domProductNames: readonly string[] = [],
 ): ComparableSet | undefined {
-  const productNames = uniqueJsonLdNames(nodes, PRODUCT_JSON_LD_TYPES);
-  if (inComparableWindow(productNames)) {
-    return { kind: "product", names: productNames };
-  }
-
-  const articleNames = uniqueJsonLdNames(nodes, ARTICLE_JSON_LD_TYPES);
-  if (inComparableWindow(articleNames)) {
-    return { kind: "article", names: articleNames };
-  }
-
-  const fromDom = uniqueNames(domProductNames);
-  if (inComparableWindow(fromDom)) {
-    return { kind: "product", names: fromDom };
-  }
-
-  return undefined;
+  return extractNamedComparableSets(nodes, domProductNames).comparableSet;
 }
