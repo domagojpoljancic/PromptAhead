@@ -202,7 +202,6 @@
     </div>
 
     <header class="app-header">
-      <p class="eyebrow">PromptAhead</p>
       <h1>Your next question, prepared</h1>
       <p class="lede">
         Manual by default — page context stays on this device. Choose a direction, refine,
@@ -210,7 +209,12 @@
       </p>
     </header>
     <main class="shell">
-      <p class="shell__status" id="status" role="status" aria-live="polite">
+      <div class="shell__toolbar">
+        <button type="button" class="btn" id="refresh-context">
+          Refresh from page
+        </button>
+      </div>
+      <p class="shell__status" id="status" role="status" aria-live="polite" hidden>
         Reading this page…
       </p>
 
@@ -259,16 +263,20 @@
             Back to directions
           </button>
         </nav>
-        <h2 class="workflow__heading">Refine</h2>
+        <h2 class="workflow__heading">Optional note</h2>
+        <p class="workflow__hint" id="refine-hint">
+          Add a short preference if you want — or leave blank and continue to build the
+          prompt.
+        </p>
         <p class="workflow__selected" id="selected-action"></p>
         <label class="field" for="user-note">
-          <span class="field__label">Anything to add?</span>
+          <span class="field__label">Your note (optional)</span>
           <textarea
             id="user-note"
             class="field__input"
             rows="3"
             maxlength="500"
-            placeholder="Optional preferences, constraints, or focus…"
+            placeholder="e.g. keep it brief, focus on risks, use bullet points…"
           ></textarea>
         </label>
         <div class="actions">
@@ -282,7 +290,7 @@
         <nav class="workflow__nav" aria-label="Go back">
           <button type="button" class="btn btn--back" id="back-to-refine">
             <span class="btn__chevron" aria-hidden="true">←</span>
-            Back to refine
+            Back to note
           </button>
         </nav>
         <h2 class="workflow__heading">Review context</h2>
@@ -402,10 +410,7 @@
         </p>
       </section>
 
-      <div class="actions">
-        <button type="button" class="btn" id="refresh-context">
-          Refresh from page
-        </button>
+      <div class="actions actions--footer">
         <button type="button" class="btn" id="open-options">Settings</button>
       </div>
       <p class="shell__debug" id="debug-line">Reading settings…</p>

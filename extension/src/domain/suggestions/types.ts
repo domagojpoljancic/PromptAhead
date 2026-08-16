@@ -81,7 +81,7 @@ export type SuggestionResult = {
 export type PromptGenerationInput = {
   pageContext: PageContext;
   action: SuggestedAction;
-  /** "Anything to add?" — optional, user-authored. */
+  /** Optional free-text note before building the prompt. */
   userNote?: string;
   /** `null`/omitted follows the page language (handoff §19). */
   languageOverride?: string | null;

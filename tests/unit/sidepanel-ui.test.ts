@@ -309,10 +309,16 @@ describe("side panel click-through", () => {
     await boot();
     expect(isVisible("#choose")).toBe(true);
     expect(textOf("#context-title")).toBe("EU AI Act");
+    expect(textOf("#context-url")).toBe("example.com/ai-act");
+    expect(
+      document.getElementById("context-url")?.getAttribute("title"),
+    ).toBe("https://example.com/ai-act");
 
     click('#primary-actions button[data-action-id="article.summarize"]');
     await flush();
     expect(isVisible("#refine")).toBe(true);
+    expect(textOf("#refine .workflow__heading")).toMatch(/optional note/i);
+    expect(textOf("#refine-hint")).toMatch(/optional|leave blank/i);
     expect(textOf("#back-to-choose")).toMatch(/back to directions/i);
 
     const note = document.getElementById("user-note") as HTMLTextAreaElement;
@@ -320,7 +326,7 @@ describe("side panel click-through", () => {
     click("#continue-to-review");
     await flush();
     expect(isVisible("#review")).toBe(true);
-    expect(textOf("#back-to-refine")).toMatch(/back to refine/i);
+    expect(textOf("#back-to-refine")).toMatch(/back to note/i);
 
     click("#build-prompt");
     await flush();
@@ -385,6 +391,13 @@ describe("side panel click-through", () => {
     await boot();
     expect(isVisible("#empty")).toBe(true);
     expect(textOf("#empty-message")).toMatch(/no page captured/i);
+    // Status strip must not repeat the empty card copy (DOM-74).
+    expect(document.querySelector("#status")?.hasAttribute("hidden")).toBe(
+      true,
+    );
+    expect(
+      document.querySelector("#refresh-context")?.classList.contains("btn--primary"),
+    ).toBe(true);
   });
 
   it("shows stale state when refresh fails because access was revoked", async () => {
@@ -414,7 +427,11 @@ describe("side panel click-through", () => {
     expect(isVisible("#choose")).toBe(true);
     click("#refresh-context");
     await flush();
+    // Refresh targets the focused tab, not boundTabId (tab-switch smoke).
     expect(send).toHaveBeenCalledWith(
+      expect.objectContaining({ type: "EXTRACT_ACTIVE_TAB" }),
+    );
+    expect(send).not.toHaveBeenCalledWith(
       expect.objectContaining({ type: "EXTRACT_ACTIVE_TAB", tabId: 7 }),
     );
     expect(isVisible("#choose")).toBe(true);
@@ -422,6 +439,24 @@ describe("side panel click-through", () => {
     expect(
       (document.querySelector("#refresh-context") as HTMLButtonElement).disabled,
     ).toBe(false);
+  });
+
+  it("Refresh does not pin EXTRACT to the previously bound tab", async () => {
+    store.latest = { pageContext: samplePage, tabId: 7 };
+    const otherPage = {
+      ...samplePage,
+      title: "Other page",
+      url: "https://example.com/other",
+    };
+    const { send } = await boot();
+    expect(isVisible("#choose")).toBe(true);
+
+    store.latest = { pageContext: otherPage, tabId: 99 };
+    click("#refresh-context");
+    await flush();
+
+    expect(send).toHaveBeenCalledWith({ type: "EXTRACT_ACTIVE_TAB" });
+    expect(textOf("#context-title")).toBe("Other page");
   });
 
   it("completes onboarding with basic private mode and then shows the workflow", async () => {
@@ -787,6 +822,9 @@ describe("side panel click-through", () => {
     expect(isVisible("#empty")).toBe(true);
     expect(textOf("#empty-message")).toMatch(/not much to prompt ahead/i);
     expect(isVisible("#choose")).toBe(false);
+    expect(document.querySelector("#status")?.hasAttribute("hidden")).toBe(
+      true,
+    );
     expect(suggestActions).not.toHaveBeenCalled();
   });
 

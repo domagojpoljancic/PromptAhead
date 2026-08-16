@@ -1,4 +1,20 @@
-/* Theme tokens live in ../shared/theme.css */
+/* Soft light panel (DOM-74) — ignore OS dark; not pure white. */
+:root {
+  color-scheme: light;
+  --bg: #e8eaef;
+  --surface: #f3f4f7;
+  --text: #1a2230;
+  --muted: #5a6578;
+  --accent: #1a6fb5;
+  --border: #c5ccd8;
+  --danger: #a33a30;
+  --danger-border: color-mix(in srgb, var(--danger) 35%, var(--border));
+  --ok: #1f6b4a;
+  --focus-ring: color-mix(in srgb, var(--accent) 55%, black);
+  --btn-primary-bg: #1a6fb5;
+  --btn-primary-fg: #ffffff;
+  --btn-primary-border: #155a94;
+}
 
 *,
 *::before,
@@ -26,7 +42,7 @@ body {
 }
 
 .eyebrow {
-  margin: 0 0 0.25rem;
+  margin: 0 0 0.4rem;
   font-size: 0.75rem;
   letter-spacing: 0.08em;
   text-transform: uppercase;
@@ -51,6 +67,12 @@ h1 {
   gap: 1rem;
 }
 
+.shell__toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
 .shell__status {
   margin: 0;
   padding: 0.75rem 1rem;
@@ -58,6 +80,11 @@ h1 {
   border-radius: 0.5rem;
   color: var(--muted);
   font-size: 0.875rem;
+}
+
+.shell__status:empty,
+.shell__status[hidden] {
+  display: none !important;
 }
 
 .shell__status--ok {
@@ -99,7 +126,9 @@ h1 {
   margin: 0;
   font-size: 0.75rem;
   color: var(--muted);
-  word-break: break-all;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .context__selection {
@@ -135,6 +164,10 @@ h1 {
   gap: 0.5rem;
 }
 
+.workflow > .actions {
+  margin-top: 0.25rem;
+}
+
 .btn {
   justify-self: start;
   padding: 0.5rem 0.875rem;
@@ -156,8 +189,14 @@ h1 {
 }
 
 .btn--primary {
-  border-color: var(--accent);
-  background: #243247;
+  border-color: var(--btn-primary-border);
+  background: var(--btn-primary-bg);
+  color: var(--btn-primary-fg);
+}
+
+.btn--primary:hover {
+  border-color: var(--btn-primary-fg);
+  filter: brightness(1.06);
 }
 
 .btn--ghost {
@@ -189,7 +228,7 @@ h1 {
 .workflow__nav {
   display: flex;
   align-items: stretch;
-  margin: -0.875rem -1rem 0.15rem;
+  margin: -0.875rem -1rem 0.85rem;
   padding: 0;
   border-bottom: 1px solid var(--border);
   background: color-mix(in srgb, var(--accent) 14%, var(--bg));
@@ -575,7 +614,7 @@ body.sensitive-override-active .shell {
 .onboarding__nav {
   display: flex;
   align-items: stretch;
-  margin: -1rem -1.125rem 0.15rem;
+  margin: -1rem -1.125rem 0.85rem;
   padding: 0;
   border-bottom: 1px solid var(--border);
   background: color-mix(in srgb, var(--accent) 14%, var(--bg));
@@ -612,6 +651,39 @@ body.sensitive-override-active .shell {
   font-size: 1.05rem;
   line-height: 1;
   color: var(--accent);
+}
+
+.onboarding__step {
+  display: grid;
+  gap: 0;
+}
+
+.onboarding__step > .field {
+  margin-top: 0.25rem;
+}
+
+.onboarding__step > .actions {
+  margin-top: 1.35rem;
+}
+
+.onboarding__step[data-step="nano"] > .actions {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 0.65rem;
+  margin-top: 1.35rem;
+}
+
+.onboarding__step[data-step="nano"] > .actions .btn {
+  width: 100%;
+  justify-self: stretch;
+  text-align: center;
+  min-height: 2.5rem;
+  padding: 0.65rem 1rem;
+}
+
+.onboarding__step[data-step="nano"] > .actions .btn--ghost {
+  border-color: var(--border);
+  background: var(--bg);
 }
 
 .onboarding__heading {

@@ -68,6 +68,20 @@ async function resolveTab(explicitTabId?: number): Promise<ResolvedTab | null> {
   };
 }
 
+/** Focused tab only — ignores last-gesture pointer (Refresh after tab switch). */
+async function resolveFocusedTab(
+  explicitTabId?: number,
+): Promise<ResolvedTab | null> {
+  if (typeof explicitTabId === "number") {
+    return resolveTab(explicitTabId);
+  }
+  const tab = await getActiveTab();
+  if (tab?.id === undefined) {
+    return null;
+  }
+  return { id: tab.id, url: tab.url };
+}
+
 export async function handleBackgroundRequest(
   request: BackgroundRequest,
   context: RequestContext = {},
@@ -156,7 +170,9 @@ export async function handleBackgroundRequest(
     }
 
     case "EXTRACT_ACTIVE_TAB": {
-      const tab = await resolveTab(request.tabId);
+      // Without an explicit tabId, use the focused tab — not lastGesture.
+      // Otherwise Refresh after a tab switch silently re-reads the old page.
+      const tab = await resolveFocusedTab(request.tabId);
       if (tab === null) {
         return {
           ok: false,
@@ -174,7 +190,12 @@ export async function handleBackgroundRequest(
             pageContext: outcome.pageContext,
             tabId: tab.id,
           }
-        : { ok: false, type: "EXTRACT_ACTIVE_TAB", error: outcome.error };
+        : {
+            ok: false,
+            type: "EXTRACT_ACTIVE_TAB",
+            error: outcome.error,
+            tabId: tab.id,
+          };
     }
 
     case "WATCH_SELECTION": {

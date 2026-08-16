@@ -43,13 +43,13 @@ export const MICROCOPY_POOLS: Record<MicrocopySurface, readonly string[]> = {
     "Tiny model, big think…",
   ],
   successStay: [
-    "Opened destination. Panel stays open.",
-    "Destination opened — nothing was submitted.",
+    "Destination opened with your prompt ready — PromptAhead never auto-submits.",
+    "Opened the chat — PromptAhead did not send the prompt for you.",
     "You’re set. Panel stays open.",
   ],
   copiedStay: [
     "Prompt copied. Panel stays open.",
-    "On the clipboard — panel stays open.",
+    "On the clipboard — paste when you’re ready. PromptAhead did not submit it.",
     "Copied. Paste when you’re ready.",
   ],
 };
