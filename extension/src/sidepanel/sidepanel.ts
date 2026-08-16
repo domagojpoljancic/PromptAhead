@@ -259,7 +259,8 @@ export async function initSidePanel(
     }
   }
 
-  const PROMPT_BUILD_MIN_MS = 320;
+  /** Keep the build strip visible long enough to read; matches CSS `build-fill`. */
+  const PROMPT_BUILD_MIN_MS = 1000;
 
   function setPromptBuildBusy(busy: boolean): void {
     const review = stepElements.review;
@@ -268,6 +269,13 @@ export async function initSidePanel(
       review.classList.toggle("workflow--building", busy);
     }
     setHidden(busyEl, !busy);
+    const bar = busyEl?.querySelector(".build-busy__bar");
+    if (busy && bar instanceof HTMLElement) {
+      // Restart fill animation when Build is clicked again.
+      bar.style.animation = "none";
+      void bar.offsetWidth;
+      bar.style.animation = "";
+    }
     if (buildPromptButton instanceof HTMLButtonElement) {
       buildPromptButton.textContent = busy ? "Building…" : "Build prompt";
       if (busy) {

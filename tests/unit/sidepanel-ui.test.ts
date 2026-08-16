@@ -320,7 +320,7 @@ describe("side panel click-through", () => {
     await flush();
     expect(isVisible("#prompt-build-busy")).toBe(true);
     expect(textOf("#build-prompt")).toMatch(/building/i);
-    await waitMs(400);
+    await waitMs(1100);
     expect(isVisible("#prompt")).toBe(true);
     expect(isVisible("#prompt-build-busy")).toBe(false);
     expect(
