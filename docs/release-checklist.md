@@ -2,7 +2,8 @@
 
 **Status:** Internal checklist (DOM-44)  
 **Product version in repo:** `0.1.0` (`extension/manifest.config.ts`) — bump before a real store push  
-**Privacy disclosure:** [`chrome-web-store-privacy.md`](./chrome-web-store-privacy.md)
+**Privacy disclosure:** [`chrome-web-store-privacy.md`](./chrome-web-store-privacy.md)  
+**§25 acceptance + rubric:** [`acceptance-map-m4.md`](./acceptance-map-m4.md) (DOM-45)
 
 Use this for a **submission dry run**. Tick boxes only when verified on the **built** unpacked (or zipped) package you intend to upload.
 

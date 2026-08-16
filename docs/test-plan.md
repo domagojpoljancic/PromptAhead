@@ -276,7 +276,9 @@ A milestone’s tests are done when:
 
 ## 12. Acceptance criteria mapping (handoff §25)
 
-Owner for M1 Manual close: **DOM-12**. Nano / Smart / final polish rows point at follow-up issues — do not block M1 Done on them.
+**Full-product map (M4):** [`acceptance-map-m4.md`](./acceptance-map-m4.md) — [DOM-45](https://linear.app/domagojp/issue/DOM-45). Supersedes Manual-only [DOM-12](https://linear.app/domagojp/issue/DOM-12) for release readiness.
+
+Owner for historical M1 Manual close: **DOM-12**. Rows below remain a quick index; prefer the M4 doc for the consolidated manual pass + rubric sheet.
 
 ### Manual-related (M1 — covered now)
 
@@ -294,12 +296,12 @@ Owner for M1 Manual close: **DOM-12**. Nano / Smart / final polish rows point at
 | Curated mode with Prompt API disabled | CI default `SUGGESTION_ENGINE=curated` + mock-nano / force-disabled modes |
 | Stale after navigate / `activeTab` revoke | Vitest access-lost → `#stale`; Playwright navigate → stale; **manual smoke** Refresh after navigate |
 
-**Recorded smoke:** DOM-12 Linear comment (2026-08-03) + checklist on the issue. Still manual-only at release: real toolbar gesture, OS clipboard paste check, one live provider Open-in, Network tab no-backend check.
+**Recorded smoke:** DOM-12 Linear comment (2026-08-03) + checklist on the issue. Still manual-only at release: real toolbar gesture, OS clipboard paste check, one live provider Open-in, Network tab no-backend check. Re-verify on the current cut via [`acceptance-map-m4.md`](./acceptance-map-m4.md) §4.
 
-### Deferred (not M1 Done blockers)
+### Nano / Smart / M4 (mapped in acceptance-map-m4)
 
-| Handoff §25 criterion | Follow-up |
+| Handoff §25 criterion | Coverage |
 | --- | --- |
-| Smart optional + revocable; never proactive on protected pages | [DOM-38](https://linear.app/domagojp/issue/DOM-38) (M3 Smart smoke + Manual regression after revoke); sensitive fixtures also grow under M3/M4 |
-| Nano returns 3+ actions in page language; invalid/slow → fallback; Nano usefulness ≥80% eval | [DOM-31](https://linear.app/domagojp/issue/DOM-31) (M2 Nano manual verification); mock contracts already in Vitest |
-| Final full §25 map + eval rubric dry run; a11y / polish acceptance | [DOM-45](https://linear.app/domagojp/issue/DOM-45) (M4) |
+| Smart optional + revocable; never proactive on protected pages | Playwright Smart invite/pause/revoke; Vitest sensitive proactive matrix; manual ticks in acceptance-map §4C |
+| Nano returns 3+ actions; invalid/slow → fallback; usefulness ≥80% eval | Vitest Nano contracts + Playwright Nano-off; hardware rubric sheet in acceptance-map §5 / DOM-31 |
+| A11y / polish / store disclosure | Playwright axe; polish shipped; [`chrome-web-store-privacy.md`](./chrome-web-store-privacy.md) |
