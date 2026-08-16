@@ -1,18 +1,4 @@
-:root {
-  --bg: #f5f7fb;
-  --surface: #ffffff;
-  --text: #1a2332;
-  --muted: #5c6b80;
-  --border: #d8dee8;
-  --danger: #a33a30;
-  --danger-border: #c04a3f;
-  --ok: #1f6b4a;
-  font-family:
-    system-ui,
-    -apple-system,
-    "Segoe UI",
-    sans-serif;
-}
+/* Theme tokens live in ../shared/theme.css */
 
 *,
 *::before,
@@ -180,7 +166,7 @@ input[type="text"] {
 }
 
 .btn:hover {
-  border-color: #8fa0b8;
+  border-color: var(--accent);
 }
 
 .btn--danger {
@@ -207,7 +193,6 @@ input[type="text"] {
 }
 
 .nano-progress__bar {
-  --accent: #2f5d9f;
   height: 0.5rem;
   border-radius: 999px;
   background: color-mix(in srgb, var(--accent) 25%, var(--border));
@@ -243,4 +228,12 @@ input[type="text"] {
   margin: 0;
   font-size: 0.8125rem;
   color: var(--muted);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .nano-progress__bar[data-indeterminate="true"]::after {
+    animation: none;
+    width: 45%;
+    transform: none;
+  }
 }

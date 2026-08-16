@@ -2,6 +2,7 @@ import {
   isBackgroundEvent,
   sendToBackground as defaultSendToBackground,
 } from "../shared/messaging";
+import { pickMicrocopy } from "../shared/microcopy";
 import type { PageContext } from "../shared/types/page-context";
 import {
   DESTINATION_IDS,
@@ -15,7 +16,6 @@ import {
   type OpenLLMResult,
 } from "../domain/destinations";
 import {
-  NANO_THINKING_COPY,
   copyForNanoPanelNotice,
   didNanoFallBackToCurated,
   nanoPanelNoticeForPreference,
@@ -231,8 +231,8 @@ export async function initSidePanel(
     clearWorkflowData();
     setNanoFallbackVisible(false);
     showStep("empty");
-    setText(emptyMessage, "Reading this page…");
-    setText(statusLine, "Reading this page…");
+    setText(emptyMessage, pickMicrocopy("reading"));
+    setText(statusLine, pickMicrocopy("reading"));
   }
 
   function setText(element: HTMLElement | null, text: string): void {
@@ -592,7 +592,7 @@ export async function initSidePanel(
       return;
     }
     showStep("understanding");
-    setText(statusLine, "Reading this page…");
+    setText(statusLine, pickMicrocopy("reading"));
     const response = await send({
       type: "EXTRACT_ACTIVE_TAB",
       tabId,
@@ -662,12 +662,12 @@ export async function initSidePanel(
     setText(
       understandingMessage,
       willTryNano
-        ? "Asking on-device AI for page-specific directions…"
-        : "Capturing compact context and ranking directions…",
+        ? pickMicrocopy("understandingNano")
+        : pickMicrocopy("understanding"),
     );
     setText(
       statusLine,
-      willTryNano ? NANO_THINKING_COPY : "Building suggestions…",
+      willTryNano ? pickMicrocopy("nanoThinking") : pickMicrocopy("building"),
     );
     try {
       if (preferNano && preflightNotice !== "none") {
@@ -1032,8 +1032,8 @@ export async function initSidePanel(
       setText(
         statusLine,
         result.mode === "clipboard" || result.mode === "copy-only"
-          ? "Prompt copied. Panel stays open."
-          : "Opened destination. Panel stays open.",
+          ? pickMicrocopy("copiedStay")
+          : pickMicrocopy("successStay"),
       );
     } catch (error) {
       const message = error instanceof Error ? error.message : "Handoff failed";
@@ -1050,7 +1050,7 @@ export async function initSidePanel(
       return;
     }
     showStep("understanding");
-    setText(statusLine, "Reading this page…");
+    setText(statusLine, pickMicrocopy("reading"));
 
     const response = await send({
       type: "GET_LATEST_PAGE_CONTEXT",

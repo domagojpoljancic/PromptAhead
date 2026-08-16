@@ -8,6 +8,10 @@ import {
   type SidePanelController,
 } from "../../extension/src/sidepanel/sidepanel";
 import { resetOnboardingForTests } from "../../extension/src/sidepanel/onboarding";
+import {
+  resetMicrocopyRandomForTests,
+  setMicrocopyRandomForTests,
+} from "../../extension/src/shared/microcopy";
 import { EMPTY_SOURCE_INCLUSION_MESSAGE } from "../../extension/src/sidepanel/context-inclusion";
 import {
   NAVIGATED_FROM_EMPTY_MESSAGE,
@@ -235,6 +239,7 @@ describe("side panel click-through", () => {
 
   beforeEach(() => {
     resetOnboardingForTests();
+    setMicrocopyRandomForTests(() => 0);
     mountExtensionHtml("sidepanel/index.html");
     store = {
       settings: { ...DEFAULT_SETTINGS },
@@ -247,6 +252,7 @@ describe("side panel click-through", () => {
   afterEach(() => {
     controller?.dispose();
     controller = undefined;
+    resetMicrocopyRandomForTests();
   });
 
   async function boot(overrides: {

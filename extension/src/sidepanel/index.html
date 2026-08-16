@@ -4,6 +4,7 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>PromptAhead</title>
+    <link rel="stylesheet" href="../shared/theme.css" />
     <link rel="stylesheet" href="./sidepanel.css" />
   </head>
   <body>
@@ -209,7 +210,9 @@
       </p>
     </header>
     <main class="shell">
-      <p class="shell__status" id="status" role="status">Reading this page…</p>
+      <p class="shell__status" id="status" role="status" aria-live="polite">
+        Reading this page…
+      </p>
 
       <section class="context" id="context-summary" hidden>
         <p class="context__type" id="context-type"></p>
@@ -348,7 +351,14 @@
 
       <section class="workflow" id="success" hidden>
         <h2 class="workflow__heading">Done</h2>
-        <p class="shell__status shell__status--ok" id="success-message">Copied.</p>
+        <p
+          class="shell__status shell__status--ok"
+          id="success-message"
+          role="status"
+          aria-live="polite"
+        >
+          Copied.
+        </p>
         <div class="actions">
           <button type="button" class="btn btn--primary" id="edit-prompt">
             Edit prompt
