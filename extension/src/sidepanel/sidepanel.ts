@@ -259,6 +259,31 @@ export async function initSidePanel(
     }
   }
 
+  const PROMPT_BUILD_MIN_MS = 320;
+
+  function setPromptBuildBusy(busy: boolean): void {
+    const review = stepElements.review;
+    const busyEl = document.getElementById("prompt-build-busy");
+    if (review instanceof HTMLElement) {
+      review.classList.toggle("workflow--building", busy);
+    }
+    setHidden(busyEl, !busy);
+    if (buildPromptButton instanceof HTMLButtonElement) {
+      buildPromptButton.textContent = busy ? "Building…" : "Build prompt";
+      if (busy) {
+        buildPromptButton.disabled = true;
+      } else {
+        updateBuildPromptEnabled();
+      }
+    }
+  }
+
+  function delay(ms: number): Promise<void> {
+    return new Promise((resolve) => {
+      setTimeout(resolve, ms);
+    });
+  }
+
   function readInclusionFromDom(): ContextInclusion {
     return {
       titleUrl:
@@ -885,15 +910,21 @@ export async function initSidePanel(
     const filtered = applyContextInclusion(pageContext, inclusion);
 
     setText(statusLine, "Building prompt…");
+    setPromptBuildBusy(true);
     try {
       const preference = await resolveNanoPreference();
       const engine = await selectEngine(preference);
-      builtPrompt = await engine.generatePrompt({
-        pageContext: filtered,
-        action: selectedAction,
-        userNote: note,
-      });
+      const [promptText] = await Promise.all([
+        engine.generatePrompt({
+          pageContext: filtered,
+          action: selectedAction,
+          userNote: note,
+        }),
+        delay(PROMPT_BUILD_MIN_MS),
+      ]);
+      builtPrompt = promptText;
     } catch (error) {
+      setPromptBuildBusy(false);
       const message =
         error instanceof Error ? error.message : "Could not build the prompt";
       renderFallback("prompt", `${message}. Adjust inclusions or retry.`, {
@@ -902,6 +933,7 @@ export async function initSidePanel(
       return;
     }
 
+    setPromptBuildBusy(false);
     if (promptTextArea instanceof HTMLTextAreaElement) {
       promptTextArea.value = builtPrompt;
     }

@@ -240,7 +240,10 @@
       </section>
 
       <section class="workflow" id="refine" hidden>
-        <button type="button" class="btn btn--back" id="back-to-choose">← Back</button>
+        <button type="button" class="btn btn--back" id="back-to-choose">
+          <span class="btn__chevron" aria-hidden="true">←</span>
+          Back to directions
+        </button>
         <h2 class="workflow__heading">Refine</h2>
         <p class="workflow__selected" id="selected-action"></p>
         <label class="field" for="user-note">
@@ -261,7 +264,10 @@
       </section>
 
       <section class="workflow" id="review" hidden>
-        <button type="button" class="btn btn--back" id="back-to-refine">← Back</button>
+        <button type="button" class="btn btn--back" id="back-to-refine">
+          <span class="btn__chevron" aria-hidden="true">←</span>
+          Back to refine
+        </button>
         <h2 class="workflow__heading">Review context</h2>
         <p class="workflow__hint">
           Choose what to include in the prompt. Preview is collapsed — expand to inspect.
@@ -289,6 +295,12 @@
             <span>Your note</span>
           </label>
         </fieldset>
+        <div class="build-busy" id="prompt-build-busy" hidden>
+          <div class="build-busy__row">
+            <span class="build-busy__pulse" aria-hidden="true"></span>
+            <span id="prompt-build-busy-label">Preparing your prompt…</span>
+          </div>
+        </div>
         <div class="actions">
           <button type="button" class="btn btn--primary" id="build-prompt">
             Build prompt
@@ -297,7 +309,10 @@
       </section>
 
       <section class="workflow" id="prompt" hidden>
-        <button type="button" class="btn btn--back" id="back-to-review">← Back</button>
+        <button type="button" class="btn btn--back" id="back-to-review">
+          <span class="btn__chevron" aria-hidden="true">←</span>
+          Back to review
+        </button>
         <h2 class="workflow__heading">Prompt ready</h2>
         <p class="workflow__meta" id="prompt-meta"></p>
         <textarea

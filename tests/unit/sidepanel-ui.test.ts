@@ -32,6 +32,7 @@ import {
   isVisible,
   mountExtensionHtml,
   textOf,
+  waitMs,
 } from "./helpers/mount-html";
 
 const samplePage: PageContext = {
@@ -306,19 +307,26 @@ describe("side panel click-through", () => {
     click('#primary-actions button[data-action-id="article.summarize"]');
     await flush();
     expect(isVisible("#refine")).toBe(true);
+    expect(textOf("#back-to-choose")).toMatch(/back to directions/i);
 
     const note = document.getElementById("user-note") as HTMLTextAreaElement;
     note.value = "focus on timeline";
     click("#continue-to-review");
     await flush();
     expect(isVisible("#review")).toBe(true);
+    expect(textOf("#back-to-refine")).toMatch(/back to refine/i);
 
     click("#build-prompt");
     await flush();
+    expect(isVisible("#prompt-build-busy")).toBe(true);
+    expect(textOf("#build-prompt")).toMatch(/building/i);
+    await waitMs(400);
     expect(isVisible("#prompt")).toBe(true);
+    expect(isVisible("#prompt-build-busy")).toBe(false);
     expect(
       (document.getElementById("prompt-text") as HTMLTextAreaElement).value,
     ).toContain("SOURCE_DATA");
+    expect(textOf("#back-to-review")).toMatch(/back to review/i);
 
     click("#destination-actions button");
     await flush();

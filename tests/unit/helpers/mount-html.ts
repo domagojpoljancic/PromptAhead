@@ -53,3 +53,11 @@ export async function flush(): Promise<void> {
     setTimeout(resolve, 0);
   });
 }
+
+/** Wait for async UI that uses real timers (e.g. prompt-build min delay). */
+export async function waitMs(ms: number): Promise<void> {
+  await new Promise<void>((resolve) => {
+    setTimeout(resolve, ms);
+  });
+  await flush();
+}
