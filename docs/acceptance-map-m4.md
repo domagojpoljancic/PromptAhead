@@ -22,7 +22,7 @@
 | Nano suggest + curated fallback + Settings force-basic | Shipped |
 | Smart grant/revoke, invite badge, pause, sensitive proactive block | Shipped |
 | Sensitive Manual override, injection fixtures | Shipped |
-| Polish: motion/Back, onboarding check loading, microcopy, dark theme, a11y focus | Shipped |
+| Polish: motion/Back, onboarding check loading, microcopy, dark theme, a11y focus | Shipped; **DOM-74** panel force-dark + empty IA — smoke with this pass |
 | Store privacy draft + release checklist | Shipped (DOM-44) |
 | Compare ≤10 + opt-in Include all N ≤40 | Shipped on `main` (DOM-68) — smoke with this pass |
 
@@ -99,10 +99,12 @@ Run on unpacked `extension/dist/` after `npm run build` from current `main`.
 
 ### E. Polish / onboarding (M4, not all in §25 wording)
 
-- [ ] Onboarding: Nano **checking** shows progress; **Back** strip works
+- [ ] Panel is **dark** even if OS is light; **Continue** / primary buttons have readable light labels
+- [ ] Onboarding: Nano **checking** shows progress; **Back** strip has clear space before the headline
 - [ ] Step enter motion + prompt-build “Preparing…” bar
-- [ ] Workflow **Back** nav strip obvious
-- [ ] Options page readable (dark-first / OS light)
+- [ ] Workflow **Back** nav strip obvious (not glued to the title)
+- [ ] Empty / idle: **one** “No page captured…” message (no dashed status duplicate); **Refresh** at top (primary); **Settings** at bottom
+- [ ] Options page readable (may follow OS light)
 - [ ] Loading/success microcopy may vary; sensitive warnings stay sober
 
 ### F. Compare expand — DOM-68

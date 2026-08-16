@@ -239,13 +239,19 @@ export async function initSidePanel(
     setNanoFallbackVisible(false);
     showStep("empty");
     setText(emptyMessage, pickMicrocopy("reading"));
-    setText(statusLine, pickMicrocopy("reading"));
+    setStatusMessage("");
   }
 
   function setText(element: HTMLElement | null, text: string): void {
     if (element) {
       element.textContent = text;
     }
+  }
+
+  /** Status strip is transient only — hide when empty so empty/stale cards own the copy (DOM-74). */
+  function setStatusMessage(text: string): void {
+    setText(statusLine, text);
+    setHidden(statusLine, text.trim() === "");
   }
 
   function setHidden(element: HTMLElement | null, hidden: boolean): void {
@@ -263,6 +269,10 @@ export async function initSidePanel(
     currentStep = next;
     for (const [id, element] of Object.entries(stepElements)) {
       setHidden(element, id !== next);
+    }
+    const emptyish = next === "empty" || next === "stale";
+    if (refreshButton instanceof HTMLButtonElement) {
+      refreshButton.classList.toggle("btn--primary", emptyish);
     }
   }
 
@@ -542,7 +552,7 @@ export async function initSidePanel(
     boundTabId = null;
     showStep("empty");
     setText(emptyMessage, message);
-    setText(statusLine, message);
+    setStatusMessage("");
   }
 
   /**
@@ -558,7 +568,7 @@ export async function initSidePanel(
     }
     showStep("empty");
     setText(emptyMessage, message);
-    setText(statusLine, message);
+    setStatusMessage("");
   }
 
   function stopSelectionWatchIfBound(): void {
@@ -573,7 +583,7 @@ export async function initSidePanel(
     showStep("stale");
     setText(staleMessage, message);
     // Keep the status strip empty so the revoke copy isn't duplicated.
-    setText(statusLine, "");
+    setStatusMessage("");
   }
 
   function renderFallback(
@@ -588,7 +598,7 @@ export async function initSidePanel(
       kind === "handoff" ? "Couldn’t hand off" : "Something went wrong",
     );
     setText(fallbackMessage, message);
-    setText(statusLine, "");
+    setStatusMessage("");
     setHidden(fallbackChoose, !options.canChoose);
   }
 
@@ -608,7 +618,7 @@ export async function initSidePanel(
       category: detail.category,
       url: detail.url,
     });
-    setText(statusLine, "");
+    setStatusMessage("");
   }
 
   async function confirmSensitiveOverride(): Promise<void> {
@@ -620,7 +630,7 @@ export async function initSidePanel(
       return;
     }
     showStep("understanding");
-    setText(statusLine, pickMicrocopy("reading"));
+    setStatusMessage(pickMicrocopy("reading"));
     const response = await send({
       type: "EXTRACT_ACTIVE_TAB",
       tabId,
@@ -693,10 +703,7 @@ export async function initSidePanel(
         ? pickMicrocopy("understandingNano")
         : pickMicrocopy("understanding"),
     );
-    setText(
-      statusLine,
-      willTryNano ? pickMicrocopy("nanoThinking") : pickMicrocopy("building"),
-    );
+    setStatusMessage(willTryNano ? pickMicrocopy("nanoThinking") : pickMicrocopy("building"));
     try {
       if (preferNano && preflightNotice !== "none") {
         const curated = await selectEngine("basic");
@@ -710,7 +717,7 @@ export async function initSidePanel(
         }
         renderSuggestions(result, { nanoNotice: preflightNotice });
         showStep("choose");
-        setText(statusLine, copyForNanoPanelNotice(preflightNotice));
+        setStatusMessage(copyForNanoPanelNotice(preflightNotice));
         setText(
           debugLine,
           `nano blocked · ${preflightNotice}`,
@@ -754,7 +761,7 @@ export async function initSidePanel(
       renderSuggestions(result, { nanoNotice: notice });
       showStep("choose");
       if (notice !== "none") {
-        setText(statusLine, copyForNanoPanelNotice(notice));
+        setStatusMessage(copyForNanoPanelNotice(notice));
         const parts = [
           result.debug?.elapsedMs !== undefined
             ? `nano ${formatElapsed(result.debug.elapsedMs)}`
@@ -767,10 +774,7 @@ export async function initSidePanel(
           setText(debugLine, parts.join(" · "));
         }
       } else {
-        setText(
-          statusLine,
-          `Page context captured (${result.engineId}) — nothing leaves this device.`,
-        );
+        setStatusMessage(`Page context captured (${result.engineId}) — nothing leaves this device.`);
         if (
           result.engineId === "nano" &&
           result.debug?.elapsedMs !== undefined
@@ -813,7 +817,7 @@ export async function initSidePanel(
           }
           renderSuggestions(result, { nanoNotice: notice });
           showStep("choose");
-          setText(statusLine, copyForNanoPanelNotice(notice));
+          setStatusMessage(copyForNanoPanelNotice(notice));
           return;
         } catch {
           // fall through to hard fallback
@@ -894,7 +898,7 @@ export async function initSidePanel(
     inclusion = { ...DEFAULT_CONTEXT_INCLUSION };
     renderPageIdentity(ctx);
     showStep("understanding");
-    setText(statusLine, "Understanding this page…");
+    setStatusMessage("Understanding this page…");
     try {
       await loadSuggestions(ctx);
       if (generation === suggestionGeneration) {
@@ -914,7 +918,7 @@ export async function initSidePanel(
       userNoteInput.value = "";
     }
     showStep("refine");
-    setText(statusLine, "Add an optional note, then continue.");
+    setStatusMessage("Add an optional note, then continue.");
   }
 
   function openReviewStep(): void {
@@ -925,7 +929,7 @@ export async function initSidePanel(
     renderContextPreview();
     updateBuildPromptEnabled();
     showStep("review");
-    setText(statusLine, "Review what to include, then build the prompt.");
+    setStatusMessage("Review what to include, then build the prompt.");
   }
 
   async function buildPromptFromSelection(): Promise<void> {
@@ -936,7 +940,7 @@ export async function initSidePanel(
     if (
       !hasUsableSourceInclusion(inclusion, inclusionAvailability(pageContext))
     ) {
-      setText(statusLine, EMPTY_SOURCE_INCLUSION_MESSAGE);
+      setStatusMessage(EMPTY_SOURCE_INCLUSION_MESSAGE);
       updateBuildPromptEnabled();
       return;
     }
@@ -945,7 +949,7 @@ export async function initSidePanel(
     const note = applyUserNoteInclusion(noteRaw, inclusion);
     const filtered = applyContextInclusion(pageContext, inclusion);
 
-    setText(statusLine, "Building prompt…");
+    setStatusMessage("Building prompt…");
     setPromptBuildBusy(true);
     try {
       const preference = await resolveNanoPreference();
@@ -979,7 +983,7 @@ export async function initSidePanel(
     );
     renderDestinationButtons();
     showStep("prompt");
-    setText(statusLine, "Review the prompt, then copy or open a destination.");
+    setStatusMessage("Review the prompt, then copy or open a destination.");
   }
 
   function renderDestinationButtons(): void {
@@ -1057,8 +1061,7 @@ export async function initSidePanel(
 
       setText(successMessage, successCopyForHandoff(destination, result.mode));
       showStep("success");
-      setText(
-        statusLine,
+      setStatusMessage(
         result.mode === "clipboard" || result.mode === "copy-only"
           ? pickMicrocopy("copiedStay")
           : pickMicrocopy("successStay"),
@@ -1078,7 +1081,7 @@ export async function initSidePanel(
       return;
     }
     showStep("understanding");
-    setText(statusLine, pickMicrocopy("reading"));
+    setStatusMessage(pickMicrocopy("reading"));
 
     const response = await send({
       type: "GET_LATEST_PAGE_CONTEXT",
@@ -1133,7 +1136,7 @@ export async function initSidePanel(
     }
     refreshButton.disabled = true;
     showStep("understanding");
-    setText(statusLine, "Re-reading this page…");
+    setStatusMessage("Re-reading this page…");
     // Same-page refresh must not no-op on lastAcceptedKey (would stick on Re-reading).
     lastAcceptedKey = null;
     acceptingKey = null;
@@ -1192,7 +1195,7 @@ export async function initSidePanel(
         return;
       case "handoff":
         showStep("prompt");
-        setText(statusLine, "Try copying or opening a destination again.");
+        setStatusMessage("Try copying or opening a destination again.");
         return;
       default:
         await loadLatestContext();
@@ -1345,12 +1348,12 @@ export async function initSidePanel(
 
   on(document.getElementById("back-to-choose"), "click", () => {
     showStep("choose");
-    setText(statusLine, "Choose a direction.");
+    setStatusMessage("Choose a direction.");
   });
 
   on(document.getElementById("back-to-refine"), "click", () => {
     showStep("refine");
-    setText(statusLine, "Add an optional note, then continue.");
+    setStatusMessage("Add an optional note, then continue.");
   });
 
   on(document.getElementById("back-to-review"), "click", () => {
@@ -1359,7 +1362,7 @@ export async function initSidePanel(
 
   on(document.getElementById("edit-prompt"), "click", () => {
     showStep("prompt");
-    setText(statusLine, "Edit the prompt, then copy or open a destination.");
+    setStatusMessage("Edit the prompt, then copy or open a destination.");
   });
 
   on(document.getElementById("start-over"), "click", () => {
@@ -1372,7 +1375,7 @@ export async function initSidePanel(
           : "none";
       renderSuggestions(suggestions, { nanoNotice: notice });
       showStep("choose");
-      setText(statusLine, "Choose another direction.");
+      setStatusMessage("Choose another direction.");
     }
   });
 
@@ -1383,7 +1386,7 @@ export async function initSidePanel(
   on(fallbackChoose, "click", () => {
     if (suggestions) {
       showStep("choose");
-      setText(statusLine, "Choose a direction.");
+      setStatusMessage("Choose a direction.");
     }
   });
 
@@ -1415,9 +1418,9 @@ export async function initSidePanel(
           inclusionAvailability(pageContext),
         )
       ) {
-        setText(statusLine, EMPTY_SOURCE_INCLUSION_MESSAGE);
+        setStatusMessage(EMPTY_SOURCE_INCLUSION_MESSAGE);
       } else if (currentStep === "review") {
-        setText(statusLine, "Review what to include, then build the prompt.");
+        setStatusMessage("Review what to include, then build the prompt.");
       }
     });
   }

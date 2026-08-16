@@ -385,6 +385,13 @@ describe("side panel click-through", () => {
     await boot();
     expect(isVisible("#empty")).toBe(true);
     expect(textOf("#empty-message")).toMatch(/no page captured/i);
+    // Status strip must not repeat the empty card copy (DOM-74).
+    expect(document.querySelector("#status")?.hasAttribute("hidden")).toBe(
+      true,
+    );
+    expect(
+      document.querySelector("#refresh-context")?.classList.contains("btn--primary"),
+    ).toBe(true);
   });
 
   it("shows stale state when refresh fails because access was revoked", async () => {
@@ -787,6 +794,9 @@ describe("side panel click-through", () => {
     expect(isVisible("#empty")).toBe(true);
     expect(textOf("#empty-message")).toMatch(/not much to prompt ahead/i);
     expect(isVisible("#choose")).toBe(false);
+    expect(document.querySelector("#status")?.hasAttribute("hidden")).toBe(
+      true,
+    );
     expect(suggestActions).not.toHaveBeenCalled();
   });
 

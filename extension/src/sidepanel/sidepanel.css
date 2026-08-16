@@ -1,4 +1,20 @@
-/* Theme tokens live in ../shared/theme.css */
+/* Theme tokens live in ../shared/theme.css — panel always dark (DOM-74). */
+:root {
+  color-scheme: dark;
+  --bg: #0f1419;
+  --surface: #1a2332;
+  --text: #e7ecf3;
+  --muted: #9aa8bc;
+  --accent: #6cb6ff;
+  --border: #2d3a4d;
+  --danger: #e8a0a0;
+  --danger-border: color-mix(in srgb, var(--danger) 45%, var(--border));
+  --ok: #7dcea0;
+  --focus-ring: color-mix(in srgb, var(--accent) 70%, white);
+  --btn-primary-bg: #3d7eb8;
+  --btn-primary-fg: #f5f8fc;
+  --btn-primary-border: color-mix(in srgb, var(--btn-primary-bg) 70%, white);
+}
 
 *,
 *::before,
@@ -26,7 +42,7 @@ body {
 }
 
 .eyebrow {
-  margin: 0 0 0.25rem;
+  margin: 0 0 0.4rem;
   font-size: 0.75rem;
   letter-spacing: 0.08em;
   text-transform: uppercase;
@@ -51,6 +67,12 @@ h1 {
   gap: 1rem;
 }
 
+.shell__toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
 .shell__status {
   margin: 0;
   padding: 0.75rem 1rem;
@@ -58,6 +80,11 @@ h1 {
   border-radius: 0.5rem;
   color: var(--muted);
   font-size: 0.875rem;
+}
+
+.shell__status:empty,
+.shell__status[hidden] {
+  display: none !important;
 }
 
 .shell__status--ok {
@@ -156,8 +183,14 @@ h1 {
 }
 
 .btn--primary {
-  border-color: var(--accent);
-  background: #243247;
+  border-color: var(--btn-primary-border);
+  background: var(--btn-primary-bg);
+  color: var(--btn-primary-fg);
+}
+
+.btn--primary:hover {
+  border-color: var(--btn-primary-fg);
+  filter: brightness(1.06);
 }
 
 .btn--ghost {
@@ -189,7 +222,7 @@ h1 {
 .workflow__nav {
   display: flex;
   align-items: stretch;
-  margin: -0.875rem -1rem 0.15rem;
+  margin: -0.875rem -1rem 0.85rem;
   padding: 0;
   border-bottom: 1px solid var(--border);
   background: color-mix(in srgb, var(--accent) 14%, var(--bg));
@@ -575,7 +608,7 @@ body.sensitive-override-active .shell {
 .onboarding__nav {
   display: flex;
   align-items: stretch;
-  margin: -1rem -1.125rem 0.15rem;
+  margin: -1rem -1.125rem 0.85rem;
   padding: 0;
   border-bottom: 1px solid var(--border);
   background: color-mix(in srgb, var(--accent) 14%, var(--bg));

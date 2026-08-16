@@ -210,7 +210,12 @@
       </p>
     </header>
     <main class="shell">
-      <p class="shell__status" id="status" role="status" aria-live="polite">
+      <div class="shell__toolbar">
+        <button type="button" class="btn" id="refresh-context">
+          Refresh from page
+        </button>
+      </div>
+      <p class="shell__status" id="status" role="status" aria-live="polite" hidden>
         Reading this page…
       </p>
 
@@ -402,10 +407,7 @@
         </p>
       </section>
 
-      <div class="actions">
-        <button type="button" class="btn" id="refresh-context">
-          Refresh from page
-        </button>
+      <div class="actions actions--footer">
         <button type="button" class="btn" id="open-options">Settings</button>
       </div>
       <p class="shell__debug" id="debug-line">Reading settings…</p>
