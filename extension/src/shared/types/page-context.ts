@@ -49,6 +49,18 @@ export type ComparableSet = {
   names: string[];
 };
 
+/**
+ * Larger named product pool for optional expand (DOM-68).
+ * Present when more named products were found than the compact ≤10 set.
+ */
+export type ExpandableNamedSet = {
+  kind: "product";
+  /** Names included after the hard ceiling (≤ comparableSetExpandMax). */
+  names: string[];
+  /** Count of distinct named products found before the expand ceiling. */
+  totalFound: number;
+};
+
 export type PageContext = {
   schemaVersion: 1;
   pageType: PageType;
@@ -62,6 +74,8 @@ export type PageContext = {
   generic?: GenericContext;
   /** Set when the page lists a small, named comparable group (≤10). */
   comparableSet?: ComparableSet;
+  /** Set when more named products exist than the compact set (DOM-68). */
+  expandableNamedSet?: ExpandableNamedSet;
 };
 
 /** Compactness caps from handoff §31; extraction (DOM-9) enforces them. */
@@ -74,6 +88,8 @@ export const EXTRACTION_CAPS = {
   /** Inclusive bounds for `comparableSet` (DOM-64). */
   comparableSetMin: 2,
   comparableSetMax: 10,
+  /** Hard ceiling after user opt-in to include all named products (DOM-68). */
+  comparableSetExpandMax: 40,
 } as const;
 
 export function isPageType(value: unknown): value is PageType {

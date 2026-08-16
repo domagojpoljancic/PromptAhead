@@ -62,6 +62,7 @@ describe("context inclusion", () => {
       pageBody: true,
       selectedText: true,
       userNote: true,
+      expandNamedProducts: false,
     });
   });
 

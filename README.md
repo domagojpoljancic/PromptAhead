@@ -1,6 +1,6 @@
 # PromptAhead
 
-> **WIP — M4 store packaging next.** Manual core (M1) + Nano + Smart + polish (motion, onboarding Back, microcopy, theme) are on `main`. Store privacy disclosure + release checklist (DOM-44) in flight; final §25 map (DOM-45) still ahead.
+> **WIP — M4 store packaging + compare expand.** Manual core + Nano + Smart + polish on `main`. Store privacy/release docs (DOM-44) Done. Opt-in “include all named products” (DOM-68) in flight; final §25 map (DOM-45) still ahead.
 
 **Your next question, already prepared.**
 
@@ -20,7 +20,7 @@ Privacy-first Chrome extension (Manifest V3) that notices when you are genuinely
 | M1 acceptance | Manual §25 map + smoke notes in [`docs/test-plan.md`](docs/test-plan.md) |
 | M0 spike harness (`spikes/`) | **Done** — S0.1–S0.7 implemented and run |
 | Spike results (`docs/technical-spikes.md`) | **Filled** — Chrome **150.0.0.0** (2026-08-01) |
-| Extraction | JSON-LD / Open Graph / semantic-HTML classification with size caps; HTML fixtures include JSON-LD + **DOM-only product grids** + **prompt-injection suite**; **page-value gate** (editors / home / large listings → empty unless selection; **≤10 named products/articles → compare-these direction**); Readability deferred |
+| Extraction | JSON-LD / Open Graph / semantic-HTML classification with size caps; HTML fixtures include JSON-LD + **DOM-only product grids** + **prompt-injection suite**; **page-value gate** (editors / home / large listings → empty unless selection; **≤10 named products/articles → compare-these**; **>10 named products → compact compare + opt-in Include all N ≤40**); Readability deferred |
 | Engagement | Domain + content tracker; CRXJS `?script` boot; article invite **30s OR ~⅓ scroll**; low-value skip (DOM-60); **sensitive proactive block** full fixture matrix (DOM-37); **per-tab invite badge** |
 | Invitation (Smart) | State machine + **caps** (once/page · once/domain/day · ≤3/day) + snooze / exclude / global pause persistence (Vitest); SW badge on threshold (no extract); accept → panel + Manual extract/suggest; dismiss·snooze·exclude clear badge; Manual extract still works when proactive paused; Settings **Pause proactive Smart invites**; Playwright **badge→accept→extract** + **pause UI** + revoke→Manual; optional `chrome.notifications` deferred |
 | Suggestions + prompts | Curated + mock-Nano + real `NanoSuggestionEngine` (validate / repair / timeout / curated fallback); small ItemList / multi-product pages get **Compare these N** first; **injection fixtures** assert sealed SOURCE_DATA |
