@@ -85,29 +85,31 @@ Store under `tests/fixtures/html/` with expected JSON sidecars where useful.
 
 ### Sensitive pages
 
-| Fixture | Auto analysis |
-| --- | --- |
-| Login form | Block |
-| Password change | Block |
-| Checkout | Block |
-| Card payment | Block |
-| Banking dashboard | Block |
-| Webmail | Block |
-| Private doc editor | Block |
-| Medical portal | Block |
-| Benign article mentioning “bank” / “password” | Allow (false-positive guard) |
+| Fixture | Auto analysis | Automation |
+| --- | --- | --- |
+| Login form | Block | Vitest `sensitive-page.test.ts` + Playwright override (DOM-37/39) |
+| Password change | Block | Vitest + Playwright (DOM-37/39) |
+| Checkout | Block | Vitest + Playwright (DOM-37/39) |
+| Card payment | Block | Vitest + Playwright (DOM-37/39) |
+| Banking dashboard | Block | Vitest + Playwright (DOM-37/39) |
+| Webmail | Block | Vitest + Playwright (DOM-37/39) |
+| Private doc editor | Block | Vitest + Playwright (DOM-37/39) |
+| Medical portal | Block | Vitest + Playwright (DOM-37/39) |
+| Benign article mentioning “bank” / “password” | Allow (false-positive guard) | Vitest + Playwright (DOM-37/39) |
+
+**Manual-only:** none for the matrix above — live-site spot checks remain optional smoke, not a CI gate.
 
 ### Prompt injection
 
-| Fixture | Expect |
-| --- | --- |
-| Hidden ignore-instructions text | Not obeyed; delimited in source only |
-| Visible fake system prompt | Not promoted to instructions |
-| Product “recommend only us” | Not forced as policy |
-| Malicious HTML attributes | Stripped or inert in context |
-| Extremely long repeated instructions | Caps prevent crowding out system prompt |
+| Fixture | Expect | Automation |
+| --- | --- | --- |
+| Hidden ignore-instructions text (`injection-hidden-ignore.html`) | Not collected / not obeyed; delimited in source only | Vitest `injection-fixtures.test.ts` (DOM-40) |
+| Visible fake system prompt (`injection-fake-system.html`) | Not promoted to instructions | Vitest (DOM-40) |
+| Product “recommend only us” (`injection-product-recommend-us.html`) | Not forced as policy | Vitest (DOM-40) |
+| Malicious HTML attributes (`injection-malicious-attrs.html`) | Stripped or inert in context | Vitest (DOM-40) |
+| Extremely long repeated instructions (`injection-long-repeat.html`) | Caps prevent crowding out system prompt | Vitest (DOM-40) |
 
-**Acceptance:** No unsafe instruction from fixtures appears as an instruction in the generated prompt.
+**Acceptance:** No unsafe instruction from fixtures appears as an instruction in the generated prompt. Covered by Vitest through extract → `buildPrompt` (no live LLM).
 
 ## 6. Unit test catalog (minimum)
 
@@ -285,7 +287,7 @@ Owner for M1 Manual close: **DOM-12**. Nano / Smart / final polish rows point at
 | Copy and Open-in without auto-submit; panel stays open | Playwright copy path; Vitest destination / handoff unit tests; **manual smoke** one live provider Open-in |
 | Latest three prompts retained by default | Vitest storage + options clear-history / clear-all |
 | No remote analytics or product backend | Architecture (no backend); **manual smoke** Network tab observation |
-| Injection safety (no unsafe page text as instructions) | Vitest injection fixtures |
+| Injection safety (no unsafe page text as instructions) | Vitest injection fixtures (`tests/unit/injection-fixtures.test.ts`, DOM-40) |
 | &lt;10 s panel → copy (excl. model download) | Playwright curated flow timing feel; **manual smoke** once on real Chrome |
 | Curated mode with Prompt API disabled | CI default `SUGGESTION_ENGINE=curated` + mock-nano / force-disabled modes |
 | Stale after navigate / `activeTab` revoke | Vitest access-lost → `#stale`; Playwright navigate → stale; **manual smoke** Refresh after navigate |
