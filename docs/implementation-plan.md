@@ -230,12 +230,12 @@ Add `notifications` (and `tabs` only if spike proves necessary). Optional hosts 
 
 ### Checklist
 
-- [ ] Sensitive pages + override
-- [ ] Injection fixtures complete
+- [X] Sensitive pages + override
+- [X] Injection fixtures complete
 - [ ] Full history
 - [ ] Developer mode + export
-- [ ] Polish / a11y / dark mode
-- [ ] Store privacy + release docs
+- [X] Polish / a11y / dark mode
+- [X] Store privacy + release docs
 - [ ] Final smoke + eval rubric dry run
 
 ---

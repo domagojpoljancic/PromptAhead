@@ -1,6 +1,6 @@
 # PromptAhead
 
-> **WIP — M4 product polish next.** Manual core (M1) + Nano + Smart are on `main`. DOM-23 motion/Back and onboarding Nano-check loading + Back (DOM-69) Done. Polish (DOM-43: microcopy, theme, a11y, perf notes) landing. Store packaging (DOM-44/45) next.
+> **WIP — M4 store packaging next.** Manual core (M1) + Nano + Smart + polish (motion, onboarding Back, microcopy, theme) are on `main`. Store privacy disclosure + release checklist (DOM-44) in flight; final §25 map (DOM-45) still ahead.
 
 **Your next question, already prepared.**
 
@@ -104,17 +104,20 @@ See [`docs/architecture.md`](docs/architecture.md) for the full folder layout. A
 | [`docs/nano-verification-checklist.md`](docs/nano-verification-checklist.md) | Manual Nano smoke checklist |
 | [`docs/test-plan.md`](docs/test-plan.md) | Test plan (automated + manual) |
 | [`docs/perf-notes.md`](docs/perf-notes.md) | M4 perf spot-check notes (DOM-73) |
+| [`docs/chrome-web-store-privacy.md`](docs/chrome-web-store-privacy.md) | CWS privacy practices draft (DOM-44) |
+| [`docs/release-checklist.md`](docs/release-checklist.md) | Internal CWS submission dry-run checklist (DOM-44) |
 
 `docs/promptahead-prd.md` is currently an identical copy of the handoff (legacy alias). Prefer the handoff path in links.
 
 ## What is intentionally missing
 
-- Chrome Web Store packaging / listing (M4)
+- Chrome Web Store packaging / listing (M4) — privacy draft + release checklist in docs; upload / listing assets still TBD
 - Main-content extraction beyond the thin `main`/`article` heuristic; Mozilla Readability license call still open
 - Sensitive-page heuristics for **proactive Smart** and **Manual override** (DOM-37 / DOM-39): URL + DOM auto-block; Manual shows a blocking confirm before extract (no sticky bypass)
 - Full Smart mode polish (optional notifications, dedicated invite dismiss UI) — badge/SW + accept→panel+extract landed; Playwright badge→accept + pause UI + revoke→Manual shipped
 
 - Hardware Nano smoke beyond checklist rows — DOM-31 / [`docs/nano-verification-checklist.md`](docs/nano-verification-checklist.md); CI covers curated / Nano-off only
+- Optional full local history UI / developer eval export (DOM-41 / DOM-42)
 
 ## Contributing / development notes
 
