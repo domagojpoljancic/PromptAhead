@@ -80,6 +80,19 @@ h1 {
   border-radius: 0.5rem;
   color: var(--muted);
   font-size: 0.875rem;
+  display: grid;
+  gap: 0.55rem;
+}
+
+.shell__status-row {
+  display: flex;
+  align-items: center;
+  gap: 0.55rem;
+}
+
+.shell__status-pulse[hidden],
+.shell__status-track[hidden] {
+  display: none !important;
 }
 
 .shell__status:empty,
@@ -96,6 +109,30 @@ h1 {
 
 .shell__status-actions[hidden] {
   display: none !important;
+}
+
+.shell--nano-thinking .shell__status {
+  border-color: color-mix(in srgb, var(--accent) 45%, var(--border));
+  background: color-mix(in srgb, var(--accent) 8%, var(--surface));
+  color: var(--text);
+}
+
+.shell--nano-thinking .shell__status-pulse {
+  animation: build-pulse 0.9s ease-in-out infinite;
+}
+
+.shell--nano-thinking .build-busy__bar--indeterminate {
+  width: 42%;
+  animation: nano-think-shimmer 0.9s ease-in-out infinite;
+}
+
+@keyframes nano-think-shimmer {
+  0% {
+    transform: translateX(-120%);
+  }
+  100% {
+    transform: translateX(280%);
+  }
 }
 
 .shell__status--ok {
@@ -385,6 +422,16 @@ h1 {
   .workflow--building .build-busy__bar {
     animation: none;
     width: 70%;
+  }
+
+  .shell--nano-thinking .shell__status-pulse,
+  .shell--nano-thinking .build-busy__bar--indeterminate {
+    animation: none;
+  }
+
+  .shell--nano-thinking .build-busy__bar--indeterminate {
+    width: 55%;
+    transform: none;
   }
 
   .onboarding__progress-bar[data-indeterminate="true"]::after {

@@ -31,10 +31,17 @@ import type {
   SuggestionResult,
 } from "./types";
 
-/** Handoff / M2 hard budget for action generation prompts. */
-export const NANO_PROMPT_TIMEOUT_MS = 45_000;
+/** Per-prompt cap — keep short so stacked retries cannot dominate. */
+export const NANO_PROMPT_TIMEOUT_MS = 25_000;
 /** Session create may include model warm-up on first hardware run. */
-export const NANO_CREATE_TIMEOUT_MS = 60_000;
+export const NANO_CREATE_TIMEOUT_MS = 30_000;
+/**
+ * Wall-clock budget for the whole Nano suggest attempt (create + prompts).
+ * Exceeding it fails through to curated instead of stacking more retries.
+ */
+export const NANO_SUGGEST_BUDGET_MS = 55_000;
+/** Skip further prompt passes when less than this remains on the budget. */
+const NANO_MIN_RETRY_BUDGET_MS = 8_000;
 
 export type NanoSuggestionEngineOptions = {
   /** Injected for tests; defaults to the realm `LanguageModel`. */
@@ -43,6 +50,7 @@ export type NanoSuggestionEngineOptions = {
   forceDisabled?: boolean;
   promptTimeoutMs?: number;
   createTimeoutMs?: number;
+  suggestBudgetMs?: number;
 };
 
 function isForceDisabled(
@@ -64,6 +72,7 @@ export class NanoSuggestionEngine implements SuggestionEngine {
   private readonly forceDisabled: boolean;
   private readonly promptTimeoutMs: number;
   private readonly createTimeoutMs: number;
+  private readonly suggestBudgetMs: number;
   private readonly curated = new CuratedSuggestionEngine();
 
   constructor(options: NanoSuggestionEngineOptions = {}) {
@@ -71,6 +80,7 @@ export class NanoSuggestionEngine implements SuggestionEngine {
     this.forceDisabled = isForceDisabled(options.forceDisabled);
     this.promptTimeoutMs = options.promptTimeoutMs ?? NANO_PROMPT_TIMEOUT_MS;
     this.createTimeoutMs = options.createTimeoutMs ?? NANO_CREATE_TIMEOUT_MS;
+    this.suggestBudgetMs = options.suggestBudgetMs ?? NANO_SUGGEST_BUDGET_MS;
   }
 
   async isAvailable(): Promise<boolean> {
@@ -113,8 +123,8 @@ export class NanoSuggestionEngine implements SuggestionEngine {
       const reason =
         error instanceof Error ? error.message : "Nano failed (unknown error)";
       try {
-        console.warn(
-          `[PromptAhead] Nano failed after ${elapsedMs}ms:`,
+        console.info(
+          `[PromptAhead] Nano fell back to curated after ${elapsedMs}ms:`,
           reason,
         );
       } catch {
@@ -150,6 +160,11 @@ export class NanoSuggestionEngine implements SuggestionEngine {
       throw new Error("LanguageModel is not available");
     }
 
+    const deadline = Date.now() + this.suggestBudgetMs;
+    const remainingMs = (): number => Math.max(0, deadline - Date.now());
+    const promptTimeoutForPass = (): number =>
+      Math.min(this.promptTimeoutMs, remainingMs());
+
     const language = input.pageContext.language || "en";
     const sourceDataBlock = renderSourceData(input.pageContext).text;
     const userPayload = buildNanoActionUserPayload({
@@ -162,9 +177,13 @@ export class NanoSuggestionEngine implements SuggestionEngine {
     let session: LanguageModelSessionLike | null = null;
     try {
       try {
+        const createTimeout = Math.min(this.createTimeoutMs, remainingMs());
+        if (createTimeout <= 0) {
+          throw new Error("suggest budget exhausted before create");
+        }
         session = await createNanoSession(model, {
           systemPrompt: NANO_ACTION_SYSTEM_PROMPT,
-          timeoutMs: this.createTimeoutMs,
+          timeoutMs: createTimeout,
           language,
         });
       } catch (error) {
@@ -176,8 +195,13 @@ export class NanoSuggestionEngine implements SuggestionEngine {
       // Prefer unconstrained prompt first — DOM-31 hardware showed plain
       // session.prompt() works while responseConstraint can hang ~45s on some
       // Chrome builds after model wipe/restore. Validate in-process either way.
+      const firstTimeout = promptTimeoutForPass();
+      if (firstTimeout <= 0) {
+        throw new Error("suggest budget exhausted before prompt");
+      }
       const first = await this.promptActions(session, userPayload, {
         preferConstraint: false,
+        timeoutMs: firstTimeout,
       });
       const validated = validateNanoActionOutput(first, {
         pageType: input.pageContext.pageType,
@@ -187,11 +211,16 @@ export class NanoSuggestionEngine implements SuggestionEngine {
         return validated.result;
       }
 
-      // One repair attempt (handoff §30), then optional constrained pass, then curated.
+      // One repair attempt when budget remains — skip stacked retries that
+      // previously pushed wall-clock past ~100s on slow hardware.
+      if (remainingMs() < NANO_MIN_RETRY_BUDGET_MS) {
+        throw new Error(validated.reason);
+      }
+      const repairTimeout = promptTimeoutForPass();
       const repaired = await this.promptActions(
         session,
         buildNanoRepairPrompt(first),
-        { preferConstraint: false },
+        { preferConstraint: false, timeoutMs: repairTimeout },
       );
       const repairedValidated = validateNanoActionOutput(repaired, {
         pageType: input.pageContext.pageType,
@@ -201,9 +230,15 @@ export class NanoSuggestionEngine implements SuggestionEngine {
         return repairedValidated.result;
       }
 
+      // Constrained pass is optional and historically hang-prone — only try
+      // when meaningful budget remains.
+      if (remainingMs() < NANO_MIN_RETRY_BUDGET_MS) {
+        throw new Error(repairedValidated.reason);
+      }
       try {
         const constrained = await this.promptActions(session, userPayload, {
           preferConstraint: true,
+          timeoutMs: promptTimeoutForPass(),
         });
         const constrainedValidated = validateNanoActionOutput(constrained, {
           pageType: input.pageContext.pageType,
@@ -231,11 +266,11 @@ export class NanoSuggestionEngine implements SuggestionEngine {
   private async promptActions(
     session: LanguageModelSessionLike,
     userPayload: string,
-    options: { preferConstraint: boolean },
+    options: { preferConstraint: boolean; timeoutMs: number },
   ): Promise<string> {
     try {
       return await promptNano(session, userPayload, {
-        timeoutMs: this.promptTimeoutMs,
+        timeoutMs: options.timeoutMs,
         ...(options.preferConstraint
           ? { responseConstraint: NANO_ACTION_LIST_SCHEMA }
           : {}),

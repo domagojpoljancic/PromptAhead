@@ -9,6 +9,8 @@ import {
 } from "../../extension/src/sidepanel/sidepanel";
 import { resetOnboardingForTests } from "../../extension/src/sidepanel/onboarding";
 import {
+  MICROCOPY_POOLS,
+  NANO_THINKING_ROTATE_MS,
   resetMicrocopyRandomForTests,
   setMicrocopyRandomForTests,
 } from "../../extension/src/shared/microcopy";
@@ -731,6 +733,140 @@ describe("side panel click-through", () => {
     await boot({ nanoReadiness: "ready" });
     expect(isVisible("#choose")).toBe(true);
     expect(textOf("#status")).not.toMatch(/may be in English/i);
+  });
+
+  it("shows rotating Nano thinking busy UI while local AI suggests", async () => {
+    setMicrocopyRandomForTests(() => 0);
+    store.settings = { ...DEFAULT_SETTINGS, nanoPreference: "enabled" };
+    let resolveSuggest!: (value: SuggestionResult) => void;
+    const slowNano: SuggestionEngine = {
+      id: "nano",
+      isAvailable: async () => true,
+      suggestActions: () =>
+        new Promise((resolve) => {
+          resolveSuggest = resolve;
+        }),
+      generatePrompt: async () =>
+        "TASK: Summarize\n\n<SOURCE_DATA>\nEU AI Act\n</SOURCE_DATA>",
+    };
+
+    const bootPromise = boot({ engine: slowNano, nanoReadiness: "ready" });
+    let busyVisible = false;
+    for (let i = 0; i < 40; i++) {
+      await flush();
+      if (isVisible("#status-nano-pulse") && isVisible("#nano-use-basic")) {
+        busyVisible = true;
+        break;
+      }
+    }
+    expect(busyVisible).toBe(true);
+    expect(isVisible("#understanding")).toBe(false);
+    expect(isVisible(".app-header .lede")).toBe(false);
+    expect(isVisible("#nano-use-basic")).toBe(true);
+    expect(isVisible("#nano-retry")).toBe(false);
+    expect(isVisible("#status-nano-pulse")).toBe(true);
+    expect(textOf("#status-text")).toBe(MICROCOPY_POOLS.nanoThinking[0]);
+
+    await waitMs(NANO_THINKING_ROTATE_MS + 80);
+    expect(textOf("#status-text")).toBe(MICROCOPY_POOLS.nanoThinking[1]);
+    expect(isVisible("#understanding")).toBe(false);
+
+    resolveSuggest!({
+      engineId: "nano",
+      primary: [primaryAction],
+      more: [moreAction],
+    });
+    await bootPromise;
+    expect(isVisible("#status-nano-pulse")).toBe(false);
+    expect(isVisible("#nano-use-basic")).toBe(false);
+    expect(isVisible("#choose")).toBe(true);
+    expect(isVisible(".app-header .lede")).toBe(false);
+  });
+
+  it("cancels in-flight Nano and loads basic suggestions", async () => {
+    store.settings = { ...DEFAULT_SETTINGS, nanoPreference: "enabled" };
+    const hangingNano: SuggestionEngine = {
+      id: "nano",
+      isAvailable: async () => true,
+      suggestActions: () =>
+        new Promise(() => {
+          /* hang until cancelled */
+        }),
+      generatePrompt: async () => "TASK: nano",
+    };
+    const curated: SuggestionEngine = {
+      id: "curated",
+      isAvailable: async () => true,
+      suggestActions: async () => ({
+        engineId: "curated",
+        primary: [primaryAction],
+        more: [moreAction],
+      }),
+      generatePrompt: async () => "TASK: curated",
+    };
+
+    const { send, listeners } = createSend(store);
+    controller = await initSidePanel({
+      sendToBackground: send,
+      selectSuggestionEngine: async (preference) =>
+        preference === "basic" ? curated : hangingNano,
+      openLLMWithFallback: async () => ({
+        copied: true,
+        openedUrl: null,
+        mode: "copy-only" as const,
+        usedModel: null,
+      }),
+      openOptionsPage: vi.fn(),
+      probeNanoReadiness: async () => ({
+        state: "ready",
+        availability: "available",
+        apiPresent: true,
+      }),
+      addMessageListener: (listener) => {
+        listeners.push(listener);
+        return () => {
+          const index = listeners.indexOf(listener);
+          if (index >= 0) {
+            listeners.splice(index, 1);
+          }
+        };
+      },
+    });
+
+    let cancelVisible = false;
+    for (let i = 0; i < 40; i++) {
+      await flush();
+      if (isVisible("#nano-use-basic")) {
+        cancelVisible = true;
+        break;
+      }
+    }
+    expect(cancelVisible).toBe(true);
+    expect(isVisible("#nano-retry")).toBe(false);
+
+    click("#nano-use-basic");
+    await flush();
+    await flush();
+
+    expect(isVisible("#choose")).toBe(true);
+    expect(isVisible("#status-nano-pulse")).toBe(false);
+    expect(isVisible("#nano-use-basic")).toBe(false);
+    expect(isVisible("#nano-retry")).toBe(false);
+    expect(textOf("#status")).toMatch(/curated|nothing leaves this device/i);
+  });
+
+  it("shows product lede on empty, hides it on Choose", async () => {
+    store.latest = { pageContext: null, tabId: undefined };
+    await boot();
+    expect(isVisible("#empty")).toBe(true);
+    expect(isVisible(".app-header .lede")).toBe(true);
+
+    store.latest = { pageContext: samplePage, tabId: 7 };
+    click("#refresh-context");
+    await flush();
+    await flush();
+    expect(isVisible("#choose")).toBe(true);
+    expect(isVisible(".app-header .lede")).toBe(false);
   });
 
   it("shows Retry local AI when Nano falls back to curated", async () => {

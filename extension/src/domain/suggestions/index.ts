@@ -19,6 +19,7 @@ export {
   NanoSuggestionEngine,
   NANO_CREATE_TIMEOUT_MS,
   NANO_PROMPT_TIMEOUT_MS,
+  NANO_SUGGEST_BUDGET_MS,
 } from "./nano";
 export {
   validateNanoActionOutput,

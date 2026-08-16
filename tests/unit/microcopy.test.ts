@@ -3,6 +3,7 @@ import { afterEach, describe, expect, it } from "vitest";
 import {
   MICROCOPY_POOLS,
   SOBER_MICROCOPY_SURFACES,
+  nextMicrocopyAfter,
   pickMicrocopy,
   resetMicrocopyRandomForTests,
   setMicrocopyRandomForTests,
@@ -17,6 +18,24 @@ describe("microcopy pools", () => {
     setMicrocopyRandomForTests(() => 0);
     expect(pickMicrocopy("reading")).toBe(MICROCOPY_POOLS.reading[0]);
     expect(pickMicrocopy("nanoThinking")).toBe(MICROCOPY_POOLS.nanoThinking[0]);
+  });
+
+  it("returns the next pool line after a previous value", () => {
+    setMicrocopyRandomForTests(() => 0);
+    expect(nextMicrocopyAfter("nanoThinking", null)).toBe(
+      MICROCOPY_POOLS.nanoThinking[0],
+    );
+    expect(
+      nextMicrocopyAfter("nanoThinking", MICROCOPY_POOLS.nanoThinking[0]!),
+    ).toBe(MICROCOPY_POOLS.nanoThinking[1]);
+    expect(
+      nextMicrocopyAfter(
+        "nanoThinking",
+        MICROCOPY_POOLS.nanoThinking[
+          MICROCOPY_POOLS.nanoThinking.length - 1
+        ]!,
+      ),
+    ).toBe(MICROCOPY_POOLS.nanoThinking[0]);
   });
 
   it("keeps every pool non-empty and playful surfaces distinct from sober list", () => {

@@ -215,9 +215,28 @@
         </button>
       </div>
       <p class="shell__status" id="status" role="status" aria-live="polite" hidden>
-        Reading this page…
+        <span class="shell__status-row">
+          <span
+            class="build-busy__pulse shell__status-pulse"
+            id="status-nano-pulse"
+            hidden
+            aria-hidden="true"
+          ></span>
+          <span id="status-text">Reading this page…</span>
+        </span>
+        <span
+          class="build-busy__track shell__status-track"
+          id="status-nano-track"
+          hidden
+          aria-hidden="true"
+        >
+          <span class="build-busy__bar build-busy__bar--indeterminate"></span>
+        </span>
       </p>
       <div class="shell__status-actions" id="nano-fallback" hidden>
+        <button type="button" class="btn" id="nano-use-basic" hidden>
+          Use basic suggestions
+        </button>
         <button type="button" class="btn btn--ghost" id="nano-retry">
           Retry local AI
         </button>

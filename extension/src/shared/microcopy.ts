@@ -41,6 +41,8 @@ export const MICROCOPY_POOLS: Record<MicrocopySurface, readonly string[]> = {
     "Local AI is thinking…",
     "On-device AI is chewing on this…",
     "Tiny model, big think…",
+    "Still thinking on-device…",
+    "Crunching this page locally…",
   ],
   successStay: [
     "Destination opened with your prompt ready — PromptAhead never auto-submits.",
@@ -72,6 +74,28 @@ export function pickMicrocopy(surface: MicrocopySurface): string {
     Math.max(0, Math.floor(randomFn() * pool.length)),
   );
   return pool[index]!;
+}
+
+/** Cadence for Nano busy pulse + rotating status lines (matches CSS). */
+export const NANO_THINKING_ROTATE_MS = 900;
+
+/**
+ * Next line in the pool after `previous` (wraps). Used while Nano is busy so
+ * copy changes in lockstep with the thinking animation.
+ */
+export function nextMicrocopyAfter(
+  surface: MicrocopySurface,
+  previous: string | null,
+): string {
+  const pool = MICROCOPY_POOLS[surface];
+  if (pool.length === 0) {
+    return "";
+  }
+  if (previous == null) {
+    return pickMicrocopy(surface);
+  }
+  const idx = pool.indexOf(previous);
+  return pool[((idx >= 0 ? idx : 0) + 1) % pool.length]!;
 }
 
 /** Surfaces that must never use playful pools (documentation / assertion aid). */

@@ -396,6 +396,7 @@ describe("NanoSuggestionEngine", () => {
         }),
       createTimeoutMs: 1_000,
       promptTimeoutMs: 5,
+      suggestBudgetMs: 2_000,
     });
     const started = Date.now();
     const result = await engine.suggestActions({ pageContext: article });
@@ -404,6 +405,25 @@ describe("NanoSuggestionEngine", () => {
     expect(result.debug?.nanoFailureReason).toMatch(
       /timed out|nano\.(create|prompt)/i,
     );
+  });
+
+  it("skips repair when suggest budget is nearly exhausted", async () => {
+    const engine = new NanoSuggestionEngine({
+      getModel: () =>
+        createFakeModel({
+          hangMs: 30,
+          // Second response would succeed if repair ran — budget must skip it.
+          prompts: ["not-json", validActionsJson(3)],
+        }),
+      createTimeoutMs: 1_000,
+      promptTimeoutMs: 100,
+      suggestBudgetMs: 70,
+    });
+    const started = Date.now();
+    const result = await engine.suggestActions({ pageContext: article });
+    expect(Date.now() - started).toBeLessThan(500);
+    expect(result.engineId).toBe("curated");
+    expect(result.debug?.nanoFailureReason).toMatch(/valid|JSON|budget/i);
   });
 
   it("generatePrompt seals SOURCE_DATA via the deterministic builder", async () => {
