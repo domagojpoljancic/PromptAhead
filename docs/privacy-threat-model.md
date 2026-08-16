@@ -1,6 +1,6 @@
 # PromptAhead — Privacy Threat Model
 
-**Status:** Active (M2 Nano UX)  
+**Status:** Active (M4 — store disclosure + polish)  
 **Source of truth:** [`promptahead-product-handoff.md`](./promptahead-product-handoff.md)  
 **Product posture:** Local-first Chrome extension; no PromptAhead backend; no remote analytics.
 
@@ -98,7 +98,7 @@ Manual override: blocking warning naming the reason + what will be read + explic
 - Curated path never sends page text to a model.
 - Tests must show injected “ignore previous instructions” text does not appear as executable instructions in the outbound prompt.
 
-## 8. Chrome Web Store disclosure alignment (draft obligations)
+## 8. Chrome Web Store disclosure alignment
 
 Disclose accurately:
 
@@ -108,7 +108,9 @@ Disclose accurately:
 - No sale of data; no remote PromptAhead collection.
 - User-initiated navigation to third-party LLM sites.
 
-Full draft deferred to Milestone 4 (`docs/chrome-web-store-privacy.md`).
+**Store draft:** [`chrome-web-store-privacy.md`](./chrome-web-store-privacy.md) + [`release-checklist.md`](./release-checklist.md) (DOM-44).
+
+**Status:** Active (M4 polish + store docs); keep threat model and CWS draft in sync when permissions or Nano/Smart behavior change.
 
 ## 9. Residual risks (accepted for MVP)
 
