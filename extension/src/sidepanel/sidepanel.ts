@@ -186,7 +186,6 @@ export async function initSidePanel(
   const emptyMessage = document.getElementById("empty-message");
   const staleMessage = document.getElementById("stale-message");
   const nanoFallback = document.getElementById("nano-fallback");
-  const nanoFallbackCopy = document.getElementById("nano-fallback-copy");
   const nanoRetryButton = document.getElementById("nano-retry");
   const nanoOpenSettingsButton = document.getElementById("nano-open-settings");
   const contextPreviewBody = document.getElementById("context-preview-body");
@@ -486,7 +485,8 @@ export async function initSidePanel(
     if (!visible) {
       return;
     }
-    setText(nanoFallbackCopy, copyForNanoPanelNotice(notice));
+    // Copy lives only in #status — actions sit under it (no duplicate card).
+    setStatusMessage(copyForNanoPanelNotice(notice));
     const needsDownload = notice === "needs-download";
     setHidden(nanoOpenSettingsButton, !needsDownload);
     if (nanoRetryButton instanceof HTMLButtonElement) {

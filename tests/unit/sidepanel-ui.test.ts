@@ -725,8 +725,8 @@ describe("side panel click-through", () => {
     await boot({ engine: nanoThenCurated, nanoReadiness: "ready" });
     expect(isVisible("#choose")).toBe(true);
     expect(isVisible("#nano-fallback")).toBe(true);
-    expect(textOf("#nano-fallback-copy")).toMatch(/tiny brain/i);
     expect(textOf("#status")).toMatch(/tiny brain/i);
+    expect(isVisible("#nano-retry")).toBe(true);
   });
 
   it("points to Settings when Nano model needs download after uninstall", async () => {
@@ -734,7 +734,7 @@ describe("side panel click-through", () => {
     const { openOptionsPage } = await boot({ nanoReadiness: "download" });
     expect(isVisible("#choose")).toBe(true);
     expect(isVisible("#nano-fallback")).toBe(true);
-    expect(textOf("#nano-fallback-copy")).toMatch(/isn.t ready|isn.t installed|stuck/i);
+    expect(textOf("#status")).toMatch(/isn.t ready|isn.t installed|stuck/i);
     expect(isVisible("#nano-open-settings")).toBe(true);
     expect(isVisible("#nano-retry")).toBe(false);
     click("#nano-open-settings");
@@ -760,7 +760,7 @@ describe("side panel click-through", () => {
     });
     expect(isVisible("#choose")).toBe(true);
     expect(isVisible("#nano-fallback")).toBe(true);
-    expect(textOf("#nano-fallback-copy")).toMatch(/isn.t ready|stuck/i);
+    expect(textOf("#status")).toMatch(/isn.t ready|stuck/i);
     expect(isVisible("#nano-open-settings")).toBe(true);
     expect(isVisible("#nano-retry")).toBe(false);
     click("#nano-open-settings");

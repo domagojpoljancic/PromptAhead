@@ -217,6 +217,14 @@
       <p class="shell__status" id="status" role="status" aria-live="polite" hidden>
         Reading this page…
       </p>
+      <div class="shell__status-actions" id="nano-fallback" hidden>
+        <button type="button" class="btn btn--ghost" id="nano-retry">
+          Retry local AI
+        </button>
+        <button type="button" class="btn btn--ghost" id="nano-open-settings" hidden>
+          Open Settings
+        </button>
+      </div>
 
       <section class="context" id="context-summary" hidden>
         <p class="context__type" id="context-type"></p>
@@ -238,17 +246,6 @@
       <section class="workflow" id="choose" hidden>
         <h2 class="workflow__heading">Choose a direction</h2>
         <p class="workflow__hint">Three ranked suggestions for this page type.</p>
-        <div class="nano-fallback" id="nano-fallback" hidden>
-          <p class="nano-fallback__copy" id="nano-fallback-copy"></p>
-          <div class="nano-fallback__actions">
-            <button type="button" class="btn btn--ghost" id="nano-retry">
-              Retry local AI
-            </button>
-            <button type="button" class="btn btn--ghost" id="nano-open-settings" hidden>
-              Open Settings
-            </button>
-          </div>
-        </div>
         <ul class="action-list" id="primary-actions"></ul>
         <button type="button" class="btn btn--ghost" id="show-more" hidden>
           More…

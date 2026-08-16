@@ -87,6 +87,17 @@ h1 {
   display: none !important;
 }
 
+.shell__status-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin-top: -0.35rem;
+}
+
+.shell__status-actions[hidden] {
+  display: none !important;
+}
+
 .shell__status--ok {
   border-style: solid;
   border-color: var(--accent);
@@ -808,26 +819,4 @@ body.sensitive-override-active .shell {
   margin: 0;
   font-size: 0.8125rem;
   color: var(--muted);
-}
-
-.nano-fallback {
-  display: grid;
-  gap: 0.5rem;
-  margin: 0 0 0.75rem;
-  padding: 0.75rem 0.875rem;
-  border: 1px solid var(--border);
-  border-radius: 0.375rem;
-  background: var(--bg);
-}
-
-.nano-fallback__copy {
-  margin: 0;
-  font-size: 0.8125rem;
-  color: var(--muted);
-}
-
-.nano-fallback__actions {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.5rem;
 }
