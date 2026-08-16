@@ -1,17 +1,4 @@
-:root {
-  --bg: #0f1419;
-  --surface: #1a2332;
-  --text: #e7ecf3;
-  --muted: #9aa8bc;
-  --accent: #6cb6ff;
-  --border: #2d3a4d;
-  --danger: #e8a0a0;
-  font-family:
-    system-ui,
-    -apple-system,
-    "Segoe UI",
-    sans-serif;
-}
+/* Theme tokens live in ../shared/theme.css */
 
 *,
 *::before,
@@ -348,6 +335,12 @@ h1 {
   .workflow--building .build-busy__bar {
     animation: none;
     width: 70%;
+  }
+
+  .onboarding__progress-bar[data-indeterminate="true"]::after {
+    animation: none;
+    width: 45%;
+    transform: none;
   }
 }
 

@@ -239,6 +239,8 @@ Target: ≥1 of 3 suggestions useful on 80% of the manual eval set.
 
 Record methodology in milestone report; do not add artificial delays.
 
+**M4 spot-check notes:** [`docs/perf-notes.md`](perf-notes.md) (DOM-73).
+
 ## 10a. Playwright flake notes (CI)
 
 Known sources and mitigations ([DOM-53](https://linear.app/domagojp/issue/DOM-53)):

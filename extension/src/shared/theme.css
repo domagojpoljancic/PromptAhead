@@ -1,0 +1,52 @@
+/**
+ * Shared PromptAhead theme — dark-first (panel + options).
+ * Light scheme available via prefers-color-scheme for OS light mode.
+ */
+
+:root {
+  color-scheme: dark;
+  --bg: #0f1419;
+  --surface: #1a2332;
+  --text: #e7ecf3;
+  --muted: #9aa8bc;
+  --accent: #6cb6ff;
+  --border: #2d3a4d;
+  --danger: #e8a0a0;
+  --danger-border: color-mix(in srgb, var(--danger) 45%, var(--border));
+  --ok: #7dcea0;
+  --focus-ring: color-mix(in srgb, var(--accent) 70%, white);
+  font-family:
+    system-ui,
+    -apple-system,
+    "Segoe UI",
+    sans-serif;
+}
+
+@media (prefers-color-scheme: light) {
+  :root {
+    color-scheme: light;
+    --bg: #f5f7fb;
+    --surface: #ffffff;
+    --text: #1a2332;
+    --muted: #5c6b80;
+    --accent: #1a6fb5;
+    --border: #d8dee8;
+    --danger: #a33a30;
+    --danger-border: color-mix(in srgb, var(--danger) 35%, var(--border));
+    --ok: #1f6b4a;
+    --focus-ring: color-mix(in srgb, var(--accent) 55%, black);
+  }
+}
+
+:focus-visible {
+  outline: 2px solid var(--focus-ring);
+  outline-offset: 2px;
+}
+
+button:focus:not(:focus-visible),
+a:focus:not(:focus-visible),
+input:focus:not(:focus-visible),
+select:focus:not(:focus-visible),
+textarea:focus:not(:focus-visible) {
+  outline: none;
+}

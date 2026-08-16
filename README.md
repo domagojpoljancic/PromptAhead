@@ -1,6 +1,6 @@
 # PromptAhead
 
-> **WIP — M4 product polish next.** Manual core (M1) + Nano + Smart are on `main`. Sensitive override, injection fixtures, and side-panel motion / prompt-build loader / Back (DOM-23) Done. Onboarding Nano-check loading + Back (DOM-69) in flight; polish (DOM-43) next. Store packaging still ahead.
+> **WIP — M4 product polish next.** Manual core (M1) + Nano + Smart are on `main`. DOM-23 motion/Back and onboarding Nano-check loading + Back (DOM-69) Done. Polish (DOM-43: microcopy, theme, a11y, perf notes) landing. Store packaging (DOM-44/45) next.
 
 **Your next question, already prepared.**
 
@@ -11,8 +11,8 @@ Privacy-first Chrome extension (Manifest V3) that notices when you are genuinely
 | Area | State |
 | --- | --- |
 | Product extension (`extension/`) | **Manual core** + **M2 Nano UX** + **M3 Smart** (grant/revoke, engagement, badge invite, accept→extract) |
-| Side panel | Workflow state machine; Nano thinking + curated fallback + **Retry local AI**; calm Nano panel notices + Smart permission education; **selection auto-refresh** on low-value empty state; **step enter motion (~450ms) + ~1s prompt-build fill bar + full-width Back nav** |
-| Onboarding + settings | Manual-first first-run; Nano ready/download/unsupported + **check-loading bar** + **top Back nav**; Settings Smart grant/revoke + education; **global proactive pause** toggle |
+| Side panel | Workflow state machine; Nano thinking + curated fallback + **Retry local AI**; **randomized microcopy** on loading/success; calm Nano panel notices + Smart permission education; **selection auto-refresh** on low-value empty state; **step enter motion (~450ms) + ~1s prompt-build fill bar + full-width Back nav** |
+| Onboarding + settings | Manual-first first-run; Nano ready/download/unsupported + **check-loading bar** + **top Back nav**; Settings Smart grant/revoke + education; **shared dark-first theme** (panel + options, light via `prefers-color-scheme`); **global proactive pause** toggle |
 | Destinations | Deep links with **app-first + web fallback**; Gemini / oversized prompts use **clipboard + open**; never auto-submit |
 | Automation | Vitest (unit + jsdom UI + **coverage gates** on domain/messaging), Playwright (MV3 + navigate→stale + Nano-off curated + Smart invite/pause/revoke + homepage empty-state + **axe a11y** + **sensitive Manual override**), GitHub Actions (`test:ci`, Node 20.19+) |
 | Nano CI | Curated path stays green with Nano forced off (`NANO_FORCE_DISABLED` + Playwright Settings force-basic → extract → copy); live hardware checklist remains DOM-31 / [`docs/nano-verification-checklist.md`](docs/nano-verification-checklist.md) |
@@ -103,6 +103,7 @@ See [`docs/architecture.md`](docs/architecture.md) for the full folder layout. A
 | [`docs/privacy-threat-model.md`](docs/privacy-threat-model.md) | Privacy / threat model (on-device Nano) |
 | [`docs/nano-verification-checklist.md`](docs/nano-verification-checklist.md) | Manual Nano smoke checklist |
 | [`docs/test-plan.md`](docs/test-plan.md) | Test plan (automated + manual) |
+| [`docs/perf-notes.md`](docs/perf-notes.md) | M4 perf spot-check notes (DOM-73) |
 
 `docs/promptahead-prd.md` is currently an identical copy of the handoff (legacy alias). Prefer the handoff path in links.
 
