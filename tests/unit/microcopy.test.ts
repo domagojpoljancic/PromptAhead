@@ -45,6 +45,13 @@ describe("microcopy pools", () => {
     }
   });
 
+  it("keeps nanoThinking large enough for calm long waits", () => {
+    expect(MICROCOPY_POOLS.nanoThinking.length).toBeGreaterThanOrEqual(50);
+    expect(new Set(MICROCOPY_POOLS.nanoThinking).size).toBe(
+      MICROCOPY_POOLS.nanoThinking.length,
+    );
+  });
+
   it("documents sober surfaces that must stay fixed (not pooled)", () => {
     expect(SOBER_MICROCOPY_SURFACES).toEqual(
       expect.arrayContaining([

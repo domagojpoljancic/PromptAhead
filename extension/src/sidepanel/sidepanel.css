@@ -118,12 +118,12 @@ h1 {
 }
 
 .shell--nano-thinking .shell__status-pulse {
-  animation: build-pulse 0.9s ease-in-out infinite;
+  animation: build-pulse 1.4s ease-in-out infinite;
 }
 
 .shell--nano-thinking .build-busy__bar--indeterminate {
   width: 42%;
-  animation: nano-think-shimmer 0.9s ease-in-out infinite;
+  animation: nano-think-shimmer 1.4s ease-in-out infinite;
 }
 
 @keyframes nano-think-shimmer {

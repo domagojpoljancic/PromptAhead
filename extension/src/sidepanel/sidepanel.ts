@@ -287,11 +287,27 @@ export async function initSidePanel(
         id !== next || (id === "understanding" && nanoThinkingTimer !== null);
       setHidden(element, hide);
     }
-    const emptyish = next === "empty" || next === "stale";
-    if (refreshButton instanceof HTMLButtonElement) {
-      refreshButton.classList.toggle("btn--primary", emptyish);
-    }
+    updateRefreshVisibility(next);
     updateHeaderLede(next);
+  }
+
+  /** Refresh only on orientation / choose / hard fallback — not mid-flow or Nano busy. */
+  function updateRefreshVisibility(step: PanelStep = currentStep): void {
+    const show =
+      nanoThinkingTimer === null &&
+      (step === "empty" ||
+        step === "stale" ||
+        step === "choose" ||
+        step === "fallback");
+    const toolbar = document.querySelector(".shell__toolbar");
+    setHidden(toolbar instanceof HTMLElement ? toolbar : null, !show);
+    setHidden(refreshButton, !show);
+    if (refreshButton instanceof HTMLButtonElement) {
+      refreshButton.classList.toggle(
+        "btn--primary",
+        show && (step === "empty" || step === "stale"),
+      );
+    }
   }
 
   /** Product pitch only on orientation screens — not mid-workflow. */
@@ -344,6 +360,7 @@ export async function initSidePanel(
     setHidden(document.getElementById("status-nano-pulse"), true);
     setHidden(document.getElementById("status-nano-track"), true);
     setNanoBusyCancelVisible(false);
+    updateRefreshVisibility();
   }
 
   function startNanoThinkingBusy(): void {
@@ -356,6 +373,7 @@ export async function initSidePanel(
     setHidden(pulse, false);
     setHidden(track, false);
     setNanoBusyCancelVisible(true);
+    updateRefreshVisibility("understanding");
     const bar = track?.querySelector(".build-busy__bar");
     if (bar instanceof HTMLElement) {
       bar.style.animation = "none";

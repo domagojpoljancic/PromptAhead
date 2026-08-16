@@ -43,6 +43,53 @@ export const MICROCOPY_POOLS: Record<MicrocopySurface, readonly string[]> = {
     "Tiny model, big think…",
     "Still thinking on-device…",
     "Crunching this page locally…",
+    "Warming up the pocket brain…",
+    "Reading between the pixels…",
+    "Whispering to the silicon…",
+    "Sorting useful from scroll filler…",
+    "Finding the sharpest next questions…",
+    "Giving the tiny model a head start…",
+    "Poking the on-device oracle…",
+    "Combing the page for signal…",
+    "Sketching a few solid angles…",
+    "Letting local AI take a look…",
+    "Brewing page-specific directions…",
+    "Quietly ranking what matters…",
+    "Turning this tab into prompts…",
+    "Asking Nano for a second opinion…",
+    "Keeping it private while it thinks…",
+    "No cloud, just careful chewing…",
+    "Mapping what’s worth asking next…",
+    "Trimming the boring options first…",
+    "Looking for the interesting thread…",
+    "Spinning up on-device suggestions…",
+    "Almost there — still on this device…",
+    "Parsing the useful bits locally…",
+    "Drafting sharper directions…",
+    "Checking what this page is really about…",
+    "Nudging Gemini Nano for ideas…",
+    "Holding the page under a tiny microscope…",
+    "Gathering angles that fit this tab…",
+    "Thinking with the lights off (privacy)…",
+    "One more pass over the excerpts…",
+    "Building a shortlist of next moves…",
+    "Local model, full attention…",
+    "Sifting headlines from substance…",
+    "Queuing up less-obvious questions…",
+    "Working through the compact context…",
+    "Preferring signal over sidebar noise…",
+    "Shaping three decent directions…",
+    "On-device gears are turning…",
+    "Consulting the laptop’s quiet genius…",
+    "Making sure nothing leaves this device…",
+    "Reranking until it feels useful…",
+    "Hunting for a better rabbit hole…",
+    "Polishing page-specific prompts…",
+    "Tiny weights, big curiosity…",
+    "Still on-device — hang tight…",
+    "Finishing the local think loop…",
+    "Almost ready with directions…",
+    "Wrapping up the on-device pass…",
   ],
   successStay: [
     "Destination opened with your prompt ready — PromptAhead never auto-submits.",
@@ -76,8 +123,8 @@ export function pickMicrocopy(surface: MicrocopySurface): string {
   return pool[index]!;
 }
 
-/** Cadence for Nano busy pulse + rotating status lines (matches CSS). */
-export const NANO_THINKING_ROTATE_MS = 900;
+/** Cadence for rotating Nano status lines — calm, readable (DOM-85). */
+export const NANO_THINKING_ROTATE_MS = 2800;
 
 /**
  * Next line in the pool after `previous` (wraps). Used while Nano is busy so

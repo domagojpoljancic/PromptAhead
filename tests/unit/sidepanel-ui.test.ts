@@ -762,6 +762,7 @@ describe("side panel click-through", () => {
     expect(busyVisible).toBe(true);
     expect(isVisible("#understanding")).toBe(false);
     expect(isVisible(".app-header .lede")).toBe(false);
+    expect(isVisible("#refresh-context")).toBe(false);
     expect(isVisible("#nano-use-basic")).toBe(true);
     expect(isVisible("#nano-retry")).toBe(false);
     expect(isVisible("#status-nano-pulse")).toBe(true);
@@ -860,6 +861,7 @@ describe("side panel click-through", () => {
     await boot();
     expect(isVisible("#empty")).toBe(true);
     expect(isVisible(".app-header .lede")).toBe(true);
+    expect(isVisible("#refresh-context")).toBe(true);
 
     store.latest = { pageContext: samplePage, tabId: 7 };
     click("#refresh-context");
@@ -867,6 +869,12 @@ describe("side panel click-through", () => {
     await flush();
     expect(isVisible("#choose")).toBe(true);
     expect(isVisible(".app-header .lede")).toBe(false);
+    expect(isVisible("#refresh-context")).toBe(true);
+
+    click('#primary-actions button[data-action-id="article.summarize"]');
+    await flush();
+    expect(isVisible("#refine")).toBe(true);
+    expect(isVisible("#refresh-context")).toBe(false);
   });
 
   it("shows Retry local AI when Nano falls back to curated", async () => {
