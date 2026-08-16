@@ -55,6 +55,11 @@ export type Settings = {
   /** `null` means "follow the page language" (handoff §19). */
   languageOverride: string | null;
   nanoPreference: NanoPreference;
+  /**
+   * Faster on-device AI (DOM-66): catalog rank + warm session + curated-first UI.
+   * Off → legacy full free-form Nano generate.
+   */
+  nanoFastPath: boolean;
   historyMode: HistoryMode;
   proactivePaused: boolean;
   excludedDomains: string[];
@@ -158,6 +163,7 @@ export const DEFAULT_SETTINGS: Settings = {
   defaultDestination: "copy",
   languageOverride: null,
   nanoPreference: "skipped",
+  nanoFastPath: true,
   historyMode: "recent",
   proactivePaused: false,
   excludedDomains: [],

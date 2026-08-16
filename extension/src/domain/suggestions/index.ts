@@ -20,7 +20,17 @@ export {
   NANO_CREATE_TIMEOUT_MS,
   NANO_PROMPT_TIMEOUT_MS,
   NANO_SUGGEST_BUDGET_MS,
+  resetNanoSharedSessionForTests,
 } from "./nano";
+export {
+  NANO_RANK_CREATE_TIMEOUT_MS,
+  NANO_RANK_PROMPT_TIMEOUT_MS,
+  NANO_RANK_SUGGEST_BUDGET_MS,
+  parseNanoRankOrderedIds,
+  suggestionResultFromRankedIds,
+  buildPageFingerprint,
+  catalogCandidatesForPage,
+} from "./nano-rank";
 export {
   validateNanoActionOutput,
   parseNanoActionJson,

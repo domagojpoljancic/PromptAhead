@@ -95,6 +95,7 @@ export type SidePanelDeps = {
   sendToBackground: typeof defaultSendToBackground;
   selectSuggestionEngine: (
     preference: NanoPreference,
+    options?: { nanoFastPath?: boolean },
   ) => Promise<SuggestionEngine>;
   openLLMWithFallback: (options: {
     prompt: string;
@@ -217,6 +218,8 @@ export async function initSidePanel(
   let builtPrompt = "";
   let defaultDestination: DestinationId = "copy";
   let nanoPreference: NanoPreference = "skipped";
+  /** Faster rank path + curated-first (DOM-66); default on. */
+  let nanoFastPath = true;
   let inclusion: ContextInclusion = { ...DEFAULT_CONTEXT_INCLUSION };
   let currentStep: PanelStep = "understanding";
   let lastFallback: FallbackKind | null = null;
@@ -787,6 +790,7 @@ export async function initSidePanel(
     const response = await send({ type: "GET_SETTINGS" });
     if (response.ok) {
       nanoPreference = response.settings.nanoPreference;
+      nanoFastPath = response.settings.nanoFastPath !== false;
       defaultDestination = response.settings.defaultDestination;
     }
     return nanoPreference;
@@ -952,6 +956,7 @@ export async function initSidePanel(
     if (generation !== suggestionGeneration) {
       return;
     }
+    const fastPath = nanoFastPath;
     const preferNano = options.forceNanoRetry || preference === "enabled";
 
     // Prefer a live readiness probe when the user wants Nano — Chrome can still
@@ -973,9 +978,9 @@ export async function initSidePanel(
     }
 
     const willTryNano = preferNano && preflightNotice === "none";
-    if (willTryNano) {
+    if (willTryNano && !fastPath) {
       startStatusBusy("nano");
-    } else {
+    } else if (!willTryNano) {
       startStatusBusy("understanding");
     }
     try {
@@ -992,15 +997,97 @@ export async function initSidePanel(
         renderSuggestions(result, { nanoNotice: preflightNotice });
         showStep("choose");
         setStatusMessage(copyForNanoPanelNotice(preflightNotice));
-        setText(
-          debugLine,
-          `nano blocked · ${preflightNotice}`,
-        );
+        setText(debugLine, `nano blocked · ${preflightNotice}`);
+        return;
+      }
+
+      // DOM-66 fast path: paint curated immediately, upgrade when Nano ranks.
+      if (willTryNano && fastPath) {
+        const curated = await selectEngine("basic");
+        if (generation !== suggestionGeneration) {
+          return;
+        }
+        const curatedResult = await curated.suggestActions({ pageContext: ctx });
+        if (generation !== suggestionGeneration) {
+          return;
+        }
+        lastSelectedEngineId = "nano";
+        renderSuggestions(curatedResult, { nanoNotice: "none" });
+        showStep("choose");
+        setStatusMessage("Directions ready — refining with on-device AI…");
+        startStatusBusy("nano");
+
+        const engine = await selectEngine("enabled", { nanoFastPath: true });
+        if (generation !== suggestionGeneration) {
+          return;
+        }
+        const result = await engine.suggestActions({ pageContext: ctx });
+        if (generation !== suggestionGeneration) {
+          return;
+        }
+        const fellBack = didNanoFallBackToCurated({
+          selectedEngineId: engine.id,
+          resultEngineId: result.engineId,
+        });
+        let notice: NanoPanelNotice = "none";
+        if (fellBack) {
+          try {
+            const readiness = await probeReadiness();
+            notice = nanoPanelNoticeForPreference({
+              preference: "enabled",
+              readiness,
+            });
+          } catch {
+            notice = "fallback";
+          }
+          if (notice === "none") {
+            notice = nanoPanelNoticeFromFailureReason(
+              result.debug?.nanoFailureReason,
+            );
+          }
+        }
+        notice = nanoPanelNoticeWithLanguageLimit({
+          notice,
+          nanoAttempted: true,
+          pageLanguage: ctx.language,
+        });
+
+        // Don't yank the list if the user already picked a direction.
+        if (currentStep === "choose" && selectedAction === null) {
+          if (!fellBack && result.engineId === "nano") {
+            renderSuggestions(result, { nanoNotice: notice });
+            setStatusMessage(
+              notice !== "none"
+                ? copyForNanoPanelNotice(notice)
+                : "Directions updated with on-device AI — nothing left this device.",
+            );
+            if (result.debug?.elapsedMs !== undefined) {
+              setText(
+                debugLine,
+                `nano ${result.debug.nanoPath ?? "rank"} · ${formatElapsed(result.debug.elapsedMs)}`,
+              );
+            }
+          } else {
+            renderSuggestions(curatedResult, { nanoNotice: notice });
+            setStatusMessage(
+              notice !== "none"
+                ? copyForNanoPanelNotice(notice)
+                : "Page context captured (curated) — nothing leaves this device.",
+            );
+            if (result.debug?.nanoFailureReason) {
+              setText(
+                debugLine,
+                `nano fallback · ${result.debug.nanoFailureReason}`,
+              );
+            }
+          }
+        }
         return;
       }
 
       const engine = await selectEngine(
         options.forceNanoRetry ? "enabled" : preference,
+        { nanoFastPath: fastPath },
       );
       if (generation !== suggestionGeneration) {
         return;
@@ -1016,7 +1103,6 @@ export async function initSidePanel(
         resultEngineId: result.engineId,
       });
       if (fellBack) {
-        // Re-classify after a silent Nano failure — uninstall often surfaces here.
         try {
           const readiness = await probeReadiness();
           notice = nanoPanelNoticeForPreference({
@@ -1053,7 +1139,9 @@ export async function initSidePanel(
           setText(debugLine, parts.join(" · "));
         }
       } else {
-        setStatusMessage(`Page context captured (${result.engineId}) — nothing leaves this device.`);
+        setStatusMessage(
+          `Page context captured (${result.engineId}) — nothing leaves this device.`,
+        );
         if (
           result.engineId === "nano" &&
           result.debug?.elapsedMs !== undefined

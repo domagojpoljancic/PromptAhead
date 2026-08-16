@@ -24,5 +24,5 @@ Recorded for [DOM-73](https://linear.app/domagojp/issue/DOM-73) / parent [DOM-43
 
 ## Follow-ups
 
-- Deeper Nano latency work stays on DOM-66 / DOM-67.
+- Nano latency: flagged fast path landed on DOM-66 (rank + session reuse + curated-first). Re-baseline hardware create vs prompt in `docs/nano-verification-checklist.md` after smoke.
 - Optional: add a thin DevTools mark around `suggestActions` if we want automated CI timing later (out of scope for DOM-73).

@@ -715,7 +715,7 @@ describe("side panel click-through", () => {
   });
 
   it("shows language-limited status when Nano runs on an unsupported page language", async () => {
-    store.settings = { ...DEFAULT_SETTINGS, nanoPreference: "enabled" };
+    store.settings = { ...DEFAULT_SETTINGS, nanoPreference: "enabled", nanoFastPath: false };
     store.latest = {
       pageContext: { ...samplePage, language: "hr", title: "Croatian article" },
       tabId: 7,
@@ -730,7 +730,7 @@ describe("side panel click-through", () => {
   });
 
   it("does not show language-limited status for English pages", async () => {
-    store.settings = { ...DEFAULT_SETTINGS, nanoPreference: "enabled" };
+    store.settings = { ...DEFAULT_SETTINGS, nanoPreference: "enabled", nanoFastPath: false };
     store.latest = { pageContext: samplePage, tabId: 7 };
     await boot({ nanoReadiness: "ready" });
     expect(isVisible("#choose")).toBe(true);
@@ -739,7 +739,7 @@ describe("side panel click-through", () => {
 
   it("shows rotating Nano thinking busy UI while local AI suggests", async () => {
     setMicrocopyRandomForTests(() => 0);
-    store.settings = { ...DEFAULT_SETTINGS, nanoPreference: "enabled" };
+    store.settings = { ...DEFAULT_SETTINGS, nanoPreference: "enabled", nanoFastPath: false };
     let resolveSuggest!: (value: SuggestionResult) => void;
     const slowNano: SuggestionEngine = {
       id: "nano",
@@ -904,7 +904,7 @@ describe("side panel click-through", () => {
   });
 
   it("cancels Nano busy chrome when the bound tab goes stale", async () => {
-    store.settings = { ...DEFAULT_SETTINGS, nanoPreference: "enabled" };
+    store.settings = { ...DEFAULT_SETTINGS, nanoPreference: "enabled", nanoFastPath: false };
     const hangingNano: SuggestionEngine = {
       id: "nano",
       isAvailable: async () => true,
@@ -968,7 +968,7 @@ describe("side panel click-through", () => {
   });
 
   it("cancels in-flight Nano and loads basic suggestions", async () => {
-    store.settings = { ...DEFAULT_SETTINGS, nanoPreference: "enabled" };
+    store.settings = { ...DEFAULT_SETTINGS, nanoPreference: "enabled", nanoFastPath: false };
     const hangingNano: SuggestionEngine = {
       id: "nano",
       isAvailable: async () => true,
@@ -1062,7 +1062,7 @@ describe("side panel click-through", () => {
   });
 
   it("shows Retry local AI when Nano falls back to curated", async () => {
-    store.settings = { ...DEFAULT_SETTINGS, nanoPreference: "enabled" };
+    store.settings = { ...DEFAULT_SETTINGS, nanoPreference: "enabled", nanoFastPath: false };
     const nanoThenCurated: SuggestionEngine = {
       id: "nano",
       isAvailable: async () => true,
@@ -1081,7 +1081,7 @@ describe("side panel click-through", () => {
   });
 
   it("points to Settings when Nano model needs download after uninstall", async () => {
-    store.settings = { ...DEFAULT_SETTINGS, nanoPreference: "enabled" };
+    store.settings = { ...DEFAULT_SETTINGS, nanoPreference: "enabled", nanoFastPath: false };
     const { openOptionsPage } = await boot({ nanoReadiness: "download" });
     expect(isVisible("#choose")).toBe(true);
     expect(isVisible("#nano-fallback")).toBe(true);
@@ -1093,7 +1093,7 @@ describe("side panel click-through", () => {
   });
 
   it("points to Settings when Nano times out despite a ready probe", async () => {
-    store.settings = { ...DEFAULT_SETTINGS, nanoPreference: "enabled" };
+    store.settings = { ...DEFAULT_SETTINGS, nanoPreference: "enabled", nanoFastPath: false };
     const timedOutNano: SuggestionEngine = {
       id: "nano",
       isAvailable: async () => true,

@@ -48,6 +48,7 @@ export function resolveSuggestionEngineId(
 
 export function createSuggestionEngine(
   id: SuggestionEngineId = SUGGESTION_ENGINE_FLAG,
+  options: { nanoFastPath?: boolean } = {},
 ): SuggestionEngine {
   const resolved = resolveSuggestionEngineId(id);
   switch (resolved) {
@@ -56,7 +57,10 @@ export function createSuggestionEngine(
     case "mock-nano":
       return new MockNanoSuggestionEngine();
     case "nano":
-      return new NanoSuggestionEngine();
+      return new NanoSuggestionEngine({
+        mode: options.nanoFastPath === false ? "generate" : "rank",
+        reuseSession: options.nanoFastPath !== false,
+      });
   }
 }
 
@@ -66,8 +70,9 @@ export function createSuggestionEngine(
  */
 export async function selectSuggestionEngine(
   id: SuggestionEngineId = SUGGESTION_ENGINE_FLAG,
+  options: { nanoFastPath?: boolean } = {},
 ): Promise<SuggestionEngine> {
-  const engine = createSuggestionEngine(id);
+  const engine = createSuggestionEngine(id, options);
   if (engine.id === "curated" || engine.id === "mock-nano") {
     return engine;
   }
@@ -83,7 +88,8 @@ export async function selectSuggestionEngine(
  */
 export async function selectSuggestionEngineForPreference(
   preference: NanoPreference,
+  options: { nanoFastPath?: boolean } = {},
 ): Promise<SuggestionEngine> {
   const preferred = engineIdForNanoPreference(preference);
-  return selectSuggestionEngine(preferred);
+  return selectSuggestionEngine(preferred, options);
 }

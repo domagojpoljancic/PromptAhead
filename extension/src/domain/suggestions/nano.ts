@@ -3,10 +3,14 @@
  *
  * Hosted in the side-panel Prompt API context (M0 S0.1). Portable prompts stay
  * on deterministic `buildPrompt()` so source facts are never rewritten by Nano.
+ *
+ * DOM-66/67: optional `mode: "rank"` ranks curated catalog ids (fast path) and
+ * reuses a warm LanguageModel session across suggests.
  */
 
 import { buildPrompt } from "../prompts";
 import { renderSourceData } from "../prompts/source-data";
+import { curatedActionsFor } from "./catalog";
 import { CuratedSuggestionEngine } from "./curated";
 import {
   NANO_ACTION_LIST_SCHEMA,
@@ -14,6 +18,17 @@ import {
   buildNanoActionUserPayload,
   buildNanoRepairPrompt,
 } from "./nano-schema";
+import {
+  NANO_RANK_CREATE_TIMEOUT_MS,
+  NANO_RANK_PROMPT_TIMEOUT_MS,
+  NANO_RANK_SUGGEST_BUDGET_MS,
+  NANO_RANK_SYSTEM_PROMPT,
+  buildNanoRankUserPayload,
+  buildPageFingerprint,
+  catalogCandidatesForPage,
+  parseNanoRankOrderedIds,
+  suggestionResultFromRankedIds,
+} from "./nano-rank";
 import {
   createNanoSession,
   getLanguageModel,
@@ -43,6 +58,13 @@ export const NANO_SUGGEST_BUDGET_MS = 55_000;
 /** Skip further prompt passes when less than this remains on the budget. */
 const NANO_MIN_RETRY_BUDGET_MS = 8_000;
 
+/** Warm session shared across NanoSuggestionEngine instances (side panel). */
+let sharedSession: LanguageModelSessionLike | null = null;
+let sharedSessionLanguage: string | null = null;
+let sharedSessionMode: "rank" | "generate" | null = null;
+
+export type NanoSuggestMode = "generate" | "rank";
+
 export type NanoSuggestionEngineOptions = {
   /** Injected for tests; defaults to the realm `LanguageModel`. */
   getModel?: () => LanguageModelLike | undefined;
@@ -51,11 +73,16 @@ export type NanoSuggestionEngineOptions = {
   promptTimeoutMs?: number;
   createTimeoutMs?: number;
   suggestBudgetMs?: number;
+  /**
+   * `rank` = catalog id ranking (DOM-66/67 fast path).
+   * `generate` = full free-form actions (legacy).
+   */
+  mode?: NanoSuggestMode;
+  /** Keep LanguageModel session warm across suggests (default true for rank). */
+  reuseSession?: boolean;
 };
 
-function isForceDisabled(
-  explicit: boolean | undefined,
-): boolean {
+function isForceDisabled(explicit: boolean | undefined): boolean {
   if (explicit === true) {
     return true;
   }
@@ -63,6 +90,22 @@ function isForceDisabled(
     return true;
   }
   return false;
+}
+
+function destroySharedSession(): void {
+  try {
+    sharedSession?.destroy?.();
+  } catch {
+    // ignore
+  }
+  sharedSession = null;
+  sharedSessionLanguage = null;
+  sharedSessionMode = null;
+}
+
+/** Test helper — drop the warm session between suites. */
+export function resetNanoSharedSessionForTests(): void {
+  destroySharedSession();
 }
 
 export class NanoSuggestionEngine implements SuggestionEngine {
@@ -73,14 +116,24 @@ export class NanoSuggestionEngine implements SuggestionEngine {
   private readonly promptTimeoutMs: number;
   private readonly createTimeoutMs: number;
   private readonly suggestBudgetMs: number;
+  private readonly mode: NanoSuggestMode;
+  private readonly reuseSession: boolean;
   private readonly curated = new CuratedSuggestionEngine();
 
   constructor(options: NanoSuggestionEngineOptions = {}) {
     this.getModel = options.getModel ?? getLanguageModel;
     this.forceDisabled = isForceDisabled(options.forceDisabled);
-    this.promptTimeoutMs = options.promptTimeoutMs ?? NANO_PROMPT_TIMEOUT_MS;
-    this.createTimeoutMs = options.createTimeoutMs ?? NANO_CREATE_TIMEOUT_MS;
-    this.suggestBudgetMs = options.suggestBudgetMs ?? NANO_SUGGEST_BUDGET_MS;
+    this.mode = options.mode ?? "generate";
+    this.reuseSession = options.reuseSession ?? this.mode === "rank";
+    this.promptTimeoutMs =
+      options.promptTimeoutMs ??
+      (this.mode === "rank" ? NANO_RANK_PROMPT_TIMEOUT_MS : NANO_PROMPT_TIMEOUT_MS);
+    this.createTimeoutMs =
+      options.createTimeoutMs ??
+      (this.mode === "rank" ? NANO_RANK_CREATE_TIMEOUT_MS : NANO_CREATE_TIMEOUT_MS);
+    this.suggestBudgetMs =
+      options.suggestBudgetMs ??
+      (this.mode === "rank" ? NANO_RANK_SUGGEST_BUDGET_MS : NANO_SUGGEST_BUDGET_MS);
   }
 
   async isAvailable(): Promise<boolean> {
@@ -101,10 +154,15 @@ export class NanoSuggestionEngine implements SuggestionEngine {
   async suggestActions(input: ActionGenerationInput): Promise<SuggestionResult> {
     const started = Date.now();
     try {
-      const result = await this.suggestWithNano(input);
+      const result =
+        this.mode === "rank"
+          ? await this.suggestWithRank(input)
+          : await this.suggestWithNano(input);
       const elapsedMs = Date.now() - started;
       try {
-        console.info(`[PromptAhead] Nano suggest ok in ${elapsedMs}ms`);
+        console.info(
+          `[PromptAhead] Nano suggest ok (${this.mode}) in ${elapsedMs}ms`,
+        );
       } catch {
         // Ignore logging failures.
       }
@@ -113,11 +171,10 @@ export class NanoSuggestionEngine implements SuggestionEngine {
         debug: {
           ...result.debug,
           elapsedMs,
+          nanoPath: result.debug?.nanoPath ?? this.mode,
         },
       };
     } catch (error) {
-      // Nano should never block the product: fall back to curated actions,
-      // but retain a coarse failure reason for on-device debugging.
       const elapsedMs = Date.now() - started;
       const curatedResult = await this.curated.suggestActions(input);
       const reason =
@@ -130,18 +187,22 @@ export class NanoSuggestionEngine implements SuggestionEngine {
       } catch {
         // Ignore logging failures.
       }
+      // Failed create/prompt may leave a bad warm session — drop it.
+      if (this.reuseSession) {
+        destroySharedSession();
+      }
       return {
         ...curatedResult,
         debug: {
           nanoFailureReason: reason,
           elapsedMs,
+          nanoPath: "curated-fallback",
         },
       };
     }
   }
 
   generatePrompt(input: PromptGenerationInput): Promise<string> {
-    // Deterministic builder — Nano proposes actions, not rewritten source facts.
     return Promise.resolve(
       buildPrompt({
         pageContext: input.pageContext,
@@ -150,6 +211,120 @@ export class NanoSuggestionEngine implements SuggestionEngine {
         languageOverride: input.languageOverride,
       }).text,
     );
+  }
+
+  private async getSession(
+    model: LanguageModelLike,
+    language: string,
+    systemPrompt: string,
+    createTimeout: number,
+  ): Promise<{ session: LanguageModelSessionLike; createMs: number }> {
+    if (
+      this.reuseSession &&
+      sharedSession &&
+      sharedSessionLanguage === language &&
+      sharedSessionMode === this.mode
+    ) {
+      return { session: sharedSession, createMs: 0 };
+    }
+    if (this.reuseSession) {
+      destroySharedSession();
+    }
+    const createStarted = Date.now();
+    const session = await createNanoSession(model, {
+      systemPrompt,
+      timeoutMs: createTimeout,
+      language,
+    });
+    const createMs = Date.now() - createStarted;
+    if (this.reuseSession) {
+      sharedSession = session;
+      sharedSessionLanguage = language;
+      sharedSessionMode = this.mode;
+    }
+    return { session, createMs };
+  }
+
+  private async suggestWithRank(
+    input: ActionGenerationInput,
+  ): Promise<SuggestionResult> {
+    const model = this.getModel();
+    if (!model) {
+      throw new Error("LanguageModel is not available");
+    }
+
+    const deadline = Date.now() + this.suggestBudgetMs;
+    const remainingMs = (): number => Math.max(0, deadline - Date.now());
+    const language = input.pageContext.language || "en";
+    const catalog = curatedActionsFor(input.pageContext.pageType, {
+      hasSelectedText: Boolean(input.pageContext.selectedText?.trim()),
+      comparableSet: input.pageContext.comparableSet,
+    });
+    const candidates = catalogCandidatesForPage(input.pageContext);
+    const fingerprint = buildPageFingerprint(input.pageContext);
+    const userPayload = buildNanoRankUserPayload({
+      language,
+      fingerprint,
+      candidates,
+    });
+
+    let session: LanguageModelSessionLike | null = null;
+    let ownedSession = false;
+    let createMs = 0;
+    try {
+      const createTimeout = Math.min(this.createTimeoutMs, remainingMs());
+      if (createTimeout <= 0) {
+        throw new Error("suggest budget exhausted before create");
+      }
+      try {
+        const got = await this.getSession(
+          model,
+          language,
+          NANO_RANK_SYSTEM_PROMPT,
+          createTimeout,
+        );
+        session = got.session;
+        createMs = got.createMs;
+        ownedSession = !this.reuseSession;
+      } catch (error) {
+        const reason =
+          error instanceof Error ? error.message : "nano.create failed";
+        throw new Error(`nano.create: ${reason}`);
+      }
+
+      const promptTimeout = Math.min(this.promptTimeoutMs, remainingMs());
+      if (promptTimeout <= 0) {
+        throw new Error("suggest budget exhausted before prompt");
+      }
+      const promptStarted = Date.now();
+      const raw = await this.promptActions(session, userPayload, {
+        preferConstraint: false,
+        timeoutMs: promptTimeout,
+      });
+      const promptMs = Date.now() - promptStarted;
+      const orderedIds = parseNanoRankOrderedIds(raw);
+      const mapped = suggestionResultFromRankedIds(orderedIds, catalog);
+      if (!mapped) {
+        throw new Error("No valid Nano rank ids");
+      }
+      return {
+        ...mapped,
+        debug: {
+          ...mapped.debug,
+          createMs,
+          promptMs,
+          nanoPath: "rank",
+        },
+      };
+    } finally {
+      if (ownedSession) {
+        try {
+          session?.destroy?.();
+        } catch {
+          // ignore
+        }
+      }
+    }
   }
 
   private async suggestWithNano(
@@ -175,44 +350,55 @@ export class NanoSuggestionEngine implements SuggestionEngine {
     });
 
     let session: LanguageModelSessionLike | null = null;
+    let ownedSession = false;
+    let createMs = 0;
     try {
       try {
         const createTimeout = Math.min(this.createTimeoutMs, remainingMs());
         if (createTimeout <= 0) {
           throw new Error("suggest budget exhausted before create");
         }
-        session = await createNanoSession(model, {
-          systemPrompt: NANO_ACTION_SYSTEM_PROMPT,
-          timeoutMs: createTimeout,
+        const got = await this.getSession(
+          model,
           language,
-        });
+          NANO_ACTION_SYSTEM_PROMPT,
+          createTimeout,
+        );
+        session = got.session;
+        createMs = got.createMs;
+        ownedSession = !this.reuseSession;
       } catch (error) {
         const reason =
           error instanceof Error ? error.message : "nano.create failed";
         throw new Error(`nano.create: ${reason}`);
       }
 
-      // Prefer unconstrained prompt first — DOM-31 hardware showed plain
-      // session.prompt() works while responseConstraint can hang ~45s on some
-      // Chrome builds after model wipe/restore. Validate in-process either way.
       const firstTimeout = promptTimeoutForPass();
       if (firstTimeout <= 0) {
         throw new Error("suggest budget exhausted before prompt");
       }
+      const promptStarted = Date.now();
       const first = await this.promptActions(session, userPayload, {
         preferConstraint: false,
         timeoutMs: firstTimeout,
       });
+      let promptMs = Date.now() - promptStarted;
       const validated = validateNanoActionOutput(first, {
         pageType: input.pageContext.pageType,
         pageTitle: input.pageContext.title,
       });
       if (validated.ok) {
-        return validated.result;
+        return {
+          ...validated.result,
+          debug: {
+            ...validated.result.debug,
+            createMs,
+            promptMs,
+            nanoPath: "generate",
+          },
+        };
       }
 
-      // One repair attempt when budget remains — skip stacked retries that
-      // previously pushed wall-clock past ~100s on slow hardware.
       if (remainingMs() < NANO_MIN_RETRY_BUDGET_MS) {
         throw new Error(validated.reason);
       }
@@ -222,16 +408,23 @@ export class NanoSuggestionEngine implements SuggestionEngine {
         buildNanoRepairPrompt(first),
         { preferConstraint: false, timeoutMs: repairTimeout },
       );
+      promptMs += Date.now() - promptStarted;
       const repairedValidated = validateNanoActionOutput(repaired, {
         pageType: input.pageContext.pageType,
         pageTitle: input.pageContext.title,
       });
       if (repairedValidated.ok) {
-        return repairedValidated.result;
+        return {
+          ...repairedValidated.result,
+          debug: {
+            ...repairedValidated.result.debug,
+            createMs,
+            promptMs,
+            nanoPath: "generate",
+          },
+        };
       }
 
-      // Constrained pass is optional and historically hang-prone — only try
-      // when meaningful budget remains.
       if (remainingMs() < NANO_MIN_RETRY_BUDGET_MS) {
         throw new Error(repairedValidated.reason);
       }
@@ -245,7 +438,15 @@ export class NanoSuggestionEngine implements SuggestionEngine {
           pageTitle: input.pageContext.title,
         });
         if (constrainedValidated.ok) {
-          return constrainedValidated.result;
+          return {
+            ...constrainedValidated.result,
+            debug: {
+              ...constrainedValidated.result.debug,
+              createMs,
+              promptMs,
+              nanoPath: "generate",
+            },
+          };
         }
         throw new Error(constrainedValidated.reason);
       } catch (error) {
@@ -255,10 +456,12 @@ export class NanoSuggestionEngine implements SuggestionEngine {
         );
       }
     } finally {
-      try {
-        session?.destroy?.();
-      } catch {
-        // ignore
+      if (ownedSession) {
+        try {
+          session?.destroy?.();
+        } catch {
+          // ignore
+        }
       }
     }
   }

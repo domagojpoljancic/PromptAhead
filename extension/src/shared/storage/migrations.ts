@@ -99,6 +99,10 @@ export function migrateSettings(raw: unknown): MigrationResult<Settings> {
     languageOverride:
       typeof language === "string" && language.length > 0 ? language : null,
     nanoPreference: pickNanoPreference(record.nanoPreference ?? record.nano),
+    nanoFastPath: pickBoolean(
+      record.nanoFastPath,
+      DEFAULT_SETTINGS.nanoFastPath,
+    ),
     historyMode: pickHistoryMode(historyMode),
     proactivePaused: pickBoolean(
       record.proactivePaused,

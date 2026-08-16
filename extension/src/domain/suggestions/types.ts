@@ -75,6 +75,10 @@ export type SuggestionResult = {
     nanoFailureReason?: string;
     /** Wall-clock ms for the Nano suggest path (create + prompt + validate). */
     elapsedMs?: number;
+    /** Which Nano strategy produced this result (DOM-66). */
+    nanoPath?: "rank" | "generate" | "curated-fallback";
+    createMs?: number;
+    promptMs?: number;
   };
 };
 

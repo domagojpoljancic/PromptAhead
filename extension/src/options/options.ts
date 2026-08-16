@@ -115,6 +115,9 @@ export function initOptions(deps: Partial<OptionsDeps> = {}): OptionsController 
   const nanoForceBasic = document.getElementById(
     "nano-force-basic",
   ) as HTMLInputElement | null;
+  const nanoFastPath = document.getElementById(
+    "nano-fast-path",
+  ) as HTMLInputElement | null;
   const nanoSetup = document.getElementById(
     "nano-setup",
   ) as HTMLButtonElement | null;
@@ -224,6 +227,13 @@ export function initOptions(deps: Partial<OptionsDeps> = {}): OptionsController 
     if (nanoForceBasic) {
       nanoForceBasic.checked = settings.nanoPreference === "basic";
       nanoForceBasic.disabled = downloading || isForceDisabledEnv();
+    }
+    if (nanoFastPath) {
+      nanoFastPath.checked = settings.nanoFastPath !== false;
+      nanoFastPath.disabled =
+        downloading ||
+        isForceDisabledEnv() ||
+        settings.nanoPreference === "basic";
     }
 
     const state = latestReadiness?.state;
@@ -709,6 +719,20 @@ export function initOptions(deps: Partial<OptionsDeps> = {}): OptionsController 
         );
       }
       void refreshNanoReadiness();
+    });
+  });
+
+  nanoFastPath?.addEventListener("change", () => {
+    const enabled = Boolean(nanoFastPath.checked);
+    void saveSettingsPatch({ nanoFastPath: enabled }).then((ok) => {
+      if (ok) {
+        setStatus(
+          enabled
+            ? "Faster on-device AI on — curated first, then AI rank."
+            : "Faster path off — full on-device generate (slower).",
+          "ok",
+        );
+      }
     });
   });
 

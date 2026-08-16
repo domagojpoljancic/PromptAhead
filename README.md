@@ -16,7 +16,7 @@ Privacy-first Chrome extension (Manifest V3) that notices when you are genuinely
 | Destinations | Deep links with **app-first + web fallback**; Gemini / oversized prompts use **clipboard + open**; never auto-submit |
 | Automation | Vitest (unit + jsdom UI + **coverage gates** on domain/messaging), Playwright (MV3 + navigate→stale + Nano-off curated + Smart invite/pause/revoke + homepage empty-state + **axe a11y** + **sensitive Manual override**), GitHub Actions (`test:ci`, Node 20.19+) |
 | Nano CI | Curated path stays green with Nano forced off (`NANO_FORCE_DISABLED` + Playwright Settings force-basic → extract → copy); live hardware checklist remains DOM-31 / [`docs/nano-verification-checklist.md`](docs/nano-verification-checklist.md) |
-| Nano engine | **≤55s suggest budget**; shorter create/prompt caps; unconstrained → repair → optional constrain; skip stacked retries when budget low; curated fallback (info log); retain failure reason |
+| Nano engine | **Fast path (default):** catalog **rank** + warm session + **curated-first** UI (Settings toggle); legacy full generate when fast path off; ≤55s generate budget / ≤30s rank budget; curated fallback |
 | M1 acceptance | Manual §25 map + smoke notes in [`docs/test-plan.md`](docs/test-plan.md) |
 | M0 spike harness (`spikes/`) | **Done** — S0.1–S0.7 implemented and run |
 | Spike results (`docs/technical-spikes.md`) | **Filled** — Chrome **150.0.0.0** (2026-08-01) |
