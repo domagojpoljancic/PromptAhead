@@ -88,6 +88,35 @@ describe("Manual-mode extraction path", () => {
     expect(latest.ok && latest.pageContext?.title).toBe("Aurora 14 Laptop");
   });
 
+  it("EXTRACT without tabId uses the focused tab, not lastGesture (DOM-74)", async () => {
+    const focusedId = 99;
+    const focusedUrl = "https://shop.example.com/products/other-widget";
+    const mock = mockWithPage({
+      activeTab: { id: focusedId, url: focusedUrl },
+      executeScript: (details) => {
+        if (details.args?.[0] === "pa-sensitive") {
+          return { blocked: false, category: null, reason: "not_sensitive" };
+        }
+        return {
+          ok: true as const,
+          snapshot: snapshotFromFixture("product-jsonld", focusedUrl),
+        };
+      },
+    });
+    registerBackgroundRouter();
+
+    // Seed last-gesture on a different tab (bound/gesture page before a switch).
+    await captureTabContext(TAB_ID, PRODUCT_URL);
+    mock.injections.length = 0;
+
+    const extracted = await sendToBackground({ type: "EXTRACT_ACTIVE_TAB" });
+    expect(extracted.ok).toBe(true);
+    expect(extracted.ok && extracted.tabId).toBe(focusedId);
+    expect(mock.injections.length).toBeGreaterThan(0);
+    expect(mock.injections.every((id) => id === focusedId)).toBe(true);
+    expect(mock.injections).not.toContain(TAB_ID);
+  });
+
   it("forgets a tab once it navigates or closes", async () => {
     mockWithPage();
 
@@ -126,6 +155,7 @@ describe("Manual-mode extraction path", () => {
 
     const response = await sendToBackground({ type: "EXTRACT_ACTIVE_TAB" });
     expect(!response.ok && response.error).toBe(ACCESS_LOST_ERROR);
+    expect(!response.ok && response.tabId).toBe(TAB_ID);
 
     const latest = await sendToBackground({ type: "GET_LATEST_PAGE_CONTEXT" });
     expect(latest.ok && latest.pageContext).toBeNull();
