@@ -579,6 +579,48 @@ body.sensitive-override-active .shell {
   background: var(--surface);
 }
 
+.onboarding__nav {
+  display: flex;
+  align-items: stretch;
+  margin: -1rem -1.125rem 0.15rem;
+  padding: 0;
+  border-bottom: 1px solid var(--border);
+  background: color-mix(in srgb, var(--accent) 14%, var(--bg));
+  border-radius: 0.5rem 0.5rem 0 0;
+}
+
+.onboarding__nav .btn--back {
+  width: 100%;
+  min-height: 2.75rem;
+  margin: 0;
+  padding: 0.65rem 1.125rem;
+  border: none;
+  border-radius: 0;
+  background: transparent;
+  font-size: 0.9375rem;
+  justify-content: flex-start;
+  text-align: left;
+  gap: 0.55rem;
+}
+
+.onboarding__nav .btn--back:hover {
+  border-color: transparent;
+  background: color-mix(in srgb, var(--accent) 22%, var(--bg));
+}
+
+.onboarding__nav .btn--back .btn__chevron {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.5rem;
+  height: 1.5rem;
+  border-radius: 0.3rem;
+  background: color-mix(in srgb, var(--accent) 28%, transparent);
+  font-size: 1.05rem;
+  line-height: 1;
+  color: var(--accent);
+}
+
 .onboarding__heading {
   margin: 0 0 0.5rem;
   font-size: 1.125rem;

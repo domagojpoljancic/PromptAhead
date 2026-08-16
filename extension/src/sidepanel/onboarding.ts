@@ -40,6 +40,8 @@ export type OnboardingDeps = {
   sendToBackground: typeof defaultSendToBackground;
   /** Injected for tests — defaults to realm LanguageModel. */
   getLanguageModel: () => LanguageModelLike | undefined;
+  /** Injected for tests — defaults to real readiness probe. */
+  probeNanoReadiness: typeof probeNanoReadiness;
   permissionsApi?: PermissionsApi;
 };
 
@@ -55,6 +57,7 @@ let downloading = false;
 let onComplete: (() => void) | undefined;
 let activeSend: typeof defaultSendToBackground = defaultSendToBackground;
 let activeGetModel: () => LanguageModelLike | undefined = getLanguageModel;
+let activeProbe: typeof probeNanoReadiness = probeNanoReadiness;
 let activePermissions: PermissionsApi | undefined;
 /** True from gate open until overlay dismissed or onboarding skipped. */
 let onboardingGateActive = false;
@@ -233,7 +236,11 @@ function populateDestinations(): void {
   destinationSelect.value = chosenDestination;
 }
 
-function setProgressUi(fraction: number | null, visible: boolean): void {
+function setProgressUi(
+  fraction: number | null,
+  visible: boolean,
+  labelOverride?: string,
+): void {
   const wrap = nanoProgressEl();
   const bar = nanoProgressBarEl();
   const label = nanoProgressLabelEl();
@@ -251,7 +258,10 @@ function setProgressUi(fraction: number | null, visible: boolean): void {
     bar.style.setProperty("--progress", `${pct}%`);
     bar.setAttribute("aria-valuenow", String(pct));
   }
-  setText(label, formatDownloadProgress(fraction));
+  setText(
+    label,
+    labelOverride ?? formatDownloadProgress(fraction),
+  );
 }
 
 function renderNanoStepUi(state: NanoReadinessState): void {
@@ -276,16 +286,17 @@ function renderNanoStepUi(state: NanoReadinessState): void {
       : "Download on-device model";
   }
 
-  if (!downloading) {
+  if (state === "checking") {
+    setProgressUi(null, true, "Checking for on-device AI…");
+  } else if (!downloading) {
     setProgressUi(null, false);
   }
 }
 
 async function refreshNanoStep(): Promise<void> {
   renderNanoStepUi("checking");
-  setProgressUi(null, false);
   try {
-    const probe = await probeNanoReadiness(activeGetModel);
+    const probe = await activeProbe(activeGetModel);
     if (currentStep !== "nano") {
       return;
     }
@@ -556,6 +567,7 @@ export async function maybeStartOnboarding(
   beginOnboardingGate();
   activeSend = deps.sendToBackground ?? defaultSendToBackground;
   activeGetModel = deps.getLanguageModel ?? getLanguageModel;
+  activeProbe = deps.probeNanoReadiness ?? probeNanoReadiness;
   activePermissions = deps.permissionsApi;
   onComplete = afterComplete;
   wireControls();
@@ -601,6 +613,7 @@ export async function refreshOnboardingAfterClear(
   beginOnboardingGate();
   activeSend = deps.sendToBackground ?? defaultSendToBackground;
   activeGetModel = deps.getLanguageModel ?? getLanguageModel;
+  activeProbe = deps.probeNanoReadiness ?? probeNanoReadiness;
   const response = await activeSend({ type: "GET_ONBOARDING" });
   if (!response.ok || response.onboarding.completed) {
     endOnboardingGate();
@@ -633,5 +646,6 @@ export function resetOnboardingForTests(): void {
   onComplete = undefined;
   activeSend = defaultSendToBackground;
   activeGetModel = getLanguageModel;
+  activeProbe = probeNanoReadiness;
   activePermissions = undefined;
 }

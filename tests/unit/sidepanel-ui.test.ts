@@ -428,6 +428,7 @@ describe("side panel click-through", () => {
     click('[data-step="welcome"] [data-onboarding-action="next"]');
     await flush();
     expect(isVisible('[data-step="mode"]')).toBe(true);
+    expect(isVisible('[data-step="mode"] .onboarding__nav')).toBe(true);
 
     click('[data-mode-choice="manual"]');
     click('[data-step="mode"] [data-onboarding-action="mode-continue"]');
@@ -452,6 +453,81 @@ describe("side panel click-through", () => {
     expect(store.settings.mode).toBe("manual");
     expect(store.onboarding.nanoStepSkipped).toBe(true);
     expect(isVisible("#choose")).toBe(true);
+  });
+
+  it("shows Nano check loading and allows Back while probing (DOM-69)", async () => {
+    resetOnboardingForTests();
+    mountExtensionHtml("sidepanel/index.html");
+    store = {
+      settings: { ...DEFAULT_SETTINGS },
+      onboarding: { ...DEFAULT_ONBOARDING },
+      history: [],
+      latest: { pageContext: samplePage, tabId: 7 },
+    };
+    const { send, listeners } = createSend(store);
+    let resolveProbe!: (value: {
+      state: "ready";
+      availability: "available";
+      apiPresent: true;
+    }) => void;
+    const probeGate = new Promise<{
+      state: "ready";
+      availability: "available";
+      apiPresent: true;
+    }>((resolve) => {
+      resolveProbe = resolve;
+    });
+
+    controller = await initSidePanel({
+      sendToBackground: send,
+      selectSuggestionEngine: async () => mockEngine(),
+      openLLMWithFallback: async () => ({
+        copied: true,
+        openedUrl: null,
+        mode: "copy-only",
+        usedModel: null,
+      }),
+      openOptionsPage: vi.fn(),
+      addMessageListener: (listener) => {
+        listeners.push(listener);
+        return () => undefined;
+      },
+      maybeStartOnboarding: async (afterComplete, deps) => {
+        const { maybeStartOnboarding } = await import(
+          "../../extension/src/sidepanel/onboarding"
+        );
+        return maybeStartOnboarding(afterComplete, {
+          ...deps,
+          probeNanoReadiness: async () => probeGate,
+        });
+      },
+    });
+    await flush();
+
+    click('[data-step="welcome"] [data-onboarding-action="next"]');
+    await flush();
+    click('[data-mode-choice="manual"]');
+    click('[data-step="mode"] [data-onboarding-action="mode-continue"]');
+    await flush();
+    click('[data-step="destination"] [data-onboarding-action="next"]');
+    await flush();
+
+    expect(isVisible('[data-step="nano"]')).toBe(true);
+    expect(isVisible("#onboarding-nano-progress")).toBe(true);
+    expect(textOf("#onboarding-nano-progress-label")).toMatch(/checking/i);
+    expect(isVisible("#onboarding-nano-primary")).toBe(false);
+
+    click('[data-step="nano"] [data-onboarding-action="back"]');
+    await flush();
+    expect(isVisible('[data-step="destination"]')).toBe(true);
+    expect(isVisible('[data-step="nano"]')).toBe(false);
+
+    resolveProbe({
+      state: "ready",
+      availability: "available",
+      apiPresent: true,
+    });
+    await flush();
   });
 
   it("grants Smart host permission from onboarding before leaving the mode step", async () => {
