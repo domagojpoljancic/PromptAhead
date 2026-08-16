@@ -9,6 +9,7 @@ import {
   destroyNanoSession,
   getLanguageModel,
   isPromptApiPresent,
+  pageLanguageNeedsPromptApiClamp,
   probeAvailability,
   type LanguageModelAvailability,
   type LanguageModelLike,
@@ -128,11 +129,16 @@ export const NANO_UNSUPPORTED_COPY =
 
 export const NANO_THINKING_COPY = "Local AI is thinking…";
 
+/** Page language outside Prompt API session allowlist (DOM-79/80) — not a failure. */
+export const NANO_LANGUAGE_LIMITED_COPY =
+  "On-device AI fully supports only some languages for suggestions — these may be in English. Your portable prompt still asks the chat to answer in the page language.";
+
 export type NanoPanelNotice =
   | "none"
   | "fallback"
   | "needs-download"
-  | "unsupported";
+  | "unsupported"
+  | "language-limited";
 
 /**
  * When preference is enabled, map live readiness to a panel notice so we don’t
@@ -166,6 +172,8 @@ export function copyForNanoPanelNotice(notice: NanoPanelNotice): string {
       return NANO_UNSUPPORTED_COPY;
     case "fallback":
       return NANO_FALLBACK_COPY;
+    case "language-limited":
+      return NANO_LANGUAGE_LIMITED_COPY;
     case "none":
       return "";
   }
@@ -189,6 +197,25 @@ export function nanoPanelNoticeFromFailureReason(
     return "needs-download";
   }
   return "fallback";
+}
+
+/**
+ * Soft info when Nano ran (or was preferred) on a page language Chrome’s
+ * Prompt API cannot take in create() — do not override failure notices.
+ */
+export function nanoPanelNoticeWithLanguageLimit(input: {
+  notice: NanoPanelNotice;
+  nanoAttempted: boolean;
+  pageLanguage?: string | null;
+}): NanoPanelNotice {
+  if (
+    input.notice === "none" &&
+    input.nanoAttempted &&
+    pageLanguageNeedsPromptApiClamp(input.pageLanguage)
+  ) {
+    return "language-limited";
+  }
+  return input.notice;
 }
 
 export function formatDownloadProgress(fraction: number | null): string {

@@ -21,6 +21,7 @@ import {
   didNanoFallBackToCurated,
   nanoPanelNoticeForPreference,
   nanoPanelNoticeFromFailureReason,
+  nanoPanelNoticeWithLanguageLimit,
   probeNanoReadiness,
   selectSuggestionEngineForPreference as defaultSelectSuggestionEngineForPreference,
   type NanoPanelNotice,
@@ -487,6 +488,13 @@ export async function initSidePanel(
     }
     // Copy lives only in #status — actions sit under it (no duplicate card).
     setStatusMessage(copyForNanoPanelNotice(notice));
+    if (notice === "language-limited") {
+      // Informational only — not a download/retry path.
+      setHidden(nanoOpenSettingsButton, true);
+      setHidden(nanoRetryButton, true);
+      setHidden(nanoFallback, true);
+      return;
+    }
     const needsDownload = notice === "needs-download";
     setHidden(nanoOpenSettingsButton, !needsDownload);
     if (nanoRetryButton instanceof HTMLButtonElement) {
@@ -759,6 +767,11 @@ export async function initSidePanel(
           );
         }
       }
+      notice = nanoPanelNoticeWithLanguageLimit({
+        notice,
+        nanoAttempted: preferNano,
+        pageLanguage: ctx.language,
+      });
       renderSuggestions(result, { nanoNotice: notice });
       showStep("choose");
       if (notice !== "none") {

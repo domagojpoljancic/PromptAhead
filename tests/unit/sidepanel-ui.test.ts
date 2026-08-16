@@ -710,6 +710,29 @@ describe("side panel click-through", () => {
     expect(isVisible("#onboarding")).toBe(false);
   });
 
+  it("shows language-limited status when Nano runs on an unsupported page language", async () => {
+    store.settings = { ...DEFAULT_SETTINGS, nanoPreference: "enabled" };
+    store.latest = {
+      pageContext: { ...samplePage, language: "hr", title: "Croatian article" },
+      tabId: 7,
+    };
+    await boot({ nanoReadiness: "ready" });
+    expect(isVisible("#choose")).toBe(true);
+    expect(textOf("#status")).toMatch(/may be in English/i);
+    expect(textOf("#status")).toMatch(/portable prompt|page language/i);
+    expect(isVisible("#nano-fallback")).toBe(false);
+    expect(isVisible("#nano-open-settings")).toBe(false);
+    expect(isVisible("#nano-retry")).toBe(false);
+  });
+
+  it("does not show language-limited status for English pages", async () => {
+    store.settings = { ...DEFAULT_SETTINGS, nanoPreference: "enabled" };
+    store.latest = { pageContext: samplePage, tabId: 7 };
+    await boot({ nanoReadiness: "ready" });
+    expect(isVisible("#choose")).toBe(true);
+    expect(textOf("#status")).not.toMatch(/may be in English/i);
+  });
+
   it("shows Retry local AI when Nano falls back to curated", async () => {
     store.settings = { ...DEFAULT_SETTINGS, nanoPreference: "enabled" };
     const nanoThenCurated: SuggestionEngine = {

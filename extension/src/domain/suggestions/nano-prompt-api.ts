@@ -93,6 +93,14 @@ export function primaryLanguageSubtag(
   return /^[a-z]{2,3}/.exec(tag)?.[0] ?? "en";
 }
 
+/** True when create()/availability must use English instead of the page tag. */
+export function pageLanguageNeedsPromptApiClamp(
+  language?: string | null,
+): boolean {
+  const primary = primaryLanguageSubtag(language);
+  return !PROMPT_API_TEXT_LANGUAGE_SET.has(primary);
+}
+
 /**
  * Session languages for create()/availability(). Unsupported page langs
  * (e.g. Croatian `hr`) clamp to English so create does not abort — the Nano
