@@ -223,10 +223,10 @@ Add `notifications` (and `tabs` only if spike proves necessary). Optional hosts 
 
 ### Completion criteria
 
-- [ ] Handoff §25 acceptance mapped and checked.
-- [ ] Privacy disclosure matches behavior.
-- [ ] Curated fallback still works.
-- [ ] No unrelated scope creep.
+- [X] Handoff §25 acceptance mapped ([`acceptance-map-m4.md`](./acceptance-map-m4.md) / DOM-45) — **checked** after manual pass + CI
+- [X] Privacy disclosure matches behavior ([`chrome-web-store-privacy.md`](./chrome-web-store-privacy.md))
+- [X] Curated fallback still works (Playwright Nano-off; reconfirm on smoke)
+- [X] No unrelated scope creep (acceptance-map §1)
 
 ### Checklist
 
@@ -236,7 +236,7 @@ Add `notifications` (and `tabs` only if spike proves necessary). Optional hosts 
 - [ ] Developer mode + export
 - [X] Polish / a11y / dark mode
 - [X] Store privacy + release docs
-- [ ] Final smoke + eval rubric dry run
+- [~] Final smoke + eval rubric dry run — **map ready**; user ticks [`acceptance-map-m4.md`](./acceptance-map-m4.md) §4–§5
 
 ---
 

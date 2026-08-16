@@ -1,6 +1,6 @@
 # PromptAhead
 
-> **WIP — M4 store packaging next.** Manual core (M1) + Nano + Smart + polish (motion, onboarding Back, microcopy, theme) are on `main`. Store privacy disclosure + release checklist (DOM-44) in flight; final §25 map (DOM-45) still ahead.
+> **WIP — M4 release readiness.** Manual core + Nano + Smart + polish + store docs on `main`. Full §25 acceptance map (DOM-45) ready for your Chrome pass; compare expand (DOM-68 / PR #40) smoke with that pass. Store upload / listing assets still TBD.
 
 **Your next question, already prepared.**
 
@@ -106,6 +106,7 @@ See [`docs/architecture.md`](docs/architecture.md) for the full folder layout. A
 | [`docs/perf-notes.md`](docs/perf-notes.md) | M4 perf spot-check notes (DOM-73) |
 | [`docs/chrome-web-store-privacy.md`](docs/chrome-web-store-privacy.md) | CWS privacy practices draft (DOM-44) |
 | [`docs/release-checklist.md`](docs/release-checklist.md) | Internal CWS submission dry-run checklist (DOM-44) |
+| [`docs/acceptance-map-m4.md`](docs/acceptance-map-m4.md) | Full-product §25 map + consolidated manual / rubric pass (DOM-45) |
 
 `docs/promptahead-prd.md` is currently an identical copy of the handoff (legacy alias). Prefer the handoff path in links.
 
