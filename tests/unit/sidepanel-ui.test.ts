@@ -761,7 +761,7 @@ describe("side panel click-through", () => {
     }
     expect(busyVisible).toBe(true);
     expect(isVisible("#understanding")).toBe(false);
-    expect(isVisible(".app-header .lede")).toBe(false);
+    expect(isVisible(".app-header")).toBe(false);
     expect(isVisible("#refresh-context")).toBe(false);
     expect(isVisible("#nano-use-basic")).toBe(true);
     expect(isVisible("#nano-retry")).toBe(false);
@@ -781,7 +781,71 @@ describe("side panel click-through", () => {
     expect(isVisible("#status-nano-pulse")).toBe(false);
     expect(isVisible("#nano-use-basic")).toBe(false);
     expect(isVisible("#choose")).toBe(true);
-    expect(isVisible(".app-header .lede")).toBe(false);
+    expect(isVisible(".app-header")).toBe(false);
+  });
+
+  it("cancels Nano busy chrome when the bound tab goes stale", async () => {
+    store.settings = { ...DEFAULT_SETTINGS, nanoPreference: "enabled" };
+    const hangingNano: SuggestionEngine = {
+      id: "nano",
+      isAvailable: async () => true,
+      suggestActions: () =>
+        new Promise(() => {
+          /* hang until stale */
+        }),
+      generatePrompt: async () => "TASK: nano",
+    };
+    const { send, listeners, pushEvent } = createSend(store);
+    controller = await initSidePanel({
+      sendToBackground: send,
+      selectSuggestionEngine: async () => hangingNano,
+      openLLMWithFallback: async () => ({
+        copied: true,
+        openedUrl: null,
+        mode: "copy-only" as const,
+        usedModel: null,
+      }),
+      openOptionsPage: vi.fn(),
+      probeNanoReadiness: async () => ({
+        state: "ready",
+        availability: "available",
+        apiPresent: true,
+      }),
+      addMessageListener: (listener) => {
+        listeners.push(listener);
+        return () => {
+          const index = listeners.indexOf(listener);
+          if (index >= 0) {
+            listeners.splice(index, 1);
+          }
+        };
+      },
+    });
+
+    let busyVisible = false;
+    for (let i = 0; i < 40; i++) {
+      await flush();
+      if (isVisible("#status-nano-pulse")) {
+        busyVisible = true;
+        break;
+      }
+    }
+    expect(busyVisible).toBe(true);
+
+    pushEvent({
+      type: "PAGE_CONTEXT_CLEARED",
+      tabId: 7,
+      reason: "navigated",
+    });
+    await flush();
+
+    expect(isVisible("#stale")).toBe(true);
+    expect(isVisible("#status-nano-pulse")).toBe(false);
+    expect(isVisible("#nano-use-basic")).toBe(false);
+    expect(isVisible(".app-header")).toBe(false);
+    expect(document.getElementById("status")?.hasAttribute("hidden")).toBe(
+      true,
+    );
   });
 
   it("cancels in-flight Nano and loads basic suggestions", async () => {
@@ -856,10 +920,11 @@ describe("side panel click-through", () => {
     expect(textOf("#status")).toMatch(/curated|nothing leaves this device/i);
   });
 
-  it("shows product lede on empty, hides it on Choose", async () => {
+  it("shows product pitch header only on empty", async () => {
     store.latest = { pageContext: null, tabId: undefined };
     await boot();
     expect(isVisible("#empty")).toBe(true);
+    expect(isVisible(".app-header")).toBe(true);
     expect(isVisible(".app-header .lede")).toBe(true);
     expect(isVisible("#refresh-context")).toBe(true);
 
@@ -868,7 +933,7 @@ describe("side panel click-through", () => {
     await flush();
     await flush();
     expect(isVisible("#choose")).toBe(true);
-    expect(isVisible(".app-header .lede")).toBe(false);
+    expect(isVisible(".app-header")).toBe(false);
     expect(isVisible("#refresh-context")).toBe(true);
 
     click('#primary-actions button[data-action-id="article.summarize"]');

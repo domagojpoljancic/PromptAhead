@@ -288,7 +288,7 @@ export async function initSidePanel(
       setHidden(element, hide);
     }
     updateRefreshVisibility(next);
-    updateHeaderLede(next);
+    updateHeaderPitch(next);
   }
 
   /** Refresh only on orientation / choose / hard fallback — not mid-flow or Nano busy. */
@@ -310,13 +310,19 @@ export async function initSidePanel(
     }
   }
 
-  /** Product pitch only on orientation screens — not mid-workflow. */
-  function updateHeaderLede(step: PanelStep): void {
-    const lede = document.querySelector(".app-header .lede");
-    setHidden(
-      lede instanceof HTMLElement ? lede : null,
-      step !== "empty" && step !== "stale",
-    );
+  /**
+   * Full product pitch (h1 + lede) only when nothing is captured yet.
+   * Chrome’s side-panel title still brands the surface everywhere else.
+   */
+  function updateHeaderPitch(step: PanelStep): void {
+    const header = document.querySelector(".app-header");
+    setHidden(header instanceof HTMLElement ? header : null, step !== "empty");
+  }
+
+  /** Cancel in-flight Nano suggest so busy chrome cannot outlive the page. */
+  function invalidateInFlightSuggestions(): void {
+    suggestionGeneration += 1;
+    stopNanoThinkingBusy();
   }
 
   /** Keep the build strip visible long enough to read; matches CSS `build-fill`. */
@@ -380,8 +386,8 @@ export async function initSidePanel(
       void bar.offsetWidth;
       bar.style.animation = "";
     }
-    // Hide product lede while Nano is working (mid-flow).
-    updateHeaderLede("choose");
+    // Hide product pitch while Nano is working (mid-flow).
+    updateHeaderPitch("choose");
     nanoThinkingStatusLine = pickMicrocopy("nanoThinking");
     applyNanoThinkingCopy();
     nanoThinkingTimer = setInterval(() => {
@@ -732,6 +738,7 @@ export async function initSidePanel(
   }
 
   function renderStale(message: string = STALE_CONTEXT_MESSAGE): void {
+    invalidateInFlightSuggestions();
     clearWorkflowData();
     showStep("stale");
     setText(staleMessage, message);
