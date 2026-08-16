@@ -1135,9 +1135,10 @@ export async function initSidePanel(
   }
 
   /**
-   * Panel clicks do not grant `activeTab`, but the grant from the opening
-   * gesture survives until the tab navigates (S0.5), so a re-extract of the same
-   * page works until then and fails with a clear message afterwards.
+   * Panel clicks do not grant `activeTab`, but Smart host access (or a
+   * still-valid grant) can re-extract. Always target the **focused** tab —
+   * not `boundTabId` / last gesture — so switching pages then Refresh updates
+   * the panel instead of silently re-reading the previous capture.
    */
   async function refreshFromPage(): Promise<void> {
     if (!(refreshButton instanceof HTMLButtonElement)) {
@@ -1153,18 +1154,19 @@ export async function initSidePanel(
     try {
       const response = await send({
         type: "EXTRACT_ACTIVE_TAB",
-        ...(boundTabId !== null ? { tabId: boundTabId } : {}),
       });
       if (response.ok) {
         await acceptPageContext(response.pageContext, response.tabId);
       } else if (isSensitiveBlockedError(response.error)) {
+        const extractTabId =
+          typeof response.tabId === "number" ? response.tabId : undefined;
         const latest = await send({
           type: "GET_LATEST_PAGE_CONTEXT",
-          ...(boundTabId !== null ? { tabId: boundTabId } : {}),
+          ...(extractTabId !== undefined ? { tabId: extractTabId } : {}),
         });
         if (latest.ok && latest.sensitiveBlock) {
           presentSensitiveBlock({
-            tabId: latest.tabId ?? boundTabId ?? 0,
+            tabId: latest.tabId ?? extractTabId ?? boundTabId ?? 0,
             category: latest.sensitiveBlock.category,
             url: latest.sensitiveBlock.url,
           });

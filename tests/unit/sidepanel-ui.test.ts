@@ -427,7 +427,11 @@ describe("side panel click-through", () => {
     expect(isVisible("#choose")).toBe(true);
     click("#refresh-context");
     await flush();
+    // Refresh targets the focused tab, not boundTabId (tab-switch smoke).
     expect(send).toHaveBeenCalledWith(
+      expect.objectContaining({ type: "EXTRACT_ACTIVE_TAB" }),
+    );
+    expect(send).not.toHaveBeenCalledWith(
       expect.objectContaining({ type: "EXTRACT_ACTIVE_TAB", tabId: 7 }),
     );
     expect(isVisible("#choose")).toBe(true);
@@ -435,6 +439,24 @@ describe("side panel click-through", () => {
     expect(
       (document.querySelector("#refresh-context") as HTMLButtonElement).disabled,
     ).toBe(false);
+  });
+
+  it("Refresh does not pin EXTRACT to the previously bound tab", async () => {
+    store.latest = { pageContext: samplePage, tabId: 7 };
+    const otherPage = {
+      ...samplePage,
+      title: "Other page",
+      url: "https://example.com/other",
+    };
+    const { send } = await boot();
+    expect(isVisible("#choose")).toBe(true);
+
+    store.latest = { pageContext: otherPage, tabId: 99 };
+    click("#refresh-context");
+    await flush();
+
+    expect(send).toHaveBeenCalledWith({ type: "EXTRACT_ACTIVE_TAB" });
+    expect(textOf("#context-title")).toBe("Other page");
   });
 
   it("completes onboarding with basic private mode and then shows the workflow", async () => {
