@@ -24,7 +24,7 @@
 | Sensitive Manual override, injection fixtures | Shipped |
 | Polish: motion/Back, onboarding check loading, microcopy, dark theme, a11y focus | Shipped |
 | Store privacy draft + release checklist | Shipped (DOM-44) |
-| Compare ≤10 + opt-in Include all N ≤40 | [PR #40](https://github.com/domagojpoljancic/PromptAhead/pull/40) (DOM-68) — smoke with this pass |
+| Compare ≤10 + opt-in Include all N ≤40 | Shipped on `main` (DOM-68) — smoke with this pass |
 
 ### Explicitly **not** required for §25 / M4 exit
 
@@ -71,7 +71,7 @@
 
 ## 4. Consolidated manual pass (tick while testing “everything”)
 
-Run on unpacked `extension/dist/` after `npm run build` (include [PR #40](https://github.com/domagojpoljancic/PromptAhead/pull/40) if not yet merged).
+Run on unpacked `extension/dist/` after `npm run build` from current `main`.
 
 ### A. Build gate
 
@@ -105,7 +105,7 @@ Run on unpacked `extension/dist/` after `npm run build` (include [PR #40](https:
 - [ ] Options page readable (dark-first / OS light)
 - [ ] Loading/success microcopy may vary; sensitive warnings stay sober
 
-### F. Compare expand — DOM-68 (PR #40)
+### F. Compare expand — DOM-68
 
 - [ ] Page with **>10** named products → Compare these 10 by default
 - [ ] Review shows **Include all N…** (off by default)

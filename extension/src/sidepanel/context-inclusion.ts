@@ -10,6 +10,8 @@ export type ContextInclusion = {
   pageBody: boolean;
   selectedText: boolean;
   userNote: boolean;
+  /** DOM-68: expand comparable SOURCE_DATA to the full named product pool. */
+  expandNamedProducts?: boolean;
 };
 
 export const DEFAULT_CONTEXT_INCLUSION: ContextInclusion = {
@@ -17,6 +19,7 @@ export const DEFAULT_CONTEXT_INCLUSION: ContextInclusion = {
   pageBody: true,
   selectedText: true,
   userNote: true,
+  expandNamedProducts: false,
 };
 
 /** Apply inclusion flags to a captured page — empty strings omit via the renderer. */
@@ -45,7 +48,17 @@ export function applyContextInclusion(
     if (pageContext.generic) {
       next.generic = pageContext.generic;
     }
-    if (pageContext.comparableSet) {
+    if (
+      inclusion.expandNamedProducts === true &&
+      pageContext.expandableNamedSet &&
+      pageContext.expandableNamedSet.names.length >= 2
+    ) {
+      next.comparableSet = {
+        kind: pageContext.expandableNamedSet.kind,
+        names: [...pageContext.expandableNamedSet.names],
+      };
+      next.expandableNamedSet = pageContext.expandableNamedSet;
+    } else if (pageContext.comparableSet) {
       next.comparableSet = pageContext.comparableSet;
     }
   }

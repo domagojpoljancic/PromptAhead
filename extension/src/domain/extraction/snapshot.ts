@@ -29,7 +29,7 @@ export const RAW_SNAPSHOT_LIMITS: SnapshotLimits = {
   textBlockChars: 1200,
   selectedTextChars: 2000,
   /** Raw DOM product titles before comparable-set capping (DOM-64). */
-  productNameCandidates: 12,
+  productNameCandidates: 40,
 };
 
 export type RawMetaTag = { key: string; content: string };
