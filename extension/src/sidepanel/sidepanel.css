@@ -1,4 +1,20 @@
-/* Theme tokens live in ../shared/theme.css */
+/* Soft light panel (DOM-74) — ignore OS dark; not pure white. */
+:root {
+  color-scheme: light;
+  --bg: #e8eaef;
+  --surface: #f3f4f7;
+  --text: #1a2230;
+  --muted: #5a6578;
+  --accent: #1a6fb5;
+  --border: #c5ccd8;
+  --danger: #a33a30;
+  --danger-border: color-mix(in srgb, var(--danger) 35%, var(--border));
+  --ok: #1f6b4a;
+  --focus-ring: color-mix(in srgb, var(--accent) 55%, black);
+  --btn-primary-bg: #1a6fb5;
+  --btn-primary-fg: #ffffff;
+  --btn-primary-border: #155a94;
+}
 
 *,
 *::before,
@@ -26,7 +42,7 @@ body {
 }
 
 .eyebrow {
-  margin: 0 0 0.25rem;
+  margin: 0 0 0.4rem;
   font-size: 0.75rem;
   letter-spacing: 0.08em;
   text-transform: uppercase;
@@ -51,6 +67,12 @@ h1 {
   gap: 1rem;
 }
 
+.shell__toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
 .shell__status {
   margin: 0;
   padding: 0.75rem 1rem;
@@ -58,6 +80,230 @@ h1 {
   border-radius: 0.5rem;
   color: var(--muted);
   font-size: 0.875rem;
+  display: grid;
+  gap: 0.55rem;
+}
+
+.shell__status-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.55rem;
+}
+
+.shell__status-copy {
+  display: grid;
+  gap: 0.15rem;
+  min-width: 0;
+  flex: 1;
+}
+
+.shell__status-ai {
+  font-size: 0.6875rem;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--accent);
+  line-height: 1.2;
+}
+
+.shell__status-ai[hidden],
+.shell__status-benefit[hidden] {
+  display: none !important;
+}
+
+.shell__status-benefit {
+  font-size: 0.75rem;
+  line-height: 1.35;
+  color: var(--muted);
+}
+
+.shell__status-pulse[hidden],
+.shell__status-track[hidden] {
+  display: none !important;
+}
+
+.shell__status:empty,
+.shell__status[hidden] {
+  display: none !important;
+}
+
+.shell__status-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin-top: -0.35rem;
+}
+
+.shell__status-actions[hidden] {
+  display: none !important;
+}
+
+/* Shared calm busy (page / AI-loading) — one soft motion, no copy churn. */
+.shell--status-busy:not(.shell--nano-thinking) .shell__status {
+  border-style: dashed;
+  border-color: color-mix(in srgb, var(--muted) 35%, var(--border));
+  background: color-mix(in srgb, var(--surface) 92%, var(--bg));
+  color: var(--muted);
+  transition:
+    border-color 0.4s ease,
+    background 0.4s ease,
+    color 0.35s ease,
+    box-shadow 0.4s ease;
+}
+
+.shell--status-busy:not(.shell--nano-thinking) .shell__status-pulse {
+  animation: page-busy-pulse 2s ease-in-out infinite;
+}
+
+.shell--status-busy:not(.shell--nano-thinking) .build-busy__bar--indeterminate {
+  width: 36%;
+  background: color-mix(in srgb, var(--muted) 45%, var(--border));
+  animation: page-busy-breathe 2.4s ease-in-out infinite;
+}
+
+/* AI is loading — same calm motion, light accent so it leads into thinking. */
+.shell--ai-loading .shell__status {
+  border-color: color-mix(in srgb, var(--accent) 28%, var(--border));
+  background: color-mix(in srgb, var(--accent) 5%, var(--surface));
+  color: var(--text);
+}
+
+.shell--ai-loading .shell__status-ai {
+  opacity: 0.85;
+}
+
+.shell--ai-loading .build-busy__bar--indeterminate {
+  background: color-mix(in srgb, var(--accent) 55%, var(--border));
+}
+
+/* Local AI working — denser motion + accent. */
+.shell--nano-thinking .shell__status {
+  border-style: solid;
+  border-color: color-mix(in srgb, var(--accent) 55%, var(--border));
+  background:
+    linear-gradient(
+      120deg,
+      color-mix(in srgb, var(--accent) 10%, var(--surface)) 0%,
+      var(--surface) 42%,
+      color-mix(in srgb, var(--accent) 8%, var(--surface)) 100%
+    );
+  background-size: 200% 100%;
+  color: var(--text);
+  animation: ai-busy-sheen 3.2s ease-in-out infinite;
+  transition:
+    border-color 0.4s ease,
+    background 0.4s ease,
+    color 0.35s ease,
+    box-shadow 0.4s ease;
+}
+
+.shell--nano-thinking .shell__status-pulse {
+  box-shadow: 0 0 0 0 color-mix(in srgb, var(--accent) 45%, transparent);
+  animation: ai-busy-pulse 1.15s ease-out infinite;
+}
+
+.shell--nano-thinking .shell__status-ai {
+  animation: ai-label-glow 1.6s ease-in-out infinite;
+}
+
+.shell--nano-thinking .build-busy__bar--indeterminate {
+  width: 38%;
+  background: linear-gradient(
+    90deg,
+    color-mix(in srgb, var(--accent) 35%, transparent),
+    var(--accent),
+    color-mix(in srgb, var(--accent) 35%, transparent)
+  );
+  animation: ai-busy-shimmer 1.05s ease-in-out infinite;
+}
+
+.shell--busy-handoff .shell__status-copy {
+  animation: status-copy-slide-in 0.45s ease-out;
+}
+
+@keyframes page-busy-pulse {
+  0%,
+  100% {
+    opacity: 0.4;
+    transform: scale(0.94);
+  }
+  50% {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+/* Single calm motion: bar eases in place (no back-and-forth scan). */
+@keyframes page-busy-breathe {
+  0%,
+  100% {
+    opacity: 0.35;
+    transform: scaleX(0.85);
+    transform-origin: left center;
+  }
+  50% {
+    opacity: 1;
+    transform: scaleX(1);
+    transform-origin: left center;
+  }
+}
+
+@keyframes status-copy-slide-in {
+  from {
+    opacity: 0;
+    transform: translateY(0.4rem);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes ai-busy-sheen {
+  0%,
+  100% {
+    background-position: 0% 50%;
+  }
+  50% {
+    background-position: 100% 50%;
+  }
+}
+
+@keyframes ai-busy-pulse {
+  0% {
+    opacity: 1;
+    transform: scale(1);
+    box-shadow: 0 0 0 0 color-mix(in srgb, var(--accent) 40%, transparent);
+  }
+  70% {
+    opacity: 0.55;
+    transform: scale(1.15);
+    box-shadow: 0 0 0 8px color-mix(in srgb, var(--accent) 0%, transparent);
+  }
+  100% {
+    opacity: 1;
+    transform: scale(1);
+    box-shadow: 0 0 0 0 color-mix(in srgb, var(--accent) 0%, transparent);
+  }
+}
+
+@keyframes ai-label-glow {
+  0%,
+  100% {
+    opacity: 0.72;
+  }
+  50% {
+    opacity: 1;
+  }
+}
+
+@keyframes ai-busy-shimmer {
+  0% {
+    transform: translateX(-130%);
+  }
+  100% {
+    transform: translateX(290%);
+  }
 }
 
 .shell__status--ok {
@@ -99,7 +345,9 @@ h1 {
   margin: 0;
   font-size: 0.75rem;
   color: var(--muted);
-  word-break: break-all;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .context__selection {
@@ -135,6 +383,10 @@ h1 {
   gap: 0.5rem;
 }
 
+.workflow > .actions {
+  margin-top: 0.25rem;
+}
+
 .btn {
   justify-self: start;
   padding: 0.5rem 0.875rem;
@@ -156,8 +408,14 @@ h1 {
 }
 
 .btn--primary {
-  border-color: var(--accent);
-  background: #243247;
+  border-color: var(--btn-primary-border);
+  background: var(--btn-primary-bg);
+  color: var(--btn-primary-fg);
+}
+
+.btn--primary:hover {
+  border-color: var(--btn-primary-fg);
+  filter: brightness(1.06);
 }
 
 .btn--ghost {
@@ -189,7 +447,7 @@ h1 {
 .workflow__nav {
   display: flex;
   align-items: stretch;
-  margin: -0.875rem -1rem 0.15rem;
+  margin: -0.875rem -1rem 0.85rem;
   padding: 0;
   border-bottom: 1px solid var(--border);
   background: color-mix(in srgb, var(--accent) 14%, var(--bg));
@@ -335,6 +593,29 @@ h1 {
   .workflow--building .build-busy__bar {
     animation: none;
     width: 70%;
+  }
+
+  .shell--status-busy .shell__status-pulse,
+  .shell--status-busy .build-busy__bar--indeterminate,
+  .shell--nano-thinking .shell__status,
+  .shell--nano-thinking .shell__status-pulse,
+  .shell--nano-thinking .shell__status-ai,
+  .shell--nano-thinking .build-busy__bar--indeterminate {
+    animation: none;
+  }
+
+  .shell--status-busy .build-busy__bar--indeterminate,
+  .shell--nano-thinking .build-busy__bar--indeterminate {
+    width: 55%;
+    transform: none;
+  }
+
+  .shell--nano-thinking .shell__status-pulse {
+    box-shadow: none;
+  }
+
+  .shell--busy-handoff .shell__status-copy {
+    animation: none;
   }
 
   .onboarding__progress-bar[data-indeterminate="true"]::after {
@@ -575,7 +856,7 @@ body.sensitive-override-active .shell {
 .onboarding__nav {
   display: flex;
   align-items: stretch;
-  margin: -1rem -1.125rem 0.15rem;
+  margin: -1rem -1.125rem 0.85rem;
   padding: 0;
   border-bottom: 1px solid var(--border);
   background: color-mix(in srgb, var(--accent) 14%, var(--bg));
@@ -612,6 +893,39 @@ body.sensitive-override-active .shell {
   font-size: 1.05rem;
   line-height: 1;
   color: var(--accent);
+}
+
+.onboarding__step {
+  display: grid;
+  gap: 0;
+}
+
+.onboarding__step > .field {
+  margin-top: 0.25rem;
+}
+
+.onboarding__step > .actions {
+  margin-top: 1.35rem;
+}
+
+.onboarding__step[data-step="nano"] > .actions {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 0.65rem;
+  margin-top: 1.35rem;
+}
+
+.onboarding__step[data-step="nano"] > .actions .btn {
+  width: 100%;
+  justify-self: stretch;
+  text-align: center;
+  min-height: 2.5rem;
+  padding: 0.65rem 1rem;
+}
+
+.onboarding__step[data-step="nano"] > .actions .btn--ghost {
+  border-color: var(--border);
+  background: var(--bg);
 }
 
 .onboarding__heading {
@@ -736,26 +1050,4 @@ body.sensitive-override-active .shell {
   margin: 0;
   font-size: 0.8125rem;
   color: var(--muted);
-}
-
-.nano-fallback {
-  display: grid;
-  gap: 0.5rem;
-  margin: 0 0 0.75rem;
-  padding: 0.75rem 0.875rem;
-  border: 1px solid var(--border);
-  border-radius: 0.375rem;
-  background: var(--bg);
-}
-
-.nano-fallback__copy {
-  margin: 0;
-  font-size: 0.8125rem;
-  color: var(--muted);
-}
-
-.nano-fallback__actions {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.5rem;
 }

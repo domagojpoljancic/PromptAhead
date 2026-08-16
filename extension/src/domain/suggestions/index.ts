@@ -19,6 +19,7 @@ export {
   NanoSuggestionEngine,
   NANO_CREATE_TIMEOUT_MS,
   NANO_PROMPT_TIMEOUT_MS,
+  NANO_SUGGEST_BUDGET_MS,
 } from "./nano";
 export {
   validateNanoActionOutput,
@@ -34,6 +35,7 @@ export {
   promptNano,
   promptNanoStreaming,
   textExpectationsForLanguage,
+  pageLanguageNeedsPromptApiClamp,
   NANO_AVAILABILITY_TIMEOUT_MS,
   NANO_DOWNLOAD_TIMEOUT_MS,
   type LanguageModelAvailability,
@@ -43,6 +45,7 @@ export {
   NANO_FALLBACK_COPY,
   NANO_NEEDS_DOWNLOAD_COPY,
   NANO_UNSUPPORTED_COPY,
+  NANO_LANGUAGE_LIMITED_COPY,
   NANO_THINKING_COPY,
   copyForNanoPanelNotice,
   describeNanoStatus,
@@ -51,6 +54,7 @@ export {
   formatDownloadProgress,
   nanoPanelNoticeForPreference,
   nanoPanelNoticeFromFailureReason,
+  nanoPanelNoticeWithLanguageLimit,
   probeNanoReadiness,
   progressFractionToPercent,
   readinessFromAvailability,

@@ -2,7 +2,14 @@ import {
   isBackgroundEvent,
   sendToBackground as defaultSendToBackground,
 } from "../shared/messaging";
-import { pickMicrocopy } from "../shared/microcopy";
+import {
+  AI_LOADING_STATUS,
+  NANO_THINKING_ROTATE_MS,
+  PAGE_BUSY_STATUS,
+  nextMicrocopyAfter,
+  pickMicrocopy,
+} from "../shared/microcopy";
+import { formatDisplayUrl } from "../shared/format-display-url";
 import type { PageContext } from "../shared/types/page-context";
 import {
   DESTINATION_IDS,
@@ -20,6 +27,7 @@ import {
   didNanoFallBackToCurated,
   nanoPanelNoticeForPreference,
   nanoPanelNoticeFromFailureReason,
+  nanoPanelNoticeWithLanguageLimit,
   probeNanoReadiness,
   selectSuggestionEngineForPreference as defaultSelectSuggestionEngineForPreference,
   type NanoPanelNotice,
@@ -152,7 +160,6 @@ export async function initSidePanel(
   const contextSelection = document.getElementById("context-selection");
   const contextSelected = document.getElementById("context-selected");
   const refreshButton = document.getElementById("refresh-context");
-  const understandingMessage = document.getElementById("understanding-message");
 
   const stepElements: Record<
     WorkflowCardStep | "empty" | "stale",
@@ -185,7 +192,7 @@ export async function initSidePanel(
   const emptyMessage = document.getElementById("empty-message");
   const staleMessage = document.getElementById("stale-message");
   const nanoFallback = document.getElementById("nano-fallback");
-  const nanoFallbackCopy = document.getElementById("nano-fallback-copy");
+  const nanoUseBasicButton = document.getElementById("nano-use-basic");
   const nanoRetryButton = document.getElementById("nano-retry");
   const nanoOpenSettingsButton = document.getElementById("nano-open-settings");
   const contextPreviewBody = document.getElementById("context-preview-body");
@@ -222,6 +229,11 @@ export async function initSidePanel(
   let nanoPanelNotice: NanoPanelNotice = "none";
   /** Tab waiting on Manual sensitive confirm (DOM-39) — confirm is never sticky. */
   let pendingSensitiveTabId: number | null = null;
+  let nanoThinkingTimer: ReturnType<typeof setInterval> | null = null;
+  let nanoThinkingStatusLine: string | null = null;
+  let busyHandoffTimer: ReturnType<typeof setTimeout> | null = null;
+  /** `ai-loading` = fixed AI warmup; `understanding` = curated; `nano` = AI thinking. */
+  let statusBusyMode: "ai-loading" | "understanding" | "nano" | null = null;
 
   function resetWorkflowAfterOnboarding(): void {
     suggestionGeneration += 1;
@@ -235,17 +247,29 @@ export async function initSidePanel(
     selectedAction = null;
     builtPrompt = "";
     lastSelectedEngineId = null;
+    stopNanoThinkingBusy();
     clearWorkflowData();
     setNanoFallbackVisible(false);
     showStep("empty");
     setText(emptyMessage, pickMicrocopy("reading"));
-    setText(statusLine, pickMicrocopy("reading"));
+    setStatusMessage("");
   }
 
   function setText(element: HTMLElement | null, text: string): void {
     if (element) {
       element.textContent = text;
     }
+  }
+
+  /** Status strip is transient only — hide when empty so empty/stale cards own the copy (DOM-74). */
+  function setStatusMessage(text: string): void {
+    const statusText = document.getElementById("status-text");
+    if (statusText) {
+      setText(statusText, text);
+    } else {
+      setText(statusLine, text);
+    }
+    setHidden(statusLine, text.trim() === "");
   }
 
   function setHidden(element: HTMLElement | null, hidden: boolean): void {
@@ -262,8 +286,46 @@ export async function initSidePanel(
   function showStep(next: PanelStep): void {
     currentStep = next;
     for (const [id, element] of Object.entries(stepElements)) {
-      setHidden(element, id !== next);
+      // Loading copy lives in #status only — never show the Understanding card.
+      const hide = id === "understanding" || id !== next;
+      setHidden(element, hide);
     }
+    updateRefreshVisibility(next);
+    updateHeaderPitch(next);
+  }
+
+  /** Refresh only on orientation / choose / hard fallback — not mid-flow or busy. */
+  function updateRefreshVisibility(step: PanelStep = currentStep): void {
+    const show =
+      statusBusyMode === null &&
+      (step === "empty" ||
+        step === "stale" ||
+        step === "choose" ||
+        step === "fallback");
+    const toolbar = document.querySelector(".shell__toolbar");
+    setHidden(toolbar instanceof HTMLElement ? toolbar : null, !show);
+    setHidden(refreshButton, !show);
+    if (refreshButton instanceof HTMLButtonElement) {
+      refreshButton.classList.toggle(
+        "btn--primary",
+        show && (step === "empty" || step === "stale"),
+      );
+    }
+  }
+
+  /**
+   * Full product pitch (h1 + lede) only when nothing is captured yet.
+   * Chrome’s side-panel title still brands the surface everywhere else.
+   */
+  function updateHeaderPitch(step: PanelStep): void {
+    const header = document.querySelector(".app-header");
+    setHidden(header instanceof HTMLElement ? header : null, step !== "empty");
+  }
+
+  /** Cancel in-flight Nano suggest so busy chrome cannot outlive the page. */
+  function invalidateInFlightSuggestions(): void {
+    suggestionGeneration += 1;
+    stopNanoThinkingBusy();
   }
 
   /** Keep the build strip visible long enough to read; matches CSS `build-fill`. */
@@ -289,6 +351,199 @@ export async function initSidePanel(
         buildPromptButton.disabled = true;
       } else {
         updateBuildPromptEnabled();
+      }
+    }
+  }
+
+  function applyStatusBusyCopy(): void {
+    setStatusMessage(nanoThinkingStatusLine ?? "");
+  }
+
+  function clearBusyHandoff(): void {
+    if (busyHandoffTimer !== null) {
+      clearTimeout(busyHandoffTimer);
+      busyHandoffTimer = null;
+    }
+    document.querySelector(".shell")?.classList.remove("shell--busy-handoff");
+  }
+
+  function setStatusBenefit(text: string | null): void {
+    const benefit = document.getElementById("status-benefit");
+    if (text) {
+      setText(benefit, text);
+      setHidden(benefit, false);
+    } else {
+      setHidden(benefit, true);
+      setText(benefit, "");
+    }
+  }
+
+  function stopStatusBusy(): void {
+    const previousMode = statusBusyMode;
+    const previousLine = nanoThinkingStatusLine;
+    if (nanoThinkingTimer !== null) {
+      clearInterval(nanoThinkingTimer);
+      nanoThinkingTimer = null;
+    }
+    nanoThinkingStatusLine = null;
+    statusBusyMode = null;
+    clearBusyHandoff();
+    document
+      .querySelector(".shell")
+      ?.classList.remove(
+        "shell--status-busy",
+        "shell--ai-loading",
+        "shell--nano-thinking",
+      );
+    setHidden(document.getElementById("status-nano-pulse"), true);
+    setHidden(document.getElementById("status-nano-track"), true);
+    const aiLabel = document.getElementById("status-ai-label");
+    setHidden(aiLabel, true);
+    setText(aiLabel, "");
+    setStatusBenefit(null);
+    setNanoBusyCancelVisible(false);
+    updateRefreshVisibility();
+
+    // Never leave a busy title stranded in the plain dashed status strip.
+    const current = document.getElementById("status-text")?.textContent?.trim() ?? "";
+    if (
+      previousMode !== null &&
+      (current === previousLine ||
+        current === AI_LOADING_STATUS.title ||
+        current === PAGE_BUSY_STATUS.title)
+    ) {
+      setStatusMessage("");
+    }
+  }
+
+  /** Alias used by stale/dispose paths. */
+  function stopNanoThinkingBusy(): void {
+    stopStatusBusy();
+  }
+
+  /**
+   * Status-strip busy chrome.
+   * `ai-loading` = one calm “AI is loading” + benefit; `understanding` = curated;
+   * `nano` = fancy AI thinking. Loading → nano slides the copy in.
+   */
+  function startStatusBusy(
+    mode: "ai-loading" | "understanding" | "nano",
+  ): void {
+    const previousMode = statusBusyMode;
+    if (nanoThinkingTimer !== null) {
+      clearInterval(nanoThinkingTimer);
+      nanoThinkingTimer = null;
+    }
+
+    const shell = document.querySelector(".shell");
+    const pulse = document.getElementById("status-nano-pulse");
+    const track = document.getElementById("status-nano-track");
+    const aiLabel = document.getElementById("status-ai-label");
+    setHidden(stepElements.understanding, true);
+    setHidden(pulse, false);
+    setHidden(track, false);
+    shell?.classList.add("shell--status-busy");
+
+    // Apply busy copy before swapping chrome so loading title never sits in the
+    // plain dashed strip between ai-loading and nano-thinking.
+    if (mode === "nano") {
+      setStatusBenefit(null);
+      nanoThinkingStatusLine = pickMicrocopy("nanoThinking");
+      applyStatusBusyCopy();
+      setText(aiLabel, "AI");
+      setHidden(aiLabel, false);
+    } else {
+      setHidden(aiLabel, true);
+      setText(aiLabel, "");
+      const fixed = mode === "ai-loading" ? AI_LOADING_STATUS : PAGE_BUSY_STATUS;
+      nanoThinkingStatusLine = fixed.title;
+      applyStatusBusyCopy();
+      setStatusBenefit(fixed.benefit);
+    }
+
+    shell?.classList.toggle("shell--ai-loading", mode === "ai-loading");
+    shell?.classList.toggle("shell--nano-thinking", mode === "nano");
+    setNanoBusyCancelVisible(mode === "nano");
+    statusBusyMode = mode;
+    updateRefreshVisibility("understanding");
+    updateHeaderPitch("choose");
+
+    if (previousMode !== mode) {
+      const bar = track?.querySelector(".build-busy__bar");
+      if (bar instanceof HTMLElement) {
+        bar.style.animation = "none";
+        void bar.offsetWidth;
+        bar.style.animation = "";
+      }
+    }
+
+    if (previousMode === "ai-loading" && mode === "nano") {
+      clearBusyHandoff();
+      shell?.classList.add("shell--busy-handoff");
+      busyHandoffTimer = setTimeout(() => {
+        shell?.classList.remove("shell--busy-handoff");
+        busyHandoffTimer = null;
+      }, 480);
+    } else {
+      clearBusyHandoff();
+    }
+
+    if (mode === "nano") {
+      nanoThinkingTimer = setInterval(() => {
+        nanoThinkingStatusLine = nextMicrocopyAfter(
+          "nanoThinking",
+          nanoThinkingStatusLine,
+        );
+        applyStatusBusyCopy();
+      }, NANO_THINKING_ROTATE_MS);
+    }
+  }
+
+  function startNanoThinkingBusy(): void {
+    startStatusBusy("nano");
+  }
+
+  async function startBusyForCurrentPreference(): Promise<void> {
+    const preference = await resolveNanoPreference();
+    startStatusBusy(preference === "enabled" ? "ai-loading" : "understanding");
+  }
+
+  async function cancelNanoToCurated(): Promise<void> {
+    if (!pageContext) {
+      return;
+    }
+    const ctx = pageContext;
+    suggestionGeneration += 1;
+    const generation = suggestionGeneration;
+    startStatusBusy("understanding");
+    try {
+      const curated = await selectEngine("basic");
+      if (generation !== suggestionGeneration) {
+        return;
+      }
+      lastSelectedEngineId = curated.id;
+      const result = await curated.suggestActions({ pageContext: ctx });
+      if (generation !== suggestionGeneration) {
+        return;
+      }
+      renderSuggestions(result, { nanoNotice: "none" });
+      showStep("choose");
+      setStatusMessage(
+        `Page context captured (${result.engineId}) — nothing leaves this device.`,
+      );
+      setText(debugLine, "nano cancelled · curated");
+    } catch (error) {
+      if (generation !== suggestionGeneration) {
+        return;
+      }
+      const message =
+        error instanceof Error ? error.message : "Could not build suggestions";
+      renderFallback("suggestions", `${message}. You can retry.`, {
+        canChoose: false,
+      });
+    } finally {
+      if (generation === suggestionGeneration) {
+        stopStatusBusy();
       }
     }
   }
@@ -472,15 +727,40 @@ export async function initSidePanel(
     nanoPanelNotice = notice;
     const visible = notice !== "none";
     setHidden(nanoFallback, !visible);
+    setHidden(nanoUseBasicButton, true);
     if (!visible) {
       return;
     }
-    setText(nanoFallbackCopy, copyForNanoPanelNotice(notice));
+    // Copy lives only in #status — actions sit under it (no duplicate card).
+    setStatusMessage(copyForNanoPanelNotice(notice));
+    if (notice === "language-limited") {
+      // Informational only — not a download/retry path.
+      setHidden(nanoOpenSettingsButton, true);
+      setHidden(nanoRetryButton, true);
+      setHidden(nanoFallback, true);
+      return;
+    }
     const needsDownload = notice === "needs-download";
     setHidden(nanoOpenSettingsButton, !needsDownload);
     if (nanoRetryButton instanceof HTMLButtonElement) {
       // Download path: Settings owns the user-activated create()/progress UI.
       setHidden(nanoRetryButton, needsDownload);
+    }
+  }
+
+  /** Escape hatch while Nano is in flight — not a post-failure Retry. */
+  function setNanoBusyCancelVisible(visible: boolean): void {
+    if (visible) {
+      nanoPanelNotice = "none";
+      setHidden(nanoFallback, false);
+      setHidden(nanoUseBasicButton, false);
+      setHidden(nanoRetryButton, true);
+      setHidden(nanoOpenSettingsButton, true);
+      return;
+    }
+    setHidden(nanoUseBasicButton, true);
+    if (nanoPanelNotice === "none") {
+      setHidden(nanoFallback, true);
     }
   }
 
@@ -538,11 +818,12 @@ export async function initSidePanel(
 
   function renderEmpty(message: string): void {
     stopSelectionWatchIfBound();
+    stopStatusBusy();
     clearWorkflowData();
     boundTabId = null;
     showStep("empty");
     setText(emptyMessage, message);
-    setText(statusLine, message);
+    setStatusMessage("");
   }
 
   /**
@@ -551,6 +832,7 @@ export async function initSidePanel(
    * toolbar click.
    */
   function renderLowValue(message: string, tabId?: number): void {
+    stopStatusBusy();
     clearWorkflowData();
     if (typeof tabId === "number") {
       boundTabId = tabId;
@@ -558,7 +840,7 @@ export async function initSidePanel(
     }
     showStep("empty");
     setText(emptyMessage, message);
-    setText(statusLine, message);
+    setStatusMessage("");
   }
 
   function stopSelectionWatchIfBound(): void {
@@ -569,11 +851,12 @@ export async function initSidePanel(
   }
 
   function renderStale(message: string = STALE_CONTEXT_MESSAGE): void {
+    invalidateInFlightSuggestions();
     clearWorkflowData();
     showStep("stale");
     setText(staleMessage, message);
     // Keep the status strip empty so the revoke copy isn't duplicated.
-    setText(statusLine, "");
+    setStatusMessage("");
   }
 
   function renderFallback(
@@ -582,13 +865,14 @@ export async function initSidePanel(
     options: { canChoose?: boolean } = {},
   ): void {
     lastFallback = kind;
+    stopStatusBusy();
     showStep("fallback");
     setText(
       fallbackHeading,
       kind === "handoff" ? "Couldn’t hand off" : "Something went wrong",
     );
     setText(fallbackMessage, message);
-    setText(statusLine, "");
+    setStatusMessage("");
     setHidden(fallbackChoose, !options.canChoose);
   }
 
@@ -600,6 +884,7 @@ export async function initSidePanel(
     if (isOnboardingBlocking()) {
       return;
     }
+    stopStatusBusy();
     pendingSensitiveTabId = detail.tabId;
     boundTabId = detail.tabId;
     pageContext = null;
@@ -608,7 +893,7 @@ export async function initSidePanel(
       category: detail.category,
       url: detail.url,
     });
-    setText(statusLine, "");
+    setStatusMessage("");
   }
 
   async function confirmSensitiveOverride(): Promise<void> {
@@ -620,7 +905,7 @@ export async function initSidePanel(
       return;
     }
     showStep("understanding");
-    setText(statusLine, pickMicrocopy("reading"));
+    setStatusMessage(pickMicrocopy("reading"));
     const response = await send({
       type: "EXTRACT_ACTIVE_TAB",
       tabId,
@@ -661,6 +946,7 @@ export async function initSidePanel(
     ctx: PageContext,
     options: { forceNanoRetry?: boolean } = {},
   ): Promise<void> {
+    suggestionGeneration += 1;
     const generation = suggestionGeneration;
     const preference = await resolveNanoPreference();
     if (generation !== suggestionGeneration) {
@@ -687,16 +973,11 @@ export async function initSidePanel(
     }
 
     const willTryNano = preferNano && preflightNotice === "none";
-    setText(
-      understandingMessage,
-      willTryNano
-        ? pickMicrocopy("understandingNano")
-        : pickMicrocopy("understanding"),
-    );
-    setText(
-      statusLine,
-      willTryNano ? pickMicrocopy("nanoThinking") : pickMicrocopy("building"),
-    );
+    if (willTryNano) {
+      startStatusBusy("nano");
+    } else {
+      startStatusBusy("understanding");
+    }
     try {
       if (preferNano && preflightNotice !== "none") {
         const curated = await selectEngine("basic");
@@ -710,7 +991,7 @@ export async function initSidePanel(
         }
         renderSuggestions(result, { nanoNotice: preflightNotice });
         showStep("choose");
-        setText(statusLine, copyForNanoPanelNotice(preflightNotice));
+        setStatusMessage(copyForNanoPanelNotice(preflightNotice));
         setText(
           debugLine,
           `nano blocked · ${preflightNotice}`,
@@ -751,10 +1032,15 @@ export async function initSidePanel(
           );
         }
       }
+      notice = nanoPanelNoticeWithLanguageLimit({
+        notice,
+        nanoAttempted: preferNano,
+        pageLanguage: ctx.language,
+      });
       renderSuggestions(result, { nanoNotice: notice });
       showStep("choose");
       if (notice !== "none") {
-        setText(statusLine, copyForNanoPanelNotice(notice));
+        setStatusMessage(copyForNanoPanelNotice(notice));
         const parts = [
           result.debug?.elapsedMs !== undefined
             ? `nano ${formatElapsed(result.debug.elapsedMs)}`
@@ -767,10 +1053,7 @@ export async function initSidePanel(
           setText(debugLine, parts.join(" · "));
         }
       } else {
-        setText(
-          statusLine,
-          `Page context captured (${result.engineId}) — nothing leaves this device.`,
-        );
+        setStatusMessage(`Page context captured (${result.engineId}) — nothing leaves this device.`);
         if (
           result.engineId === "nano" &&
           result.debug?.elapsedMs !== undefined
@@ -813,7 +1096,7 @@ export async function initSidePanel(
           }
           renderSuggestions(result, { nanoNotice: notice });
           showStep("choose");
-          setText(statusLine, copyForNanoPanelNotice(notice));
+          setStatusMessage(copyForNanoPanelNotice(notice));
           return;
         } catch {
           // fall through to hard fallback
@@ -822,6 +1105,10 @@ export async function initSidePanel(
       renderFallback("suggestions", `${message}. You can retry.`, {
         canChoose: false,
       });
+    } finally {
+      if (generation === suggestionGeneration) {
+        stopNanoThinkingBusy();
+      }
     }
   }
 
@@ -838,7 +1125,15 @@ export async function initSidePanel(
       selectionOnly ? "Selected text" : PAGE_TYPE_LABELS[ctx.pageType],
     );
     setText(contextTitle, ctx.title);
-    setText(contextUrl, ctx.url);
+    if (contextUrl) {
+      const compact = formatDisplayUrl(ctx.url);
+      setText(contextUrl, compact);
+      if (ctx.url) {
+        contextUrl.setAttribute("title", ctx.url);
+      } else {
+        contextUrl.removeAttribute("title");
+      }
+    }
     if (selection) {
       const preview =
         selection.length > 320 ? `${selection.slice(0, 317)}…` : selection;
@@ -877,14 +1172,17 @@ export async function initSidePanel(
       currentStep !== "empty" &&
       currentStep !== "fallback"
     ) {
+      // Parent fetch may have started busy chrome — drop it cleanly and stay put.
+      stopStatusBusy();
+      if (suggestions) {
+        showStep("choose");
+      }
       return;
     }
     if (acceptingKey === key) {
       return;
     }
     acceptingKey = key;
-    const generation = suggestionGeneration;
-
     pageContext = ctx;
     if (typeof tabId === "number") {
       boundTabId = tabId;
@@ -894,10 +1192,10 @@ export async function initSidePanel(
     inclusion = { ...DEFAULT_CONTEXT_INCLUSION };
     renderPageIdentity(ctx);
     showStep("understanding");
-    setText(statusLine, "Understanding this page…");
+    await startBusyForCurrentPreference();
     try {
       await loadSuggestions(ctx);
-      if (generation === suggestionGeneration) {
+      if (pageContext === ctx) {
         lastAcceptedKey = key;
       }
     } finally {
@@ -914,7 +1212,7 @@ export async function initSidePanel(
       userNoteInput.value = "";
     }
     showStep("refine");
-    setText(statusLine, "Add an optional note, then continue.");
+    setStatusMessage("Add an optional note, then continue.");
   }
 
   function openReviewStep(): void {
@@ -925,7 +1223,7 @@ export async function initSidePanel(
     renderContextPreview();
     updateBuildPromptEnabled();
     showStep("review");
-    setText(statusLine, "Review what to include, then build the prompt.");
+    setStatusMessage("Review what to include, then build the prompt.");
   }
 
   async function buildPromptFromSelection(): Promise<void> {
@@ -936,7 +1234,7 @@ export async function initSidePanel(
     if (
       !hasUsableSourceInclusion(inclusion, inclusionAvailability(pageContext))
     ) {
-      setText(statusLine, EMPTY_SOURCE_INCLUSION_MESSAGE);
+      setStatusMessage(EMPTY_SOURCE_INCLUSION_MESSAGE);
       updateBuildPromptEnabled();
       return;
     }
@@ -945,7 +1243,7 @@ export async function initSidePanel(
     const note = applyUserNoteInclusion(noteRaw, inclusion);
     const filtered = applyContextInclusion(pageContext, inclusion);
 
-    setText(statusLine, "Building prompt…");
+    setStatusMessage("Building prompt…");
     setPromptBuildBusy(true);
     try {
       const preference = await resolveNanoPreference();
@@ -979,7 +1277,7 @@ export async function initSidePanel(
     );
     renderDestinationButtons();
     showStep("prompt");
-    setText(statusLine, "Review the prompt, then copy or open a destination.");
+    setStatusMessage("Review the prompt, then copy or open a destination.");
   }
 
   function renderDestinationButtons(): void {
@@ -1023,13 +1321,13 @@ export async function initSidePanel(
     mode: "deeplink" | "fallback-web" | "clipboard" | "copy-only",
   ): string {
     if (mode === "copy-only") {
-      return "Copied to clipboard.";
+      return "Copied to clipboard. PromptAhead does not send the prompt for you.";
     }
     const label = DESTINATION_LABELS[destination];
     if (mode === "clipboard") {
-      return `Prompt copied — switch to ${label} and press ${pasteShortcutHint()} to paste. Nothing was submitted.`;
+      return `Prompt copied — switch to ${label} and press ${pasteShortcutHint()} to paste. PromptAhead did not submit anything.`;
     }
-    return `Opened ${label}. Prompt was prefilled where supported — nothing was submitted.`;
+    return `Opened ${label} with your prompt ready. PromptAhead did not submit it — review and send yourself.`;
   }
 
   async function handoff(destination: DestinationId): Promise<void> {
@@ -1057,8 +1355,7 @@ export async function initSidePanel(
 
       setText(successMessage, successCopyForHandoff(destination, result.mode));
       showStep("success");
-      setText(
-        statusLine,
+      setStatusMessage(
         result.mode === "clipboard" || result.mode === "copy-only"
           ? pickMicrocopy("copiedStay")
           : pickMicrocopy("successStay"),
@@ -1078,7 +1375,7 @@ export async function initSidePanel(
       return;
     }
     showStep("understanding");
-    setText(statusLine, pickMicrocopy("reading"));
+    setStatusMessage(pickMicrocopy("reading"));
 
     const response = await send({
       type: "GET_LATEST_PAGE_CONTEXT",
@@ -1123,9 +1420,10 @@ export async function initSidePanel(
   }
 
   /**
-   * Panel clicks do not grant `activeTab`, but the grant from the opening
-   * gesture survives until the tab navigates (S0.5), so a re-extract of the same
-   * page works until then and fails with a clear message afterwards.
+   * Panel clicks do not grant `activeTab`, but Smart host access (or a
+   * still-valid grant) can re-extract. Always target the **focused** tab —
+   * not `boundTabId` / last gesture — so switching pages then Refresh updates
+   * the panel instead of silently re-reading the previous capture.
    */
   async function refreshFromPage(): Promise<void> {
     if (!(refreshButton instanceof HTMLButtonElement)) {
@@ -1133,7 +1431,7 @@ export async function initSidePanel(
     }
     refreshButton.disabled = true;
     showStep("understanding");
-    setText(statusLine, "Re-reading this page…");
+    await startBusyForCurrentPreference();
     // Same-page refresh must not no-op on lastAcceptedKey (would stick on Re-reading).
     lastAcceptedKey = null;
     acceptingKey = null;
@@ -1141,18 +1439,19 @@ export async function initSidePanel(
     try {
       const response = await send({
         type: "EXTRACT_ACTIVE_TAB",
-        ...(boundTabId !== null ? { tabId: boundTabId } : {}),
       });
       if (response.ok) {
         await acceptPageContext(response.pageContext, response.tabId);
       } else if (isSensitiveBlockedError(response.error)) {
+        const extractTabId =
+          typeof response.tabId === "number" ? response.tabId : undefined;
         const latest = await send({
           type: "GET_LATEST_PAGE_CONTEXT",
-          ...(boundTabId !== null ? { tabId: boundTabId } : {}),
+          ...(extractTabId !== undefined ? { tabId: extractTabId } : {}),
         });
         if (latest.ok && latest.sensitiveBlock) {
           presentSensitiveBlock({
-            tabId: latest.tabId ?? boundTabId ?? 0,
+            tabId: latest.tabId ?? extractTabId ?? boundTabId ?? 0,
             category: latest.sensitiveBlock.category,
             url: latest.sensitiveBlock.url,
           });
@@ -1192,7 +1491,7 @@ export async function initSidePanel(
         return;
       case "handoff":
         showStep("prompt");
-        setText(statusLine, "Try copying or opening a destination again.");
+        setStatusMessage("Try copying or opening a destination again.");
         return;
       default:
         await loadLatestContext();
@@ -1345,12 +1644,12 @@ export async function initSidePanel(
 
   on(document.getElementById("back-to-choose"), "click", () => {
     showStep("choose");
-    setText(statusLine, "Choose a direction.");
+    setStatusMessage("Choose a direction.");
   });
 
   on(document.getElementById("back-to-refine"), "click", () => {
     showStep("refine");
-    setText(statusLine, "Add an optional note, then continue.");
+    setStatusMessage("Add an optional note, then continue.");
   });
 
   on(document.getElementById("back-to-review"), "click", () => {
@@ -1359,7 +1658,7 @@ export async function initSidePanel(
 
   on(document.getElementById("edit-prompt"), "click", () => {
     showStep("prompt");
-    setText(statusLine, "Edit the prompt, then copy or open a destination.");
+    setStatusMessage("Edit the prompt, then copy or open a destination.");
   });
 
   on(document.getElementById("start-over"), "click", () => {
@@ -1372,7 +1671,7 @@ export async function initSidePanel(
           : "none";
       renderSuggestions(suggestions, { nanoNotice: notice });
       showStep("choose");
-      setText(statusLine, "Choose another direction.");
+      setStatusMessage("Choose another direction.");
     }
   });
 
@@ -1383,7 +1682,7 @@ export async function initSidePanel(
   on(fallbackChoose, "click", () => {
     if (suggestions) {
       showStep("choose");
-      setText(statusLine, "Choose a direction.");
+      setStatusMessage("Choose a direction.");
     }
   });
 
@@ -1393,6 +1692,10 @@ export async function initSidePanel(
     }
     showStep("understanding");
     void loadSuggestions(pageContext, { forceNanoRetry: true });
+  });
+
+  on(nanoUseBasicButton, "click", () => {
+    void cancelNanoToCurated();
   });
 
   on(nanoOpenSettingsButton, "click", () => {
@@ -1415,9 +1718,9 @@ export async function initSidePanel(
           inclusionAvailability(pageContext),
         )
       ) {
-        setText(statusLine, EMPTY_SOURCE_INCLUSION_MESSAGE);
+        setStatusMessage(EMPTY_SOURCE_INCLUSION_MESSAGE);
       } else if (currentStep === "review") {
-        setText(statusLine, "Review what to include, then build the prompt.");
+        setStatusMessage("Review what to include, then build the prompt.");
       }
     });
   }
@@ -1447,6 +1750,7 @@ export async function initSidePanel(
 
   return {
     dispose: () => {
+      stopNanoThinkingBusy();
       for (const remove of removers) {
         remove();
       }

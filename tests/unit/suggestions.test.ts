@@ -118,12 +118,34 @@ describe("probeAvailability", () => {
 });
 
 describe("textExpectationsForLanguage", () => {
-  it("includes page language and falls back to en", () => {
+  it("uses Prompt API allowlist — unsupported page langs clamp to en", () => {
+    // Croatian pages previously requested [hr, en] and Chrome aborted create().
     expect(textExpectationsForLanguage("hr").expectedInputs[0]?.languages).toEqual([
-      "hr",
+      "en",
+    ]);
+    expect(textExpectationsForLanguage("hr-HR").expectedOutputs[0]?.languages).toEqual([
       "en",
     ]);
     expect(textExpectationsForLanguage("en-US").expectedInputs[0]?.languages).toEqual([
+      "en",
+    ]);
+  });
+
+  it("keeps supported session languages with en fallback", () => {
+    expect(textExpectationsForLanguage("de").expectedInputs[0]?.languages).toEqual([
+      "de",
+      "en",
+    ]);
+    expect(textExpectationsForLanguage("ja-JP").expectedOutputs[0]?.languages).toEqual([
+      "ja",
+      "en",
+    ]);
+    expect(textExpectationsForLanguage("fr").expectedInputs[0]?.languages).toEqual([
+      "fr",
+      "en",
+    ]);
+    expect(textExpectationsForLanguage("es").expectedInputs[0]?.languages).toEqual([
+      "es",
       "en",
     ]);
   });
@@ -374,6 +396,7 @@ describe("NanoSuggestionEngine", () => {
         }),
       createTimeoutMs: 1_000,
       promptTimeoutMs: 5,
+      suggestBudgetMs: 2_000,
     });
     const started = Date.now();
     const result = await engine.suggestActions({ pageContext: article });
@@ -382,6 +405,25 @@ describe("NanoSuggestionEngine", () => {
     expect(result.debug?.nanoFailureReason).toMatch(
       /timed out|nano\.(create|prompt)/i,
     );
+  });
+
+  it("skips repair when suggest budget is nearly exhausted", async () => {
+    const engine = new NanoSuggestionEngine({
+      getModel: () =>
+        createFakeModel({
+          hangMs: 30,
+          // Second response would succeed if repair ran — budget must skip it.
+          prompts: ["not-json", validActionsJson(3)],
+        }),
+      createTimeoutMs: 1_000,
+      promptTimeoutMs: 100,
+      suggestBudgetMs: 70,
+    });
+    const started = Date.now();
+    const result = await engine.suggestActions({ pageContext: article });
+    expect(Date.now() - started).toBeLessThan(500);
+    expect(result.engineId).toBe("curated");
+    expect(result.debug?.nanoFailureReason).toMatch(/valid|JSON|budget/i);
   });
 
   it("generatePrompt seals SOURCE_DATA via the deterministic builder", async () => {

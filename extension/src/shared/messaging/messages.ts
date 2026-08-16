@@ -156,6 +156,8 @@ export type BackgroundError = {
   ok: false;
   type: BackgroundRequestType | "UNKNOWN";
   error: string;
+  /** Present when EXTRACT (etc.) resolved a tab before failing (e.g. sensitive). */
+  tabId?: number;
 };
 
 export type BackgroundResponse = BackgroundOk | BackgroundError;

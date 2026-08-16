@@ -315,7 +315,7 @@ describe("side panel Retry local AI after messaging-backed Nano fallback", () =>
     await flush();
 
     expect(isVisible("#nano-fallback")).toBe(true);
-    expect(textOf("#nano-fallback-copy")).toMatch(/tiny brain/i);
+    expect(textOf("#status")).toMatch(/tiny brain/i);
     expect(isVisible("#nano-retry")).toBe(true);
     expect(suggestCalls).toBe(1);
 
