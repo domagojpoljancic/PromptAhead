@@ -71,7 +71,7 @@
 
 ## 4. Consolidated manual pass (tick while testing “everything”)
 
-Run on unpacked `extension/dist/` after `npm run build` from current `main`.
+Run on unpacked `extension/dist/` after `npm run build` (DOM-74 branch until merged).
 
 ### A. Build gate
 
@@ -99,12 +99,16 @@ Run on unpacked `extension/dist/` after `npm run build` from current `main`.
 
 ### E. Polish / onboarding (M4, not all in §25 wording)
 
-- [ ] Panel is **dark** even if OS is light; **Continue** / primary buttons have readable light labels
-- [ ] Onboarding: Nano **checking** shows progress; **Back** strip has clear space before the headline
+- [ ] Panel is **soft light** (cool gray, not pure white / not dark); primary buttons readable
+- [ ] Chrome side-panel title is the only brand mark — no duplicate “PROMPTAHEAD” eyebrow in the panel
+- [ ] Onboarding: destination control not glued to Continue/Skip; Nano CTAs stacked/clear; Back strip has space before headline
 - [ ] Step enter motion + prompt-build “Preparing…” bar
 - [ ] Workflow **Back** nav strip obvious (not glued to the title)
-- [ ] Empty / idle: **one** “No page captured…” message (no dashed status duplicate); **Refresh** at top (primary); **Settings** at bottom
-- [ ] Options page readable (may follow OS light)
+- [ ] Empty / idle: **one** “No page captured…” message; **Refresh** at top (primary); **Settings** at bottom
+- [ ] Context URL compact (full URL on hover/`title`)
+- [ ] Refine reads as optional note; handoff copy clear that PromptAhead did not auto-submit
+- [ ] Switch tabs → **Refresh** updates to the focused page (or sensitive/stale), not the old capture
+- [ ] Options page readable
 - [ ] Loading/success microcopy may vary; sensitive warnings stay sober
 
 ### F. Compare expand — DOM-68
