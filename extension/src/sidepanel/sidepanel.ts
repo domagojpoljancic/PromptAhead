@@ -259,6 +259,39 @@ export async function initSidePanel(
     }
   }
 
+  /** Keep the build strip visible long enough to read; matches CSS `build-fill`. */
+  const PROMPT_BUILD_MIN_MS = 1000;
+
+  function setPromptBuildBusy(busy: boolean): void {
+    const review = stepElements.review;
+    const busyEl = document.getElementById("prompt-build-busy");
+    if (review instanceof HTMLElement) {
+      review.classList.toggle("workflow--building", busy);
+    }
+    setHidden(busyEl, !busy);
+    const bar = busyEl?.querySelector(".build-busy__bar");
+    if (busy && bar instanceof HTMLElement) {
+      // Restart fill animation when Build is clicked again.
+      bar.style.animation = "none";
+      void bar.offsetWidth;
+      bar.style.animation = "";
+    }
+    if (buildPromptButton instanceof HTMLButtonElement) {
+      buildPromptButton.textContent = busy ? "Building…" : "Build prompt";
+      if (busy) {
+        buildPromptButton.disabled = true;
+      } else {
+        updateBuildPromptEnabled();
+      }
+    }
+  }
+
+  function delay(ms: number): Promise<void> {
+    return new Promise((resolve) => {
+      setTimeout(resolve, ms);
+    });
+  }
+
   function readInclusionFromDom(): ContextInclusion {
     return {
       titleUrl:
@@ -885,15 +918,21 @@ export async function initSidePanel(
     const filtered = applyContextInclusion(pageContext, inclusion);
 
     setText(statusLine, "Building prompt…");
+    setPromptBuildBusy(true);
     try {
       const preference = await resolveNanoPreference();
       const engine = await selectEngine(preference);
-      builtPrompt = await engine.generatePrompt({
-        pageContext: filtered,
-        action: selectedAction,
-        userNote: note,
-      });
+      const [promptText] = await Promise.all([
+        engine.generatePrompt({
+          pageContext: filtered,
+          action: selectedAction,
+          userNote: note,
+        }),
+        delay(PROMPT_BUILD_MIN_MS),
+      ]);
+      builtPrompt = promptText;
     } catch (error) {
+      setPromptBuildBusy(false);
       const message =
         error instanceof Error ? error.message : "Could not build the prompt";
       renderFallback("prompt", `${message}. Adjust inclusions or retry.`, {
@@ -902,6 +941,7 @@ export async function initSidePanel(
       return;
     }
 
+    setPromptBuildBusy(false);
     if (promptTextArea instanceof HTMLTextAreaElement) {
       promptTextArea.value = builtPrompt;
     }

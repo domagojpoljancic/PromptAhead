@@ -1,6 +1,6 @@
 # PromptAhead
 
-> **WIP — M4 product polish next.** Manual core (M1) + Nano + Smart are on `main`. Sensitive-page proactive auto-block (DOM-37) and Manual override modal (DOM-39) shipping. M4 automation (axe, coverage, flake harden) Done. Store packaging still ahead.
+> **WIP — M4 product polish next.** Manual core (M1) + Nano + Smart are on `main`. Sensitive override, injection fixtures, and side-panel motion / prompt-build loader / Back (DOM-23) Done. Onboarding Nano-check loading + Back (DOM-69) and polish (DOM-43) next. Store packaging still ahead.
 
 **Your next question, already prepared.**
 
@@ -11,7 +11,7 @@ Privacy-first Chrome extension (Manifest V3) that notices when you are genuinely
 | Area | State |
 | --- | --- |
 | Product extension (`extension/`) | **Manual core** + **M2 Nano UX** + **M3 Smart** (grant/revoke, engagement, badge invite, accept→extract) |
-| Side panel | Workflow state machine; Nano thinking + curated fallback + **Retry local AI**; calm Nano panel notices + Smart permission education; **selection auto-refresh** on low-value empty state |
+| Side panel | Workflow state machine; Nano thinking + curated fallback + **Retry local AI**; calm Nano panel notices + Smart permission education; **selection auto-refresh** on low-value empty state; **step enter motion (~450ms) + ~1s prompt-build fill bar + full-width Back nav** |
 | Onboarding + settings | Manual-first first-run; Nano ready/download/unsupported + onboarding gate; Settings Smart grant/revoke + education; **global proactive pause** toggle |
 | Destinations | Deep links with **app-first + web fallback**; Gemini / oversized prompts use **clipboard + open**; never auto-submit |
 | Automation | Vitest (unit + jsdom UI + **coverage gates** on domain/messaging), Playwright (MV3 + navigate→stale + Nano-off curated + Smart invite/pause/revoke + homepage empty-state + **axe a11y** + **sensitive Manual override**), GitHub Actions (`test:ci`, Node 20.19+) |
