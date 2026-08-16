@@ -264,16 +264,20 @@
             Back to directions
           </button>
         </nav>
-        <h2 class="workflow__heading">Refine</h2>
+        <h2 class="workflow__heading">Optional note</h2>
+        <p class="workflow__hint" id="refine-hint">
+          Add a short preference if you want — or leave blank and continue to build the
+          prompt.
+        </p>
         <p class="workflow__selected" id="selected-action"></p>
         <label class="field" for="user-note">
-          <span class="field__label">Anything to add?</span>
+          <span class="field__label">Your note (optional)</span>
           <textarea
             id="user-note"
             class="field__input"
             rows="3"
             maxlength="500"
-            placeholder="Optional preferences, constraints, or focus…"
+            placeholder="e.g. keep it brief, focus on risks, use bullet points…"
           ></textarea>
         </label>
         <div class="actions">
@@ -287,7 +291,7 @@
         <nav class="workflow__nav" aria-label="Go back">
           <button type="button" class="btn btn--back" id="back-to-refine">
             <span class="btn__chevron" aria-hidden="true">←</span>
-            Back to refine
+            Back to note
           </button>
         </nav>
         <h2 class="workflow__heading">Review context</h2>

@@ -3,6 +3,7 @@ import {
   sendToBackground as defaultSendToBackground,
 } from "../shared/messaging";
 import { pickMicrocopy } from "../shared/microcopy";
+import { formatDisplayUrl } from "../shared/format-display-url";
 import type { PageContext } from "../shared/types/page-context";
 import {
   DESTINATION_IDS,
@@ -842,7 +843,15 @@ export async function initSidePanel(
       selectionOnly ? "Selected text" : PAGE_TYPE_LABELS[ctx.pageType],
     );
     setText(contextTitle, ctx.title);
-    setText(contextUrl, ctx.url);
+    if (contextUrl) {
+      const compact = formatDisplayUrl(ctx.url);
+      setText(contextUrl, compact);
+      if (ctx.url) {
+        contextUrl.setAttribute("title", ctx.url);
+      } else {
+        contextUrl.removeAttribute("title");
+      }
+    }
     if (selection) {
       const preview =
         selection.length > 320 ? `${selection.slice(0, 317)}…` : selection;
@@ -1027,13 +1036,13 @@ export async function initSidePanel(
     mode: "deeplink" | "fallback-web" | "clipboard" | "copy-only",
   ): string {
     if (mode === "copy-only") {
-      return "Copied to clipboard.";
+      return "Copied to clipboard. PromptAhead does not send the prompt for you.";
     }
     const label = DESTINATION_LABELS[destination];
     if (mode === "clipboard") {
-      return `Prompt copied — switch to ${label} and press ${pasteShortcutHint()} to paste. Nothing was submitted.`;
+      return `Prompt copied — switch to ${label} and press ${pasteShortcutHint()} to paste. PromptAhead did not submit anything.`;
     }
-    return `Opened ${label}. Prompt was prefilled where supported — nothing was submitted.`;
+    return `Opened ${label} with your prompt ready. PromptAhead did not submit it — review and send yourself.`;
   }
 
   async function handoff(destination: DestinationId): Promise<void> {

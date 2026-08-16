@@ -1,6 +1,6 @@
 # PromptAhead
 
-> **WIP — M4 release readiness.** Manual core + Nano + Smart + polish + store docs + compare expand on `main`. Panel UI fix (DOM-74: force dark, primary contrast, empty IA) in flight for your Chrome pass with the §25 map. Store upload / listing assets still TBD.
+> **WIP — M4 release readiness.** Manual core + Nano + Smart + polish + store docs + compare expand on `main`. Panel UX polish (DOM-74: soft light theme, primary contrast, smoke IA) in flight for your Chrome pass with the §25 map. Store upload / listing assets still TBD.
 
 **Your next question, already prepared.**
 
@@ -11,8 +11,8 @@ Privacy-first Chrome extension (Manifest V3) that notices when you are genuinely
 | Area | State |
 | --- | --- |
 | Product extension (`extension/`) | **Manual core** + **M2 Nano UX** + **M3 Smart** (grant/revoke, engagement, badge invite, accept→extract) |
-| Side panel | Workflow state machine; Nano thinking + curated fallback + **Retry local AI**; **randomized microcopy** on loading/success; calm Nano panel notices + Smart permission education; **selection auto-refresh** on low-value empty state; **step enter motion (~450ms) + ~1s prompt-build fill bar + full-width Back nav**; **Refresh at top** / Settings bottom; empty state without duplicated status copy |
-| Onboarding + settings | Manual-first first-run; Nano ready/download/unsupported + **check-loading bar** + **top Back nav**; Settings Smart grant/revoke + education; **panel forced dark** (options may follow OS light); **global proactive pause** toggle |
+| Side panel | Workflow state machine; Nano thinking + curated fallback + **Retry local AI**; **randomized microcopy** on loading/success; calm Nano panel notices + Smart permission education; **selection auto-refresh** on low-value empty state; **step enter motion (~450ms) + ~1s prompt-build fill bar + full-width Back nav**; **Refresh at top** / Settings bottom; empty state without duplicated status copy; **soft light gray canvas** (not force-dark); compact context URL; optional-note refine step |
+| Onboarding + settings | Manual-first first-run; Nano ready/download/unsupported + **check-loading bar** + **top Back nav** + **stacked full-width Nano CTAs**; Settings Smart grant/revoke + education; **panel soft light** (options may follow OS dark); **global proactive pause** toggle |
 | Destinations | Deep links with **app-first + web fallback**; Gemini / oversized prompts use **clipboard + open**; never auto-submit |
 | Automation | Vitest (unit + jsdom UI + **coverage gates** on domain/messaging), Playwright (MV3 + navigate→stale + Nano-off curated + Smart invite/pause/revoke + homepage empty-state + **axe a11y** + **sensitive Manual override**), GitHub Actions (`test:ci`, Node 20.19+) |
 | Nano CI | Curated path stays green with Nano forced off (`NANO_FORCE_DISABLED` + Playwright Settings force-basic → extract → copy); live hardware checklist remains DOM-31 / [`docs/nano-verification-checklist.md`](docs/nano-verification-checklist.md) |

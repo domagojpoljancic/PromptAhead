@@ -22,7 +22,7 @@
 | Nano suggest + curated fallback + Settings force-basic | Shipped |
 | Smart grant/revoke, invite badge, pause, sensitive proactive block | Shipped |
 | Sensitive Manual override, injection fixtures | Shipped |
-| Polish: motion/Back, onboarding check loading, microcopy, dark theme, a11y focus | Shipped; **DOM-74** panel force-dark + empty IA — smoke with this pass |
+| Polish: motion/Back, onboarding check loading, microcopy, soft light theme, a11y focus | Shipped; **DOM-74** soft light panel + smoke IA — smoke with this pass |
 | Store privacy draft + release checklist | Shipped (DOM-44) |
 | Compare ≤10 + opt-in Include all N ≤40 | Shipped on `main` (DOM-68) — smoke with this pass |
 

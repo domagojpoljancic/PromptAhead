@@ -1,25 +1,25 @@
 /**
- * Shared PromptAhead theme — dark-first (panel + options).
- * Options may follow OS light via prefers-color-scheme.
- * Side panel forces dark in sidepanel.css (DOM-74) so OS light never
- * washes the narrow panel or breaks primary-button contrast.
+ * Shared PromptAhead theme — soft light default (panel + options).
+ * Dark follows OS via prefers-color-scheme. Side panel forces soft light
+ * in sidepanel.css so OS dark never restores the rejected force-dark look.
  */
 
 :root {
-  color-scheme: dark;
-  --bg: #0f1419;
-  --surface: #1a2332;
-  --text: #e7ecf3;
-  --muted: #9aa8bc;
-  --accent: #6cb6ff;
-  --border: #2d3a4d;
-  --danger: #e8a0a0;
-  --danger-border: color-mix(in srgb, var(--danger) 45%, var(--border));
-  --ok: #7dcea0;
-  --focus-ring: color-mix(in srgb, var(--accent) 70%, white);
-  --btn-primary-bg: #3d7eb8;
-  --btn-primary-fg: #f5f8fc;
-  --btn-primary-border: color-mix(in srgb, var(--btn-primary-bg) 70%, white);
+  color-scheme: light;
+  /* Soft cool-gray canvas — not pure white */
+  --bg: #e8eaef;
+  --surface: #f3f4f7;
+  --text: #1a2230;
+  --muted: #5a6578;
+  --accent: #1a6fb5;
+  --border: #c5ccd8;
+  --danger: #a33a30;
+  --danger-border: color-mix(in srgb, var(--danger) 35%, var(--border));
+  --ok: #1f6b4a;
+  --focus-ring: color-mix(in srgb, var(--accent) 55%, black);
+  --btn-primary-bg: #1a6fb5;
+  --btn-primary-fg: #ffffff;
+  --btn-primary-border: #155a94;
   font-family:
     system-ui,
     -apple-system,
@@ -27,22 +27,22 @@
     sans-serif;
 }
 
-@media (prefers-color-scheme: light) {
+@media (prefers-color-scheme: dark) {
   :root {
-    color-scheme: light;
-    --bg: #f5f7fb;
-    --surface: #ffffff;
-    --text: #1a2332;
-    --muted: #5c6b80;
-    --accent: #1a6fb5;
-    --border: #d8dee8;
-    --danger: #a33a30;
-    --danger-border: color-mix(in srgb, var(--danger) 35%, var(--border));
-    --ok: #1f6b4a;
-    --focus-ring: color-mix(in srgb, var(--accent) 55%, black);
-    --btn-primary-bg: #1a6fb5;
-    --btn-primary-fg: #ffffff;
-    --btn-primary-border: #1a6fb5;
+    color-scheme: dark;
+    --bg: #0f1419;
+    --surface: #1a2332;
+    --text: #e7ecf3;
+    --muted: #9aa8bc;
+    --accent: #6cb6ff;
+    --border: #2d3a4d;
+    --danger: #e8a0a0;
+    --danger-border: color-mix(in srgb, var(--danger) 45%, var(--border));
+    --ok: #7dcea0;
+    --focus-ring: color-mix(in srgb, var(--accent) 70%, white);
+    --btn-primary-bg: #3d7eb8;
+    --btn-primary-fg: #f5f8fc;
+    --btn-primary-border: color-mix(in srgb, var(--btn-primary-bg) 70%, white);
   }
 }
 

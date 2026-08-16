@@ -309,10 +309,16 @@ describe("side panel click-through", () => {
     await boot();
     expect(isVisible("#choose")).toBe(true);
     expect(textOf("#context-title")).toBe("EU AI Act");
+    expect(textOf("#context-url")).toBe("example.com/ai-act");
+    expect(
+      document.getElementById("context-url")?.getAttribute("title"),
+    ).toBe("https://example.com/ai-act");
 
     click('#primary-actions button[data-action-id="article.summarize"]');
     await flush();
     expect(isVisible("#refine")).toBe(true);
+    expect(textOf("#refine .workflow__heading")).toMatch(/optional note/i);
+    expect(textOf("#refine-hint")).toMatch(/optional|leave blank/i);
     expect(textOf("#back-to-choose")).toMatch(/back to directions/i);
 
     const note = document.getElementById("user-note") as HTMLTextAreaElement;
@@ -320,7 +326,7 @@ describe("side panel click-through", () => {
     click("#continue-to-review");
     await flush();
     expect(isVisible("#review")).toBe(true);
-    expect(textOf("#back-to-refine")).toMatch(/back to refine/i);
+    expect(textOf("#back-to-refine")).toMatch(/back to note/i);
 
     click("#build-prompt");
     await flush();
