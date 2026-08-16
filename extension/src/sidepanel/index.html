@@ -49,6 +49,12 @@
           </section>
 
           <section class="onboarding__step" data-step="mode" hidden>
+            <nav class="onboarding__nav" aria-label="Go back">
+              <button type="button" class="btn btn--back" data-onboarding-action="back">
+                <span class="btn__chevron" aria-hidden="true">←</span>
+                Back
+              </button>
+            </nav>
             <h2 class="onboarding__heading">How you’ll use it</h2>
             <p class="onboarding__copy" id="onboarding-mode-summary">
               Choose Manual or Smart. Smart needs optional website access — Chrome
@@ -89,9 +95,6 @@
               <p class="onboarding__copy onboarding__copy--muted" id="onboarding-smart-honesty"></p>
             </div>
             <div class="actions">
-              <button type="button" class="btn btn--back" data-onboarding-action="back">
-                ← Back
-              </button>
               <button
                 type="button"
                 class="btn btn--primary"
@@ -107,6 +110,12 @@
           </section>
 
           <section class="onboarding__step" data-step="destination" hidden>
+            <nav class="onboarding__nav" aria-label="Go back">
+              <button type="button" class="btn btn--back" data-onboarding-action="back">
+                <span class="btn__chevron" aria-hidden="true">←</span>
+                Back
+              </button>
+            </nav>
             <h2 class="onboarding__heading">Default destination</h2>
             <p class="onboarding__copy">
               Where should prompts open by default? You can change this anytime in
@@ -117,9 +126,6 @@
               <select id="onboarding-destination" class="field__input"></select>
             </label>
             <div class="actions">
-              <button type="button" class="btn btn--back" data-onboarding-action="back">
-                ← Back
-              </button>
               <button type="button" class="btn btn--primary" data-onboarding-action="next">
                 Continue
               </button>
@@ -130,6 +136,12 @@
           </section>
 
           <section class="onboarding__step" data-step="nano" hidden>
+            <nav class="onboarding__nav" aria-label="Go back">
+              <button type="button" class="btn btn--back" data-onboarding-action="back">
+                <span class="btn__chevron" aria-hidden="true">←</span>
+                Back
+              </button>
+            </nav>
             <h2 class="onboarding__heading" id="onboarding-nano-heading">
               On-device AI
             </h2>
@@ -148,6 +160,7 @@
                 aria-valuemin="0"
                 aria-valuemax="100"
                 aria-valuenow="0"
+                aria-label="On-device AI status"
               ></div>
               <p
                 class="onboarding__progress-label"
@@ -155,9 +168,6 @@
               ></p>
             </div>
             <div class="actions">
-              <button type="button" class="btn btn--back" data-onboarding-action="back">
-                ← Back
-              </button>
               <button
                 type="button"
                 class="btn btn--primary"
