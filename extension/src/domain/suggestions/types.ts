@@ -40,6 +40,11 @@ export const MAX_ACTION_TITLE_CHARS = 60;
 export const MAX_ACTION_DESCRIPTION_CHARS = 90;
 /** Handoff §15: three ranked directions, everything else behind "More…". */
 export const PRIMARY_ACTION_COUNT = 3;
+/**
+ * The catalog pool is deep so ranking has something to work with, but "More…"
+ * is a shortlist, not the whole catalog — past this the panel reads as a dump.
+ */
+export const MORE_ACTION_COUNT = 6;
 
 export type SuggestedAction = PromptTask & {
   /** One line of "why pick this", shown under the title. */

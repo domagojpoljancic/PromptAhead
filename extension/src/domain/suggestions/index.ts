@@ -10,6 +10,7 @@ export type {
 export {
   MAX_ACTION_DESCRIPTION_CHARS,
   MAX_ACTION_TITLE_CHARS,
+  MORE_ACTION_COUNT,
   PRIMARY_ACTION_COUNT,
 } from "./types";
 export { curatedActionsFor, compareTheseAction } from "./catalog";

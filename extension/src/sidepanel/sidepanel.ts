@@ -24,6 +24,7 @@ import {
 } from "../domain/destinations";
 import {
   copyForNanoPanelNotice,
+  CuratedSuggestionEngine,
   didNanoFallBackToCurated,
   nanoPanelNoticeForPreference,
   nanoPanelNoticeFromFailureReason,
@@ -500,10 +501,6 @@ export async function initSidePanel(
         applyStatusBusyCopy();
       }, NANO_THINKING_ROTATE_MS);
     }
-  }
-
-  function startNanoThinkingBusy(): void {
-    startStatusBusy("nano");
   }
 
   async function startBusyForCurrentPreference(): Promise<void> {
@@ -1003,11 +1000,11 @@ export async function initSidePanel(
 
       // DOM-66 fast path: paint curated immediately, upgrade when Nano ranks.
       if (willTryNano && fastPath) {
-        const curated = await selectEngine("basic");
-        if (generation !== suggestionGeneration) {
-          return;
-        }
-        const curatedResult = await curated.suggestActions({ pageContext: ctx });
+        // Deterministic and I/O-free, so the first paint never waits on engine
+        // selection — Nano is the only thing this path can be slow on.
+        const curatedResult = await new CuratedSuggestionEngine().suggestActions(
+          { pageContext: ctx },
+        );
         if (generation !== suggestionGeneration) {
           return;
         }
