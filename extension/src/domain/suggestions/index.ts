@@ -78,6 +78,7 @@ export {
   SUGGESTION_ENGINE_FLAG,
   UnavailableNanoSuggestionEngine,
   createSuggestionEngine,
+  nanoEngineOptionsForMode,
   resolveSuggestionEngineId,
   selectSuggestionEngine,
   selectSuggestionEngineForPreference,

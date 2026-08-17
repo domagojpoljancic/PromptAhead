@@ -16,6 +16,8 @@ import {
   DESTINATION_LABELS,
   type DestinationId,
   type NanoPreference,
+  type NanoSuggestMode,
+  usesCuratedFirstUi,
 } from "../shared/storage/schema";
 import {
   destinationLabel,
@@ -90,13 +92,18 @@ function formatElapsed(ms: number): string {
   return `${(ms / 1000).toFixed(1)}s`;
 }
 
+const AI_PENDING_PLACEHOLDER_COUNT = 2;
+const CHOOSE_HINT_DEFAULT = "Three ranked suggestions for this page type.";
+const CHOOSE_HINT_RANK_PENDING =
+  "On-device AI is ranking directions — or pick a basic option below.";
+
 type FallbackKind = "extraction" | "suggestions" | "prompt" | "handoff";
 
 export type SidePanelDeps = {
   sendToBackground: typeof defaultSendToBackground;
   selectSuggestionEngine: (
     preference: NanoPreference,
-    options?: { nanoFastPath?: boolean },
+    options?: { nanoSuggestMode?: NanoSuggestMode },
   ) => Promise<SuggestionEngine>;
   openLLMWithFallback: (options: {
     prompt: string;
@@ -181,6 +188,14 @@ export async function initSidePanel(
   const primaryActions = document.getElementById("primary-actions");
   const moreActions = document.getElementById("more-actions");
   const showMoreButton = document.getElementById("show-more");
+  const chooseHint = document.getElementById("choose-hint");
+  const aiSuggestPending = document.getElementById("ai-suggest-pending");
+  const aiPendingActions = document.getElementById("ai-pending-actions");
+  const rankFinalResults = document.getElementById("rank-final-results");
+  const basicCatalogFallback = document.getElementById("basic-catalog-fallback");
+  const basicCatalogActions = document.getElementById("basic-catalog-actions");
+  const moreBasicActions = document.getElementById("more-basic-actions");
+  const showMoreBasicButton = document.getElementById("show-more-basic");
   const selectedActionLabel = document.getElementById("selected-action");
   const userNoteInput = document.getElementById("user-note");
   const promptTextArea = document.getElementById("prompt-text");
@@ -219,8 +234,7 @@ export async function initSidePanel(
   let builtPrompt = "";
   let defaultDestination: DestinationId = "copy";
   let nanoPreference: NanoPreference = "skipped";
-  /** Faster rank path + curated-first (DOM-66); default on. */
-  let nanoFastPath = true;
+  let nanoSuggestMode: NanoSuggestMode = "generate";
   let inclusion: ContextInclusion = { ...DEFAULT_CONTEXT_INCLUSION };
   let currentStep: PanelStep = "understanding";
   let lastFallback: FallbackKind | null = null;
@@ -238,6 +252,9 @@ export async function initSidePanel(
   let busyHandoffTimer: ReturnType<typeof setTimeout> | null = null;
   /** `ai-loading` = fixed AI warmup; `understanding` = curated; `nano` = AI thinking. */
   let statusBusyMode: "ai-loading" | "understanding" | "nano" | null = null;
+  /** Rank-family pending UI — placeholders + dimmed basic catalog while Nano ranks. */
+  let rankPendingActive = false;
+  let rankPendingCurated: SuggestionResult | null = null;
 
   function resetWorkflowAfterOnboarding(): void {
     suggestionGeneration += 1;
@@ -515,6 +532,7 @@ export async function initSidePanel(
     const ctx = pageContext;
     suggestionGeneration += 1;
     const generation = suggestionGeneration;
+    clearRankPendingUi();
     startStatusBusy("understanding");
     try {
       const curated = await selectEngine("basic");
@@ -700,11 +718,84 @@ export async function initSidePanel(
     updateBuildPromptEnabled();
   }
 
-  function renderActionButton(action: SuggestedAction): HTMLLIElement {
+  function setChooseHint(text: string = CHOOSE_HINT_DEFAULT): void {
+    setText(chooseHint, text);
+  }
+
+  function renderAiPendingPlaceholders(): void {
+    if (!aiPendingActions) {
+      return;
+    }
+    aiPendingActions.replaceChildren(
+      ...Array.from({ length: AI_PENDING_PLACEHOLDER_COUNT }, () => {
+        const item = document.createElement("li");
+        const card = document.createElement("div");
+        card.className = "action-card action-card--skeleton";
+        card.setAttribute("aria-hidden", "true");
+        const title = document.createElement("span");
+        title.className =
+          "action-card__skeleton-line action-card__skeleton-line--title";
+        const description = document.createElement("span");
+        description.className =
+          "action-card__skeleton-line action-card__skeleton-line--desc";
+        card.append(title, description);
+        item.append(card);
+        return item;
+      }),
+    );
+    setHidden(aiSuggestPending, false);
+    setHidden(rankFinalResults, true);
+    setHidden(basicCatalogFallback, true);
+  }
+
+  function clearRankPendingUi(): void {
+    rankPendingActive = false;
+    rankPendingCurated = null;
+    setHidden(aiSuggestPending, true);
+    aiPendingActions?.replaceChildren();
+    setHidden(basicCatalogFallback, true);
+    basicCatalogActions?.replaceChildren();
+    moreBasicActions?.replaceChildren();
+    setHidden(moreBasicActions, true);
+    if (showMoreBasicButton instanceof HTMLButtonElement) {
+      showMoreBasicButton.hidden = true;
+      showMoreBasicButton.textContent = "More…";
+    }
+    setHidden(rankFinalResults, false);
+    setChooseHint();
+  }
+
+  function renderBasicCatalogFallback(result: SuggestionResult): void {
+    rankPendingActive = true;
+    rankPendingCurated = result;
+    basicCatalogActions?.replaceChildren(
+      ...result.primary.map((action) =>
+        renderActionButton(action, { basicFallback: true }),
+      ),
+    );
+    moreBasicActions?.replaceChildren(
+      ...result.more.map((action) =>
+        renderActionButton(action, { basicFallback: true }),
+      ),
+    );
+    setHidden(moreBasicActions, true);
+    if (showMoreBasicButton instanceof HTMLButtonElement) {
+      showMoreBasicButton.hidden = result.more.length === 0;
+      showMoreBasicButton.textContent = "More…";
+    }
+    setHidden(basicCatalogFallback, false);
+  }
+
+  function renderActionButton(
+    action: SuggestedAction,
+    options: { basicFallback?: boolean } = {},
+  ): HTMLLIElement {
     const item = document.createElement("li");
     const button = document.createElement("button");
     button.type = "button";
-    button.className = "action-card";
+    button.className = options.basicFallback
+      ? "action-card action-card--basic-fallback"
+      : "action-card";
     button.dataset.actionId = action.id;
 
     const title = document.createElement("span");
@@ -717,10 +808,31 @@ export async function initSidePanel(
 
     button.append(title, description);
     button.addEventListener("click", () => {
+      if (options.basicFallback) {
+        void pickBasicFallbackAction(action);
+        return;
+      }
       void selectAction(action);
     });
     item.append(button);
     return item;
+  }
+
+  async function pickBasicFallbackAction(action: SuggestedAction): Promise<void> {
+    if (!rankPendingActive || !rankPendingCurated) {
+      await selectAction(action);
+      return;
+    }
+    suggestionGeneration += 1;
+    const curated = rankPendingCurated;
+    clearRankPendingUi();
+    stopStatusBusy();
+    renderSuggestions(curated, { nanoNotice: "none" });
+    setStatusMessage(
+      "Page context captured (curated) — nothing leaves this device.",
+    );
+    setText(debugLine, "nano skipped · basic catalog");
+    await selectAction(action);
   }
 
   function setNanoPanelNotice(notice: NanoPanelNotice): void {
@@ -750,6 +862,11 @@ export async function initSidePanel(
 
   /** Escape hatch while Nano is in flight — not a post-failure Retry. */
   function setNanoBusyCancelVisible(visible: boolean): void {
+    if (visible && rankPendingActive) {
+      setHidden(nanoUseBasicButton, true);
+      setHidden(nanoFallback, true);
+      return;
+    }
     if (visible) {
       nanoPanelNotice = "none";
       setHidden(nanoFallback, false);
@@ -772,6 +889,7 @@ export async function initSidePanel(
     result: SuggestionResult,
     options: { nanoNotice?: NanoPanelNotice } = {},
   ): void {
+    clearRankPendingUi();
     suggestions = result;
     primaryActions?.replaceChildren(...result.primary.map(renderActionButton));
     moreActions?.replaceChildren(...result.more.map(renderActionButton));
@@ -787,7 +905,7 @@ export async function initSidePanel(
     const response = await send({ type: "GET_SETTINGS" });
     if (response.ok) {
       nanoPreference = response.settings.nanoPreference;
-      nanoFastPath = response.settings.nanoFastPath !== false;
+      nanoSuggestMode = response.settings.nanoSuggestMode;
       defaultDestination = response.settings.defaultDestination;
     }
     return nanoPreference;
@@ -802,6 +920,7 @@ export async function initSidePanel(
     lastAcceptedKey = null;
     lastSelectedEngineId = null;
     setNanoFallbackVisible(false);
+    clearRankPendingUi();
     if (userNoteInput instanceof HTMLTextAreaElement) {
       userNoteInput.value = "";
     }
@@ -949,12 +1068,15 @@ export async function initSidePanel(
   ): Promise<void> {
     suggestionGeneration += 1;
     const generation = suggestionGeneration;
+    clearRankPendingUi();
     const preference = await resolveNanoPreference();
     if (generation !== suggestionGeneration) {
       return;
     }
-    const fastPath = nanoFastPath;
-    const preferNano = options.forceNanoRetry || preference === "enabled";
+    const suggestMode = nanoSuggestMode;
+    const preferNano =
+      (options.forceNanoRetry || preference === "enabled") &&
+      suggestMode !== "curated";
 
     // Prefer a live readiness probe when the user wants Nano — Chrome can still
     // report "available" after uninstall while create()/prompt fail (DOM-31).
@@ -975,7 +1097,8 @@ export async function initSidePanel(
     }
 
     const willTryNano = preferNano && preflightNotice === "none";
-    if (willTryNano && !fastPath) {
+    const curatedFirst = willTryNano && usesCuratedFirstUi(suggestMode);
+    if (willTryNano && !curatedFirst) {
       startStatusBusy("nano");
     } else if (!willTryNano) {
       startStatusBusy("understanding");
@@ -998,10 +1121,12 @@ export async function initSidePanel(
         return;
       }
 
-      // DOM-66 fast path: paint curated immediately, upgrade when Nano ranks.
-      if (willTryNano && fastPath) {
-        // Deterministic and I/O-free, so the first paint never waits on engine
-        // selection — Nano is the only thing this path can be slow on.
+      // Rank-family: placeholders + dimmed basic catalog while Nano ranks.
+      if (curatedFirst) {
+        showStep("choose");
+        setChooseHint(CHOOSE_HINT_RANK_PENDING);
+        renderAiPendingPlaceholders();
+
         const curatedResult = await new CuratedSuggestionEngine().suggestActions(
           { pageContext: ctx },
         );
@@ -1009,12 +1134,12 @@ export async function initSidePanel(
           return;
         }
         lastSelectedEngineId = "nano";
-        renderSuggestions(curatedResult, { nanoNotice: "none" });
-        showStep("choose");
-        setStatusMessage("Directions ready — refining with on-device AI…");
+        renderBasicCatalogFallback(curatedResult);
         startStatusBusy("nano");
 
-        const engine = await selectEngine("enabled", { nanoFastPath: true });
+        const engine = await selectEngine("enabled", {
+          nanoSuggestMode: suggestMode,
+        });
         if (generation !== suggestionGeneration) {
           return;
         }
@@ -1084,7 +1209,7 @@ export async function initSidePanel(
 
       const engine = await selectEngine(
         options.forceNanoRetry ? "enabled" : preference,
-        { nanoFastPath: fastPath },
+        { nanoSuggestMode: suggestMode },
       );
       if (generation !== suggestionGeneration) {
         return;
@@ -1716,6 +1841,14 @@ export async function initSidePanel(
     setHidden(moreActions, !hidden);
     if (showMoreButton instanceof HTMLButtonElement) {
       showMoreButton.textContent = hidden ? "Hide more" : "More…";
+    }
+  });
+
+  on(showMoreBasicButton, "click", () => {
+    const hidden = moreBasicActions?.hasAttribute("hidden") ?? true;
+    setHidden(moreBasicActions, !hidden);
+    if (showMoreBasicButton instanceof HTMLButtonElement) {
+      showMoreBasicButton.textContent = hidden ? "Hide more" : "More…";
     }
   });
 

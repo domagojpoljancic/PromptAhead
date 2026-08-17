@@ -134,4 +134,78 @@ describe("nano rank path (DOM-66)", () => {
     expect(result.debug?.nanoPath).toBe("curated-fallback");
     expect(result.debug?.nanoFailureReason).toMatch(/rank|valid/i);
   });
+
+  it("clones a baseline session per suggest when sessionPolicy is clone", async () => {
+    let creates = 0;
+    let clones = 0;
+    const catalog = curatedActionsFor("article");
+    const ordered = catalog.slice(0, 3).map((a) => a.id);
+    const payload = JSON.stringify({ orderedIds: ordered });
+    const engine = new NanoSuggestionEngine({
+      mode: "rank",
+      sessionPolicy: "clone",
+      getModel: () => ({
+        availability: async () => "available" as const,
+        create: async () => {
+          creates += 1;
+          return {
+            prompt: async () => payload,
+            clone: async () => {
+              clones += 1;
+              return {
+                prompt: async () => payload,
+                destroy: () => undefined,
+              };
+            },
+            destroy: () => undefined,
+          };
+        },
+      }),
+      createTimeoutMs: 1_000,
+      promptTimeoutMs: 1_000,
+      suggestBudgetMs: 2_000,
+    });
+    await engine.suggestActions({ pageContext: samplePage });
+    await engine.suggestActions({ pageContext: samplePage });
+    expect(creates).toBe(1);
+    expect(clones).toBe(2);
+  });
+
+  it("hybrid falls through to generate when rank JSON is unusable", async () => {
+    let creates = 0;
+    const generateJson = JSON.stringify({
+      actions: Array.from({ length: 3 }, (_, index) => ({
+        id: `nano.article.${index}`,
+        title: `Research angle ${index + 1} for this page`,
+        description: `Useful direction number ${index + 1} about the page topic.`,
+        category: "critique",
+        task: `Investigate aspect ${index + 1} of this page with primary sources.`,
+        outputFormat: "structured_explanation",
+        outputSpec: ["Findings with links.", "Open questions."],
+      })),
+    });
+    const engine = new NanoSuggestionEngine({
+      mode: "hybrid",
+      sessionPolicy: "fresh",
+      getModel: () => ({
+        availability: async () => "available" as const,
+        create: async () => {
+          creates += 1;
+          const reply = creates === 1 ? "not-json" : generateJson;
+          return {
+            prompt: async () => reply,
+            destroy: () => undefined,
+          };
+        },
+      }),
+      createTimeoutMs: 1_000,
+      promptTimeoutMs: 1_000,
+      suggestBudgetMs: 4_000,
+    });
+    const result = await engine.suggestActions({ pageContext: samplePage });
+    expect(creates).toBe(2);
+    expect(result.engineId).toBe("nano");
+    expect(result.debug?.nanoPath).toBe("hybrid");
+    expect(result.primary[0]?.title).toMatch(/Research angle/i);
+  });
 });

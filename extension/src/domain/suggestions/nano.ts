@@ -30,6 +30,7 @@ import {
   suggestionResultFromRankedIds,
 } from "./nano-rank";
 import {
+  cloneNanoSession,
   createNanoSession,
   getLanguageModel,
   isPromptApiPresent,
@@ -58,12 +59,13 @@ export const NANO_SUGGEST_BUDGET_MS = 55_000;
 /** Skip further prompt passes when less than this remains on the budget. */
 const NANO_MIN_RETRY_BUDGET_MS = 8_000;
 
-/** Warm session shared across NanoSuggestionEngine instances (side panel). */
+/** Warm baseline session shared across NanoSuggestionEngine instances (side panel). */
 let sharedSession: LanguageModelSessionLike | null = null;
 let sharedSessionLanguage: string | null = null;
-let sharedSessionMode: "rank" | "generate" | null = null;
+let sharedSessionKey: string | null = null;
 
-export type NanoSuggestMode = "generate" | "rank";
+export type NanoEnginePath = "generate" | "rank" | "hybrid";
+export type NanoSessionPolicy = "fresh" | "reuse" | "clone";
 
 export type NanoSuggestionEngineOptions = {
   /** Injected for tests; defaults to the realm `LanguageModel`. */
@@ -74,11 +76,18 @@ export type NanoSuggestionEngineOptions = {
   createTimeoutMs?: number;
   suggestBudgetMs?: number;
   /**
-   * `rank` = catalog id ranking (DOM-66/67 fast path).
-   * `generate` = full free-form actions (legacy).
+   * `rank` = catalog id ranking (DOM-66/67).
+   * `generate` = full free-form actions (classic).
+   * `hybrid` = rank, then generate only if ranking fails.
    */
-  mode?: NanoSuggestMode;
-  /** Keep LanguageModel session warm across suggests (default true for rank). */
+  mode?: NanoEnginePath;
+  /**
+   * `fresh` = create+destroy per suggest (classic generate).
+   * `reuse` = keep one conversational session (fast, can pollute).
+   * `clone` = keep a baseline and clone() per page (Chrome guidance).
+   */
+  sessionPolicy?: NanoSessionPolicy;
+  /** @deprecated Prefer `sessionPolicy`. */
   reuseSession?: boolean;
 };
 
@@ -100,7 +109,7 @@ function destroySharedSession(): void {
   }
   sharedSession = null;
   sharedSessionLanguage = null;
-  sharedSessionMode = null;
+  sharedSessionKey = null;
 }
 
 /** Test helper — drop the warm session between suites. */
@@ -116,24 +125,37 @@ export class NanoSuggestionEngine implements SuggestionEngine {
   private readonly promptTimeoutMs: number;
   private readonly createTimeoutMs: number;
   private readonly suggestBudgetMs: number;
-  private readonly mode: NanoSuggestMode;
-  private readonly reuseSession: boolean;
+  private readonly mode: NanoEnginePath;
+  private readonly sessionPolicy: NanoSessionPolicy;
   private readonly curated = new CuratedSuggestionEngine();
 
   constructor(options: NanoSuggestionEngineOptions = {}) {
     this.getModel = options.getModel ?? getLanguageModel;
     this.forceDisabled = isForceDisabled(options.forceDisabled);
     this.mode = options.mode ?? "generate";
-    this.reuseSession = options.reuseSession ?? this.mode === "rank";
+    this.sessionPolicy =
+      options.sessionPolicy ??
+      (options.reuseSession === true
+        ? "reuse"
+        : options.reuseSession === false
+          ? "fresh"
+          : this.mode === "rank" || this.mode === "hybrid"
+            ? "reuse"
+            : "fresh");
+    const rankLike = this.mode === "rank" || this.mode === "hybrid";
     this.promptTimeoutMs =
       options.promptTimeoutMs ??
-      (this.mode === "rank" ? NANO_RANK_PROMPT_TIMEOUT_MS : NANO_PROMPT_TIMEOUT_MS);
+      (rankLike ? NANO_RANK_PROMPT_TIMEOUT_MS : NANO_PROMPT_TIMEOUT_MS);
     this.createTimeoutMs =
       options.createTimeoutMs ??
-      (this.mode === "rank" ? NANO_RANK_CREATE_TIMEOUT_MS : NANO_CREATE_TIMEOUT_MS);
+      (rankLike ? NANO_RANK_CREATE_TIMEOUT_MS : NANO_CREATE_TIMEOUT_MS);
     this.suggestBudgetMs =
       options.suggestBudgetMs ??
-      (this.mode === "rank" ? NANO_RANK_SUGGEST_BUDGET_MS : NANO_SUGGEST_BUDGET_MS);
+      (this.mode === "hybrid"
+        ? NANO_SUGGEST_BUDGET_MS
+        : rankLike
+          ? NANO_RANK_SUGGEST_BUDGET_MS
+          : NANO_SUGGEST_BUDGET_MS);
   }
 
   async isAvailable(): Promise<boolean> {
@@ -155,9 +177,11 @@ export class NanoSuggestionEngine implements SuggestionEngine {
     const started = Date.now();
     try {
       const result =
-        this.mode === "rank"
-          ? await this.suggestWithRank(input)
-          : await this.suggestWithNano(input);
+        this.mode === "hybrid"
+          ? await this.suggestWithHybrid(input)
+          : this.mode === "rank"
+            ? await this.suggestWithRank(input)
+            : await this.suggestWithNano(input);
       const elapsedMs = Date.now() - started;
       try {
         console.info(
@@ -188,7 +212,7 @@ export class NanoSuggestionEngine implements SuggestionEngine {
         // Ignore logging failures.
       }
       // Failed create/prompt may leave a bad warm session — drop it.
-      if (this.reuseSession) {
+      if (this.sessionPolicy !== "fresh") {
         destroySharedSession();
       }
       return {
@@ -213,23 +237,48 @@ export class NanoSuggestionEngine implements SuggestionEngine {
     );
   }
 
+  private sessionKey(): string {
+    return `${this.mode}:${this.sessionPolicy}`;
+  }
+
   private async getSession(
     model: LanguageModelLike,
     language: string,
     systemPrompt: string,
     createTimeout: number,
-  ): Promise<{ session: LanguageModelSessionLike; createMs: number }> {
-    if (
-      this.reuseSession &&
+  ): Promise<{
+    session: LanguageModelSessionLike;
+    createMs: number;
+    ownedSession: boolean;
+  }> {
+    const key = this.sessionKey();
+    const baselineMatches =
       sharedSession &&
       sharedSessionLanguage === language &&
-      sharedSessionMode === this.mode
-    ) {
-      return { session: sharedSession, createMs: 0 };
+      sharedSessionKey === key;
+
+    if (this.sessionPolicy === "reuse" && baselineMatches && sharedSession) {
+      return { session: sharedSession, createMs: 0, ownedSession: false };
     }
-    if (this.reuseSession) {
+
+    if (this.sessionPolicy === "clone" && baselineMatches && sharedSession) {
+      try {
+        const cloneStarted = Date.now();
+        const cloned = await cloneNanoSession(sharedSession, createTimeout);
+        return {
+          session: cloned,
+          createMs: Date.now() - cloneStarted,
+          ownedSession: true,
+        };
+      } catch {
+        destroySharedSession();
+      }
+    }
+
+    if (this.sessionPolicy !== "fresh") {
       destroySharedSession();
     }
+
     const createStarted = Date.now();
     const session = await createNanoSession(model, {
       systemPrompt,
@@ -237,12 +286,28 @@ export class NanoSuggestionEngine implements SuggestionEngine {
       language,
     });
     const createMs = Date.now() - createStarted;
-    if (this.reuseSession) {
+
+    if (this.sessionPolicy === "reuse") {
       sharedSession = session;
       sharedSessionLanguage = language;
-      sharedSessionMode = this.mode;
+      sharedSessionKey = key;
+      return { session, createMs, ownedSession: false };
     }
-    return { session, createMs };
+
+    if (this.sessionPolicy === "clone") {
+      sharedSession = session;
+      sharedSessionLanguage = language;
+      sharedSessionKey = key;
+      try {
+        const cloned = await cloneNanoSession(session, createTimeout);
+        return { session: cloned, createMs, ownedSession: true };
+      } catch {
+        // First page can use the baseline if clone() is missing.
+        return { session, createMs, ownedSession: false };
+      }
+    }
+
+    return { session, createMs, ownedSession: true };
   }
 
   private async suggestWithRank(
@@ -285,7 +350,7 @@ export class NanoSuggestionEngine implements SuggestionEngine {
         );
         session = got.session;
         createMs = got.createMs;
-        ownedSession = !this.reuseSession;
+        ownedSession = got.ownedSession;
       } catch (error) {
         const reason =
           error instanceof Error ? error.message : "nano.create failed";
@@ -324,6 +389,30 @@ export class NanoSuggestionEngine implements SuggestionEngine {
           // ignore
         }
       }
+    }
+  }
+
+  private async suggestWithHybrid(
+    input: ActionGenerationInput,
+  ): Promise<SuggestionResult> {
+    try {
+      const ranked = await this.suggestWithRank(input);
+      return {
+        ...ranked,
+        debug: {
+          ...ranked.debug,
+          nanoPath: "hybrid",
+        },
+      };
+    } catch {
+      const generated = await this.suggestWithNano(input);
+      return {
+        ...generated,
+        debug: {
+          ...generated.debug,
+          nanoPath: "hybrid",
+        },
+      };
     }
   }
 
@@ -366,7 +455,7 @@ export class NanoSuggestionEngine implements SuggestionEngine {
         );
         session = got.session;
         createMs = got.createMs;
-        ownedSession = !this.reuseSession;
+        ownedSession = got.ownedSession;
       } catch (error) {
         const reason =
           error instanceof Error ? error.message : "nano.create failed";

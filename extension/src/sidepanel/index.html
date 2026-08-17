@@ -268,12 +268,40 @@
 
       <section class="workflow" id="choose" hidden>
         <h2 class="workflow__heading">Choose a direction</h2>
-        <p class="workflow__hint">Three ranked suggestions for this page type.</p>
-        <ul class="action-list" id="primary-actions"></ul>
-        <button type="button" class="btn btn--ghost" id="show-more" hidden>
-          More…
-        </button>
-        <ul class="action-list action-list--more" id="more-actions" hidden></ul>
+        <p class="workflow__hint" id="choose-hint">
+          Three ranked suggestions for this page type.
+        </p>
+        <div id="ai-suggest-pending" hidden>
+          <p class="choose__section-label choose__section-label--ai">
+            On-device AI is picking directions for this page
+          </p>
+          <ul
+            class="action-list action-list--pending"
+            id="ai-pending-actions"
+            aria-busy="true"
+          ></ul>
+        </div>
+        <div id="rank-final-results">
+          <ul class="action-list" id="primary-actions"></ul>
+          <button type="button" class="btn btn--ghost" id="show-more" hidden>
+            More…
+          </button>
+          <ul class="action-list action-list--more" id="more-actions" hidden></ul>
+        </div>
+        <div id="basic-catalog-fallback" hidden>
+          <p class="choose__section-label choose__section-label--basic">
+            Basic — tap to use while AI works
+          </p>
+          <ul class="action-list action-list--basic" id="basic-catalog-actions"></ul>
+          <button type="button" class="btn btn--ghost" id="show-more-basic" hidden>
+            More…
+          </button>
+          <ul
+            class="action-list action-list--more action-list--basic"
+            id="more-basic-actions"
+            hidden
+          ></ul>
+        </div>
       </section>
 
       <section class="workflow" id="refine" hidden>

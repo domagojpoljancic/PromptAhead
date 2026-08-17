@@ -715,7 +715,7 @@ describe("side panel click-through", () => {
   });
 
   it("shows language-limited status when Nano runs on an unsupported page language", async () => {
-    store.settings = { ...DEFAULT_SETTINGS, nanoPreference: "enabled", nanoFastPath: false };
+    store.settings = { ...DEFAULT_SETTINGS, nanoPreference: "enabled" };
     store.latest = {
       pageContext: { ...samplePage, language: "hr", title: "Croatian article" },
       tabId: 7,
@@ -730,7 +730,7 @@ describe("side panel click-through", () => {
   });
 
   it("does not show language-limited status for English pages", async () => {
-    store.settings = { ...DEFAULT_SETTINGS, nanoPreference: "enabled", nanoFastPath: false };
+    store.settings = { ...DEFAULT_SETTINGS, nanoPreference: "enabled" };
     store.latest = { pageContext: samplePage, tabId: 7 };
     await boot({ nanoReadiness: "ready" });
     expect(isVisible("#choose")).toBe(true);
@@ -739,7 +739,7 @@ describe("side panel click-through", () => {
 
   it("shows rotating Nano thinking busy UI while local AI suggests", async () => {
     setMicrocopyRandomForTests(() => 0);
-    store.settings = { ...DEFAULT_SETTINGS, nanoPreference: "enabled", nanoFastPath: false };
+    store.settings = { ...DEFAULT_SETTINGS, nanoPreference: "enabled" };
     let resolveSuggest!: (value: SuggestionResult) => void;
     const slowNano: SuggestionEngine = {
       id: "nano",
@@ -853,6 +853,111 @@ describe("side panel click-through", () => {
     expect(isVisible(".app-header")).toBe(false);
   });
 
+  it("shows AI placeholders and dimmed basic catalog while rank mode runs", async () => {
+    setMicrocopyRandomForTests(() => 0);
+    store.settings = {
+      ...DEFAULT_SETTINGS,
+      nanoPreference: "enabled",
+      nanoSuggestMode: "rank",
+    };
+    let resolveSuggest!: (value: SuggestionResult) => void;
+    const slowNano: SuggestionEngine = {
+      id: "nano",
+      isAvailable: async () => true,
+      suggestActions: () =>
+        new Promise((resolve) => {
+          resolveSuggest = resolve;
+        }),
+      generatePrompt: async () =>
+        "TASK: Summarize\n\n<SOURCE_DATA>\nEU AI Act\n</SOURCE_DATA>",
+    };
+
+    const bootPromise = boot({ engine: slowNano });
+    let pendingVisible = false;
+    for (let i = 0; i < 40; i++) {
+      await flush();
+      if (
+        isVisible("#ai-suggest-pending") &&
+        isVisible("#basic-catalog-fallback")
+      ) {
+        pendingVisible = true;
+        break;
+      }
+    }
+    expect(pendingVisible).toBe(true);
+    expect(
+      document.querySelectorAll("#ai-pending-actions .action-card--skeleton")
+        .length,
+    ).toBe(2);
+    expect(textOf(".choose__section-label--basic")).toBe(
+      "Basic — tap to use while AI works",
+    );
+    expect(isVisible("#rank-final-results")).toBe(false);
+    expect(isVisible("#nano-use-basic")).toBe(false);
+    expect(
+      document.querySelectorAll("#basic-catalog-actions button").length,
+    ).toBeGreaterThan(0);
+    expect(isVisible("#status-nano-pulse")).toBe(true);
+    expect(isVisible("#status-ai-label")).toBe(true);
+
+    resolveSuggest!({
+      engineId: "nano",
+      primary: [primaryAction],
+      more: [moreAction],
+    });
+    await bootPromise;
+    await flush();
+    expect(isVisible("#ai-suggest-pending")).toBe(false);
+    expect(isVisible("#basic-catalog-fallback")).toBe(false);
+    expect(isVisible("#rank-final-results")).toBe(true);
+    expect(isVisible("#primary-actions button")).toBe(true);
+  });
+
+  it("lets the user pick a basic catalog card while rank mode is still running", async () => {
+    store.settings = {
+      ...DEFAULT_SETTINGS,
+      nanoPreference: "enabled",
+      nanoSuggestMode: "rank",
+    };
+    let resolveSuggest!: (value: SuggestionResult) => void;
+    const slowNano: SuggestionEngine = {
+      id: "nano",
+      isAvailable: async () => true,
+      suggestActions: () =>
+        new Promise((resolve) => {
+          resolveSuggest = resolve;
+        }),
+      generatePrompt: async () =>
+        "TASK: Summarize\n\n<SOURCE_DATA>\nEU AI Act\n</SOURCE_DATA>",
+    };
+
+    void boot({ engine: slowNano });
+    for (let i = 0; i < 40; i++) {
+      await flush();
+      if (isVisible("#basic-catalog-actions button")) {
+        break;
+      }
+    }
+    click("#basic-catalog-actions button");
+    await flush();
+    expect(isVisible("#refine")).toBe(true);
+    expect(isVisible("#ai-suggest-pending")).toBe(false);
+
+    resolveSuggest!({
+      engineId: "nano",
+      primary: [
+        {
+          ...primaryAction,
+          id: "article.timeline",
+          title: "Build a timeline",
+        },
+      ],
+      more: [],
+    });
+    await flush();
+    expect(textOf("#selected-action")).not.toBe("Build a timeline");
+  });
+
   it("shows status busy (not Understanding card) while curated suggests", async () => {
     setMicrocopyRandomForTests(() => 0);
     store.settings = { ...DEFAULT_SETTINGS, nanoPreference: "basic" };
@@ -904,7 +1009,7 @@ describe("side panel click-through", () => {
   });
 
   it("cancels Nano busy chrome when the bound tab goes stale", async () => {
-    store.settings = { ...DEFAULT_SETTINGS, nanoPreference: "enabled", nanoFastPath: false };
+    store.settings = { ...DEFAULT_SETTINGS, nanoPreference: "enabled" };
     const hangingNano: SuggestionEngine = {
       id: "nano",
       isAvailable: async () => true,
@@ -968,7 +1073,7 @@ describe("side panel click-through", () => {
   });
 
   it("cancels in-flight Nano and loads basic suggestions", async () => {
-    store.settings = { ...DEFAULT_SETTINGS, nanoPreference: "enabled", nanoFastPath: false };
+    store.settings = { ...DEFAULT_SETTINGS, nanoPreference: "enabled" };
     const hangingNano: SuggestionEngine = {
       id: "nano",
       isAvailable: async () => true,
@@ -1062,7 +1167,7 @@ describe("side panel click-through", () => {
   });
 
   it("shows Retry local AI when Nano falls back to curated", async () => {
-    store.settings = { ...DEFAULT_SETTINGS, nanoPreference: "enabled", nanoFastPath: false };
+    store.settings = { ...DEFAULT_SETTINGS, nanoPreference: "enabled" };
     const nanoThenCurated: SuggestionEngine = {
       id: "nano",
       isAvailable: async () => true,
@@ -1081,7 +1186,7 @@ describe("side panel click-through", () => {
   });
 
   it("points to Settings when Nano model needs download after uninstall", async () => {
-    store.settings = { ...DEFAULT_SETTINGS, nanoPreference: "enabled", nanoFastPath: false };
+    store.settings = { ...DEFAULT_SETTINGS, nanoPreference: "enabled" };
     const { openOptionsPage } = await boot({ nanoReadiness: "download" });
     expect(isVisible("#choose")).toBe(true);
     expect(isVisible("#nano-fallback")).toBe(true);
@@ -1093,7 +1198,7 @@ describe("side panel click-through", () => {
   });
 
   it("points to Settings when Nano times out despite a ready probe", async () => {
-    store.settings = { ...DEFAULT_SETTINGS, nanoPreference: "enabled", nanoFastPath: false };
+    store.settings = { ...DEFAULT_SETTINGS, nanoPreference: "enabled" };
     const timedOutNano: SuggestionEngine = {
       id: "nano",
       isAvailable: async () => true,
@@ -1477,7 +1582,7 @@ describe("options click-through", () => {
     expect(textOf("#status")).toMatch(/resumed/i);
   });
 
-  it("toggles force basic private mode for Nano", async () => {
+  it("switches suggestion engine to basic (curated) from Settings", async () => {
     const { send } = createSend(store);
     initOptions({
       sendToBackground: send,
@@ -1493,14 +1598,15 @@ describe("options click-through", () => {
     await flush();
     await flush();
 
-    const forceBasic = document.getElementById(
-      "nano-force-basic",
-    ) as HTMLInputElement;
-    expect(forceBasic).toBeTruthy();
-    forceBasic.checked = true;
-    forceBasic.dispatchEvent(new Event("change", { bubbles: true }));
+    const modeSelect = document.getElementById(
+      "nano-suggest-mode",
+    ) as HTMLSelectElement;
+    expect(modeSelect).toBeTruthy();
+    modeSelect.value = "curated";
+    modeSelect.dispatchEvent(new Event("change", { bubbles: true }));
     await flush();
     expect(store.settings.nanoPreference).toBe("basic");
+    expect(store.settings.nanoSuggestMode).toBe("curated");
     expect(textOf("#nano-status")).toMatch(/Basic private mode/i);
   });
 
@@ -1525,6 +1631,7 @@ describe("options click-through", () => {
     click("#nano-enable");
     await flush();
     expect(store.settings.nanoPreference).toBe("enabled");
+    expect(store.settings.nanoSuggestMode).toBe("generate");
     expect(textOf("#status")).toMatch(/enabled/i);
   });
 

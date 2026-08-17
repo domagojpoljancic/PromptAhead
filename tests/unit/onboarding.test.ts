@@ -34,6 +34,7 @@ describe("onboarding-flow", () => {
       smartModeAvailable: false,
       defaultDestination: "chatgpt",
       nanoPreference: "enabled",
+      nanoSuggestMode: "generate",
     });
   });
 
@@ -58,6 +59,7 @@ describe("onboarding-flow", () => {
       now: "2026-08-02T12:00:00.000Z",
     });
     expect(settings.nanoPreference).toBe("basic");
+    expect(settings.nanoSuggestMode).toBe("curated");
     expect(onboarding.nanoStepSkipped).toBe(true);
   });
 

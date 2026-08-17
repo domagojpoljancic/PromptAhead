@@ -100,7 +100,7 @@ test("extracts local fixture and walks prompt flow to copy", async () => {
 });
 
 /**
- * DOM-51: Nano forced off (`nanoPreference: "basic"` / Settings force-basic)
+ * DOM-51: Nano forced off (`nanoPreference: "basic"` / Settings engine=Basic)
  * must still complete extract → curated suggestions → prompt → copy.
  * Live Nano hardware smoke stays on DOM-31 /
  * docs/nano-verification-checklist.md — CI never downloads or runs Prompt API.
@@ -110,7 +110,7 @@ test("Nano forced off still completes curated extract → prompt → copy", asyn
   await seedCompletedOnboarding(session, { nanoPreference: "basic" });
 
   const options = await openExtensionPage(session, session.optionsUrl);
-  await expect(options.locator("#nano-force-basic")).toBeChecked();
+  await expect(options.locator("#nano-suggest-mode")).toHaveValue("curated");
   await expect
     .poll(async () =>
       options.evaluate(async () => {

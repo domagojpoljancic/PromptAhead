@@ -24,6 +24,9 @@ import {
   DESTINATION_IDS,
   DESTINATION_LABELS,
   isDestinationId,
+  isNanoSuggestMode,
+  nanoPreferenceForSuggestMode,
+  settingsSuggestModeForUi,
   type HistoryMode,
   type Settings,
   type SettingsPatch,
@@ -112,12 +115,10 @@ export function initOptions(deps: Partial<OptionsDeps> = {}): OptionsController 
     "reset-invite-caps",
   ) as HTMLButtonElement | null;
   const nanoStatus = document.getElementById("nano-status");
-  const nanoForceBasic = document.getElementById(
-    "nano-force-basic",
-  ) as HTMLInputElement | null;
-  const nanoFastPath = document.getElementById(
-    "nano-fast-path",
-  ) as HTMLInputElement | null;
+  const nanoSuggestMode = document.getElementById(
+    "nano-suggest-mode",
+  ) as HTMLSelectElement | null;
+  const nanoSuggestModeHint = document.getElementById("nano-suggest-mode-hint");
   const nanoSetup = document.getElementById(
     "nano-setup",
   ) as HTMLButtonElement | null;
@@ -224,16 +225,22 @@ export function initOptions(deps: Partial<OptionsDeps> = {}): OptionsController 
         forceDisabled: isForceDisabledEnv(),
       });
     }
-    if (nanoForceBasic) {
-      nanoForceBasic.checked = settings.nanoPreference === "basic";
-      nanoForceBasic.disabled = downloading || isForceDisabledEnv();
+    if (nanoSuggestMode) {
+      nanoSuggestMode.value = settingsSuggestModeForUi(settings);
+      nanoSuggestMode.disabled = downloading || isForceDisabledEnv();
     }
-    if (nanoFastPath) {
-      nanoFastPath.checked = settings.nanoFastPath !== false;
-      nanoFastPath.disabled =
-        downloading ||
-        isForceDisabledEnv() ||
-        settings.nanoPreference === "basic";
+    if (nanoSuggestModeHint) {
+      const shown = settingsSuggestModeForUi(settings);
+      nanoSuggestModeHint.textContent =
+        shown === "curated"
+          ? "Catalog directions only. Pick Generate (classic) or a rank mode to use on-device AI."
+          : shown === "generate"
+            ? "Classic Nano: invents titles from the page. Slowest; the original “wow” path."
+            : shown === "rank"
+              ? "Reorders the catalog and shows cards immediately. Reuses one session (faster, may mix page context)."
+              : shown === "rank-clone"
+                ? "Same ranking as Rank, but clones a baseline session per page (Chrome’s recommended pattern)."
+                : "Tries ranking first; if that fails, falls back to classic generate before curated.";
     }
 
     const state = latestReadiness?.state;
@@ -370,7 +377,7 @@ export function initOptions(deps: Partial<OptionsDeps> = {}): OptionsController 
         `mode: ${settings.mode}`,
         `destination: ${DESTINATION_LABELS[settings.defaultDestination]}`,
         `language: ${settings.languageOverride ?? "page"}`,
-        `nano: ${settings.nanoPreference}`,
+        `nano: ${settings.nanoPreference}/${settings.nanoSuggestMode}`,
         `availability: ${latestReadiness?.availability ?? "unknown"}`,
         `history: ${settings.historyMode}`,
         `proactivePaused: ${settings.proactivePaused}`,
@@ -437,7 +444,14 @@ export function initOptions(deps: Partial<OptionsDeps> = {}): OptionsController 
 
     const probe = await probeNanoReadiness(() => model);
     if (probe.state === "ready") {
-      const ok = await saveSettingsPatch({ nanoPreference: "enabled" });
+      const ok = await saveSettingsPatch({
+        nanoPreference: "enabled",
+        nanoSuggestMode:
+          latestSettings?.nanoSuggestMode &&
+          latestSettings.nanoSuggestMode !== "curated"
+            ? latestSettings.nanoSuggestMode
+            : "generate",
+      });
       if (ok) {
         setStatus("On-device AI enabled for this profile.", "ok");
       }
@@ -469,7 +483,14 @@ export function initOptions(deps: Partial<OptionsDeps> = {}): OptionsController 
 
     if (result.session) {
       setProgressUi(1, true);
-      const ok = await saveSettingsPatch({ nanoPreference: "enabled" });
+      const ok = await saveSettingsPatch({
+        nanoPreference: "enabled",
+        nanoSuggestMode:
+          latestSettings?.nanoSuggestMode &&
+          latestSettings.nanoSuggestMode !== "curated"
+            ? latestSettings.nanoSuggestMode
+            : "generate",
+      });
       await refreshNanoReadiness();
       if (ok) {
         setStatus("Download complete — on-device AI is enabled.", "ok");
@@ -705,34 +726,24 @@ export function initOptions(deps: Partial<OptionsDeps> = {}): OptionsController 
     })();
   });
 
-  nanoForceBasic?.addEventListener("change", () => {
-    const forceBasic = Boolean(nanoForceBasic.checked);
+  nanoSuggestMode?.addEventListener("change", () => {
+    const mode = nanoSuggestMode.value;
+    if (!isNanoSuggestMode(mode)) {
+      return;
+    }
     void saveSettingsPatch({
-      nanoPreference: forceBasic ? "basic" : "skipped",
+      nanoSuggestMode: mode,
+      nanoPreference: nanoPreferenceForSuggestMode(mode),
     }).then((ok) => {
       if (ok) {
         setStatus(
-          forceBasic
-            ? "Basic private mode on — curated suggestions only."
-            : "Basic mode off. Use Set up to enable on-device AI.",
+          mode === "curated"
+            ? "Basic private mode — catalog suggestions only."
+            : `Suggestion engine: ${mode}. Reload the side panel to compare.`,
           "ok",
         );
       }
       void refreshNanoReadiness();
-    });
-  });
-
-  nanoFastPath?.addEventListener("change", () => {
-    const enabled = Boolean(nanoFastPath.checked);
-    void saveSettingsPatch({ nanoFastPath: enabled }).then((ok) => {
-      if (ok) {
-        setStatus(
-          enabled
-            ? "Faster on-device AI on — curated first, then AI rank."
-            : "Faster path off — full on-device generate (slower).",
-          "ok",
-        );
-      }
     });
   });
 
@@ -741,7 +752,14 @@ export function initOptions(deps: Partial<OptionsDeps> = {}): OptionsController 
   });
 
   nanoEnable?.addEventListener("click", () => {
-    void saveSettingsPatch({ nanoPreference: "enabled" }).then((ok) => {
+    void saveSettingsPatch({
+      nanoPreference: "enabled",
+      nanoSuggestMode:
+        latestSettings?.nanoSuggestMode &&
+        latestSettings.nanoSuggestMode !== "curated"
+          ? latestSettings.nanoSuggestMode
+          : "generate",
+    }).then((ok) => {
       if (ok) {
         setStatus("On-device AI enabled for this profile.", "ok");
       }

@@ -26,6 +26,8 @@ export type LanguageModelSessionLike = {
       omitResponseConstraintInput?: boolean;
     },
   ): AsyncIterable<string>;
+  /** Chrome Prompt API: fork a session that shares system instructions. */
+  clone?(options?: { signal?: AbortSignal }): Promise<LanguageModelSessionLike>;
   destroy?(): void;
 };
 
@@ -238,6 +240,20 @@ export async function createNanoSession(
       }),
     options.timeoutMs,
   );
+}
+
+/**
+ * Clone a warm base session so each page starts without prior prompt history
+ * (Chrome built-in AI “do”: clone from a baseline, don’t reuse one chat).
+ */
+export async function cloneNanoSession(
+  session: LanguageModelSessionLike,
+  timeoutMs: number,
+): Promise<LanguageModelSessionLike> {
+  if (typeof session.clone !== "function") {
+    throw new Error("LanguageModel session.clone is not available");
+  }
+  return withTimeout((signal) => session.clone!({ signal }), timeoutMs);
 }
 
 export type DownloadNanoModelResult = {

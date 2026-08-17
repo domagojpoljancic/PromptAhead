@@ -5,7 +5,7 @@ Recorded for [DOM-73](https://linear.app/domagojp/issue/DOM-73) / parent [DOM-43
 ## Methodology
 
 - **Environment:** local unpacked `extension/dist/` on Chrome (same machine as day-to-day Manual smoke), not CI.
-- **Curated path:** Settings force basic / Nano off when measuring suggestion latency after extract.
+- **Curated path:** Settings suggestion engine = Basic / Nano off when measuring suggestion latency after extract.
 - **Instrumentation:** wall-clock from toolbar click → Choose directions visible (DevTools Performance or status strip timing); panel first paint is qualitative (“felt instant”) unless Performance panel used.
 
 ## Spot checks (2026-08-16)
@@ -24,5 +24,5 @@ Recorded for [DOM-73](https://linear.app/domagojp/issue/DOM-73) / parent [DOM-43
 
 ## Follow-ups
 
-- Nano latency: flagged fast path landed on DOM-66 (rank + session reuse + curated-first). Re-baseline hardware create vs prompt in `docs/nano-verification-checklist.md` after smoke.
+- Nano latency: Settings dropdown on DOM-66 (generate default; rank / rank-clone / hybrid opt-in). Re-baseline hardware create vs prompt in `docs/nano-verification-checklist.md` after smoke.
 - Optional: add a thin DevTools mark around `suggestActions` if we want automated CI timing later (out of scope for DOM-73).

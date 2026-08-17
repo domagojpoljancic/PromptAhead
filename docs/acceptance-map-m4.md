@@ -19,7 +19,7 @@
 | Area | Status |
 | --- | --- |
 | Manual core + destinations | Shipped |
-| Nano suggest + curated fallback + Settings force-basic | Shipped |
+| Nano suggest + curated fallback + Settings engine=Basic | Shipped |
 | Smart grant/revoke, invite badge, pause, sensitive proactive block | Shipped |
 | Sensitive Manual override, injection fixtures | Shipped |
 | Polish: motion/Back, onboarding check loading, microcopy, soft light theme, a11y focus | Shipped; **DOM-74** soft light panel + smoke IA — smoke with this pass |
