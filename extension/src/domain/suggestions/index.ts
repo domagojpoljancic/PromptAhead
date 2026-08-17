@@ -10,6 +10,7 @@ export type {
 export {
   MAX_ACTION_DESCRIPTION_CHARS,
   MAX_ACTION_TITLE_CHARS,
+  MORE_ACTION_COUNT,
   PRIMARY_ACTION_COUNT,
 } from "./types";
 export { curatedActionsFor, compareTheseAction } from "./catalog";
@@ -19,7 +20,18 @@ export {
   NanoSuggestionEngine,
   NANO_CREATE_TIMEOUT_MS,
   NANO_PROMPT_TIMEOUT_MS,
+  NANO_SUGGEST_BUDGET_MS,
+  resetNanoSharedSessionForTests,
 } from "./nano";
+export {
+  NANO_RANK_CREATE_TIMEOUT_MS,
+  NANO_RANK_PROMPT_TIMEOUT_MS,
+  NANO_RANK_SUGGEST_BUDGET_MS,
+  parseNanoRankOrderedIds,
+  suggestionResultFromRankedIds,
+  buildPageFingerprint,
+  catalogCandidatesForPage,
+} from "./nano-rank";
 export {
   validateNanoActionOutput,
   parseNanoActionJson,
@@ -34,6 +46,7 @@ export {
   promptNano,
   promptNanoStreaming,
   textExpectationsForLanguage,
+  pageLanguageNeedsPromptApiClamp,
   NANO_AVAILABILITY_TIMEOUT_MS,
   NANO_DOWNLOAD_TIMEOUT_MS,
   type LanguageModelAvailability,
@@ -43,6 +56,7 @@ export {
   NANO_FALLBACK_COPY,
   NANO_NEEDS_DOWNLOAD_COPY,
   NANO_UNSUPPORTED_COPY,
+  NANO_LANGUAGE_LIMITED_COPY,
   NANO_THINKING_COPY,
   copyForNanoPanelNotice,
   describeNanoStatus,
@@ -51,6 +65,7 @@ export {
   formatDownloadProgress,
   nanoPanelNoticeForPreference,
   nanoPanelNoticeFromFailureReason,
+  nanoPanelNoticeWithLanguageLimit,
   probeNanoReadiness,
   progressFractionToPercent,
   readinessFromAvailability,
@@ -63,6 +78,7 @@ export {
   SUGGESTION_ENGINE_FLAG,
   UnavailableNanoSuggestionEngine,
   createSuggestionEngine,
+  nanoEngineOptionsForMode,
   resolveSuggestionEngineId,
   selectSuggestionEngine,
   selectSuggestionEngineForPreference,

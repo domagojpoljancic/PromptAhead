@@ -126,10 +126,20 @@
         <p id="nano-status" class="nano-status">
           Checking on-device AI…
         </p>
-        <label class="choice">
-          <input type="checkbox" id="nano-force-basic" />
-          <span>Force basic private mode (curated suggestions only)</span>
+        <label class="field field--wide">
+          <span class="field__label">Suggestion engine</span>
+          <select id="nano-suggest-mode">
+            <option value="curated">Basic — catalog only (no AI)</option>
+            <option value="generate">Generate — classic Nano (default)</option>
+            <option value="rank">Rank — reorder catalog, show cards while AI runs</option>
+            <option value="rank-clone">Rank + clone — fresh clone per page (Chrome guidance)</option>
+            <option value="hybrid">Hybrid — rank first, generate only if ranking fails</option>
+          </select>
         </label>
+        <p class="hint" id="nano-suggest-mode-hint">
+          Generate is the original on-device path. Rank and hybrid are faster experiments
+          you can A/B on the same pages.
+        </p>
         <div class="button-row" id="nano-actions">
           <button type="button" class="btn" id="nano-setup" hidden>
             Set up on-device AI

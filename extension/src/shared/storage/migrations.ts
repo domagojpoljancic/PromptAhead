@@ -13,10 +13,12 @@ import {
   RECENT_HISTORY_LIMIT,
   STORAGE_SCHEMA_VERSION,
   isDestinationId,
+  isNanoSuggestMode,
   type ActiveInviteRecord,
   type HistoryMode,
   type InviteRuntimeState,
   type NanoPreference,
+  type NanoSuggestMode,
   type OnboardingState,
   type PromptAheadMode,
   type PromptHistoryEntry,
@@ -66,6 +68,26 @@ function pickNanoPreference(value: unknown): NanoPreference {
     : DEFAULT_SETTINGS.nanoPreference;
 }
 
+function pickNanoSuggestMode(
+  record: UnknownRecord,
+  preference: NanoPreference,
+): NanoSuggestMode {
+  if (isNanoSuggestMode(record.nanoSuggestMode)) {
+    return record.nanoSuggestMode;
+  }
+  if (preference === "basic") {
+    return "curated";
+  }
+  // Overnight DOM-66 flag: true = rank fast path, false = classic generate.
+  if (record.nanoFastPath === true) {
+    return "rank";
+  }
+  if (record.nanoFastPath === false) {
+    return "generate";
+  }
+  return DEFAULT_SETTINGS.nanoSuggestMode;
+}
+
 function pickHistoryMode(value: unknown): HistoryMode {
   return value === "full" ? "full" : DEFAULT_SETTINGS.historyMode;
 }
@@ -99,6 +121,10 @@ export function migrateSettings(raw: unknown): MigrationResult<Settings> {
     languageOverride:
       typeof language === "string" && language.length > 0 ? language : null,
     nanoPreference: pickNanoPreference(record.nanoPreference ?? record.nano),
+    nanoSuggestMode: pickNanoSuggestMode(
+      record,
+      pickNanoPreference(record.nanoPreference ?? record.nano),
+    ),
     historyMode: pickHistoryMode(historyMode),
     proactivePaused: pickBoolean(
       record.proactivePaused,

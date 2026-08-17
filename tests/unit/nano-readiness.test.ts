@@ -8,6 +8,8 @@ import {
   formatDownloadProgress,
   nanoPanelNoticeForPreference,
   nanoPanelNoticeFromFailureReason,
+  nanoPanelNoticeWithLanguageLimit,
+  NANO_LANGUAGE_LIMITED_COPY,
   probeNanoReadiness,
   readinessFromAvailability,
 } from "../../extension/src/domain/suggestions/nano-readiness";
@@ -164,5 +166,37 @@ describe("nano-readiness helpers", () => {
     expect(nanoPanelNoticeFromFailureReason("No valid Nano actions")).toBe(
       "fallback",
     );
+  });
+
+  it("adds language-limited notice only when Nano ran and page lang is clamped", () => {
+    expect(
+      nanoPanelNoticeWithLanguageLimit({
+        notice: "none",
+        nanoAttempted: true,
+        pageLanguage: "hr",
+      }),
+    ).toBe("language-limited");
+    expect(
+      nanoPanelNoticeWithLanguageLimit({
+        notice: "none",
+        nanoAttempted: true,
+        pageLanguage: "de",
+      }),
+    ).toBe("none");
+    expect(
+      nanoPanelNoticeWithLanguageLimit({
+        notice: "none",
+        nanoAttempted: false,
+        pageLanguage: "hr",
+      }),
+    ).toBe("none");
+    expect(
+      nanoPanelNoticeWithLanguageLimit({
+        notice: "fallback",
+        nanoAttempted: true,
+        pageLanguage: "hr",
+      }),
+    ).toBe("fallback");
+    expect(NANO_LANGUAGE_LIMITED_COPY).toMatch(/may be in English/i);
   });
 });

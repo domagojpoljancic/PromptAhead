@@ -46,6 +46,63 @@ export type HistoryMode = "recent" | "full";
 /** Nano stays off until M2; `skipped` is the Manual-first default. */
 export type NanoPreference = "skipped" | "enabled" | "basic";
 
+/**
+ * How suggestions are produced (DOM-66/67 hardware A/B).
+ * Onboarding “enable Nano” defaults to `generate` (classic). Rank paths are
+ * opt-in from Settings so latency vs quality can be compared on the same pages.
+ */
+export const NANO_SUGGEST_MODES = [
+  "curated",
+  "generate",
+  "rank",
+  "rank-clone",
+  "hybrid",
+] as const;
+
+export type NanoSuggestMode = (typeof NANO_SUGGEST_MODES)[number];
+
+export const NANO_SUGGEST_MODE_LABELS: Record<NanoSuggestMode, string> = {
+  curated: "Basic — catalog only (no AI)",
+  generate: "Generate — classic Nano (default)",
+  rank: "Rank — reorder catalog, show cards while AI runs",
+  "rank-clone": "Rank + clone — fresh clone per page (Chrome guidance)",
+  hybrid: "Hybrid — rank first, generate only if ranking fails",
+};
+
+export function isNanoSuggestMode(value: unknown): value is NanoSuggestMode {
+  return (
+    typeof value === "string" &&
+    (NANO_SUGGEST_MODES as readonly string[]).includes(value)
+  );
+}
+
+export function nanoPreferenceForSuggestMode(
+  mode: NanoSuggestMode,
+): NanoPreference {
+  return mode === "curated" ? "basic" : "enabled";
+}
+
+/** Rank-family modes paint catalog cards immediately, then upgrade. */
+export function usesCuratedFirstUi(mode: NanoSuggestMode): boolean {
+  return mode === "rank" || mode === "rank-clone" || mode === "hybrid";
+}
+
+/** What the Settings dropdown should show for the current stored pair. */
+export function settingsSuggestModeForUi(settings: {
+  nanoPreference: NanoPreference;
+  nanoSuggestMode: NanoSuggestMode;
+}): NanoSuggestMode {
+  if (
+    settings.nanoPreference === "basic" ||
+    settings.nanoPreference === "skipped"
+  ) {
+    return "curated";
+  }
+  return settings.nanoSuggestMode === "curated"
+    ? "generate"
+    : settings.nanoSuggestMode;
+}
+
 export type Settings = {
   schemaVersion: 1;
   mode: PromptAheadMode;
@@ -55,6 +112,8 @@ export type Settings = {
   /** `null` means "follow the page language" (handoff §19). */
   languageOverride: string | null;
   nanoPreference: NanoPreference;
+  /** Strategy used when `nanoPreference` is `enabled`. */
+  nanoSuggestMode: NanoSuggestMode;
   historyMode: HistoryMode;
   proactivePaused: boolean;
   excludedDomains: string[];
@@ -158,6 +217,7 @@ export const DEFAULT_SETTINGS: Settings = {
   defaultDestination: "copy",
   languageOverride: null,
   nanoPreference: "skipped",
+  nanoSuggestMode: "generate",
   historyMode: "recent",
   proactivePaused: false,
   excludedDomains: [],

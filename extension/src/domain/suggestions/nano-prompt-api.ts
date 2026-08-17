@@ -26,6 +26,8 @@ export type LanguageModelSessionLike = {
       omitResponseConstraintInput?: boolean;
     },
   ): AsyncIterable<string>;
+  /** Chrome Prompt API: fork a session that shares system instructions. */
+  clone?(options?: { signal?: AbortSignal }): Promise<LanguageModelSessionLike>;
   destroy?(): void;
 };
 
@@ -70,18 +72,54 @@ export const EN_TEXT_EXPECTATIONS = {
 };
 
 /**
- * Chrome warns when create()/availability() omit languages. Prefer the page
- * language when known; fall back to English.
+ * Chrome Prompt API text languages (developer.chrome.com/docs/ai/prompt-api).
+ * Passing anything else to create()/availability() throws NotSupportedError.
+ */
+export const PROMPT_API_TEXT_LANGUAGES = [
+  "de",
+  "en",
+  "es",
+  "fr",
+  "ja",
+] as const;
+
+export type PromptApiTextLanguage = (typeof PROMPT_API_TEXT_LANGUAGES)[number];
+
+const PROMPT_API_TEXT_LANGUAGE_SET = new Set<string>(PROMPT_API_TEXT_LANGUAGES);
+
+/** Primary subtag from a BCP-47 tag (`hr-HR` → `hr`, `EN` → `en`). */
+export function primaryLanguageSubtag(
+  language?: string | null,
+): string {
+  const tag = (language ?? "").trim().toLowerCase();
+  return /^[a-z]{2,3}/.exec(tag)?.[0] ?? "en";
+}
+
+/** True when create()/availability must use English instead of the page tag. */
+export function pageLanguageNeedsPromptApiClamp(
+  language?: string | null,
+): boolean {
+  const primary = primaryLanguageSubtag(language);
+  return !PROMPT_API_TEXT_LANGUAGE_SET.has(primary);
+}
+
+/**
+ * Session languages for create()/availability(). Unsupported page langs
+ * (e.g. Croatian `hr`) clamp to English so create does not abort — the Nano
+ * *prompt* still asks for the page language in text (best-effort output).
  */
 export function textExpectationsForLanguage(
   language?: string | null,
 ): typeof EN_TEXT_EXPECTATIONS {
-  const tag = (language ?? "").trim().toLowerCase();
-  const primary = /^[a-z]{2,3}/.exec(tag)?.[0] ?? "en";
-  const languages = primary === "en" ? ["en"] : [primary, "en"];
+  const primary = primaryLanguageSubtag(language);
+  const sessionPrimary = PROMPT_API_TEXT_LANGUAGE_SET.has(primary)
+    ? (primary as PromptApiTextLanguage)
+    : "en";
+  const languages =
+    sessionPrimary === "en" ? (["en"] as const) : ([sessionPrimary, "en"] as const);
   return {
-    expectedInputs: [{ type: "text" as const, languages }],
-    expectedOutputs: [{ type: "text" as const, languages }],
+    expectedInputs: [{ type: "text" as const, languages: [...languages] }],
+    expectedOutputs: [{ type: "text" as const, languages: [...languages] }],
   };
 }
 
@@ -202,6 +240,20 @@ export async function createNanoSession(
       }),
     options.timeoutMs,
   );
+}
+
+/**
+ * Clone a warm base session so each page starts without prior prompt history
+ * (Chrome built-in AI “do”: clone from a baseline, don’t reuse one chat).
+ */
+export async function cloneNanoSession(
+  session: LanguageModelSessionLike,
+  timeoutMs: number,
+): Promise<LanguageModelSessionLike> {
+  if (typeof session.clone !== "function") {
+    throw new Error("LanguageModel session.clone is not available");
+  }
+  return withTimeout((signal) => session.clone!({ signal }), timeoutMs);
 }
 
 export type DownloadNanoModelResult = {

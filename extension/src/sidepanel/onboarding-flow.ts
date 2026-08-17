@@ -72,6 +72,8 @@ export function buildOnboardingCompletion(input: {
       smartModeAvailable,
       defaultDestination: input.destination,
       nanoPreference: input.nanoPreference,
+      nanoSuggestMode:
+        input.nanoPreference === "basic" ? "curated" : "generate",
     },
     onboarding: {
       completed: true,

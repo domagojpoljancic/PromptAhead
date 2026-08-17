@@ -3,15 +3,25 @@
  * selection always degrades to curated rather than failing.
  */
 
-import type { NanoPreference } from "../../shared/storage/schema";
+import type {
+  NanoPreference,
+  NanoSuggestMode,
+} from "../../shared/storage/schema";
 import { CuratedSuggestionEngine } from "./curated";
 import { MockNanoSuggestionEngine } from "./mock-nano";
-import { NanoSuggestionEngine } from "./nano";
+import {
+  NanoSuggestionEngine,
+  type NanoSuggestionEngineOptions,
+} from "./nano";
 import { engineIdForNanoPreference } from "./nano-readiness";
 import {
   type SuggestionEngine,
   type SuggestionEngineId,
 } from "./types";
+
+export type SuggestionEngineSelectOptions = {
+  nanoSuggestMode?: NanoSuggestMode;
+};
 
 /**
  * The single switch. `curated` ships by default; tests and local development
@@ -46,8 +56,25 @@ export function resolveSuggestionEngineId(
   return readEnvEngineId() ?? id;
 }
 
+export function nanoEngineOptionsForMode(
+  mode: NanoSuggestMode,
+): NanoSuggestionEngineOptions {
+  switch (mode) {
+    case "rank":
+      return { mode: "rank", sessionPolicy: "reuse" };
+    case "rank-clone":
+      return { mode: "rank", sessionPolicy: "clone" };
+    case "hybrid":
+      return { mode: "hybrid", sessionPolicy: "clone" };
+    case "generate":
+    case "curated":
+      return { mode: "generate", sessionPolicy: "fresh" };
+  }
+}
+
 export function createSuggestionEngine(
   id: SuggestionEngineId = SUGGESTION_ENGINE_FLAG,
+  options: SuggestionEngineSelectOptions = {},
 ): SuggestionEngine {
   const resolved = resolveSuggestionEngineId(id);
   switch (resolved) {
@@ -55,8 +82,13 @@ export function createSuggestionEngine(
       return new CuratedSuggestionEngine();
     case "mock-nano":
       return new MockNanoSuggestionEngine();
-    case "nano":
-      return new NanoSuggestionEngine();
+    case "nano": {
+      const mode = options.nanoSuggestMode ?? "generate";
+      if (mode === "curated") {
+        return new CuratedSuggestionEngine();
+      }
+      return new NanoSuggestionEngine(nanoEngineOptionsForMode(mode));
+    }
   }
 }
 
@@ -66,8 +98,9 @@ export function createSuggestionEngine(
  */
 export async function selectSuggestionEngine(
   id: SuggestionEngineId = SUGGESTION_ENGINE_FLAG,
+  options: SuggestionEngineSelectOptions = {},
 ): Promise<SuggestionEngine> {
-  const engine = createSuggestionEngine(id);
+  const engine = createSuggestionEngine(id, options);
   if (engine.id === "curated" || engine.id === "mock-nano") {
     return engine;
   }
@@ -83,7 +116,11 @@ export async function selectSuggestionEngine(
  */
 export async function selectSuggestionEngineForPreference(
   preference: NanoPreference,
+  options: SuggestionEngineSelectOptions = {},
 ): Promise<SuggestionEngine> {
+  if (options.nanoSuggestMode === "curated") {
+    return new CuratedSuggestionEngine();
+  }
   const preferred = engineIdForNanoPreference(preference);
-  return selectSuggestionEngine(preferred);
+  return selectSuggestionEngine(preferred, options);
 }

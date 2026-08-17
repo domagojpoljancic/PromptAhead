@@ -9,6 +9,7 @@
 import { buildPrompt } from "../prompts";
 import { curatedActionsFor } from "./catalog";
 import {
+  MORE_ACTION_COUNT,
   PRIMARY_ACTION_COUNT,
   type ActionGenerationInput,
   type PromptGenerationInput,
@@ -34,7 +35,10 @@ export class CuratedSuggestionEngine implements SuggestionEngine {
     return Promise.resolve({
       engineId: this.id,
       primary: actions.slice(0, PRIMARY_ACTION_COUNT),
-      more: actions.slice(PRIMARY_ACTION_COUNT),
+      more: actions.slice(
+        PRIMARY_ACTION_COUNT,
+        PRIMARY_ACTION_COUNT + MORE_ACTION_COUNT,
+      ),
     });
   }
 

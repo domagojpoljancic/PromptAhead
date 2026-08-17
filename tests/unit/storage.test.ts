@@ -114,6 +114,32 @@ describe("settings migration", () => {
     expect(await readSettings()).toEqual(DEFAULT_SETTINGS);
   });
 
+  it("maps the old nanoFastPath flag onto nanoSuggestMode", async () => {
+    uninstallChromeMock();
+    mock = installChromeMock({
+      initialStorage: {
+        [STORAGE_KEYS.settings]: {
+          schemaVersion: 1,
+          nanoPreference: "enabled",
+          nanoFastPath: true,
+        },
+      },
+    });
+    expect((await readSettings()).nanoSuggestMode).toBe("rank");
+
+    uninstallChromeMock();
+    mock = installChromeMock({
+      initialStorage: {
+        [STORAGE_KEYS.settings]: {
+          schemaVersion: 1,
+          nanoPreference: "enabled",
+          nanoFastPath: false,
+        },
+      },
+    });
+    expect((await readSettings()).nanoSuggestMode).toBe("generate");
+  });
+
   it("drops malformed history entries", async () => {
     uninstallChromeMock();
     mock = installChromeMock({

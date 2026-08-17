@@ -19,10 +19,10 @@
 | Area | Status |
 | --- | --- |
 | Manual core + destinations | Shipped |
-| Nano suggest + curated fallback + Settings force-basic | Shipped |
+| Nano suggest + curated fallback + Settings engine=Basic | Shipped |
 | Smart grant/revoke, invite badge, pause, sensitive proactive block | Shipped |
 | Sensitive Manual override, injection fixtures | Shipped |
-| Polish: motion/Back, onboarding check loading, microcopy, dark theme, a11y focus | Shipped |
+| Polish: motion/Back, onboarding check loading, microcopy, soft light theme, a11y focus | Shipped; **DOM-74** soft light panel + smoke IA — smoke with this pass |
 | Store privacy draft + release checklist | Shipped (DOM-44) |
 | Compare ≤10 + opt-in Include all N ≤40 | Shipped on `main` (DOM-68) — smoke with this pass |
 
@@ -71,7 +71,7 @@
 
 ## 4. Consolidated manual pass (tick while testing “everything”)
 
-Run on unpacked `extension/dist/` after `npm run build` from current `main`.
+Run on unpacked `extension/dist/` after `npm run build` (DOM-74 branch until merged).
 
 ### A. Build gate
 
@@ -99,10 +99,16 @@ Run on unpacked `extension/dist/` after `npm run build` from current `main`.
 
 ### E. Polish / onboarding (M4, not all in §25 wording)
 
-- [ ] Onboarding: Nano **checking** shows progress; **Back** strip works
+- [ ] Panel is **soft light** (cool gray, not pure white / not dark); primary buttons readable
+- [ ] Chrome side-panel title is the only brand mark — no duplicate “PROMPTAHEAD” eyebrow in the panel
+- [ ] Onboarding: destination control not glued to Continue/Skip; Nano CTAs stacked/clear; Back strip has space before headline
 - [ ] Step enter motion + prompt-build “Preparing…” bar
-- [ ] Workflow **Back** nav strip obvious
-- [ ] Options page readable (dark-first / OS light)
+- [ ] Workflow **Back** nav strip obvious (not glued to the title)
+- [ ] Empty / idle: **one** “No page captured…” message; **Refresh** at top (primary); **Settings** at bottom
+- [ ] Context URL compact (full URL on hover/`title`)
+- [ ] Refine reads as optional note; handoff copy clear that PromptAhead did not auto-submit
+- [ ] Switch tabs → **Refresh** updates to the focused page (or sensitive/stale), not the old capture
+- [ ] Options page readable
 - [ ] Loading/success microcopy may vary; sensitive warnings stay sober
 
 ### F. Compare expand — DOM-68

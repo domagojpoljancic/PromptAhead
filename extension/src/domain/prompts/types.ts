@@ -31,7 +31,7 @@ export type PromptTask = {
 export type PromptBuildInput = {
   pageContext: PageContext;
   task: PromptTask;
-  /** Free text from "Anything to add?" — untrusted, but user-authored. */
+  /** Free text from the optional note step — untrusted, but user-authored. */
   userNote?: string;
   /** `null`/omitted follows the page language (handoff §19). */
   languageOverride?: string | null;
