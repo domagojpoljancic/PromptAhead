@@ -131,6 +131,7 @@ Shared agent rules under `.cursor/rules/` (committed; local MCP/sync state stays
 | Practice | Rule | What it does |
 | --- | --- | --- |
 | Pre-push hygiene | [`pre-push-hygiene.mdc`](.cursor/rules/pre-push-hygiene.mdc) | Refresh README (including this section), block secrets/junk, keep docs/branches aligned before push/PR |
+| Branch hygiene | [`branch-hygiene.mdc`](.cursor/rules/branch-hygiene.mdc) + [`.cursor/scripts/prune-merged-branches.sh`](.cursor/scripts/prune-merged-branches.sh) | After merge: delete PR head, prune merged locals/remotes, drop stale worktrees; GitHub `delete_branch_on_merge` on |
 | Linear ⇆ Cursor sync | [`linear-sync.mdc`](.cursor/rules/linear-sync.mdc) | Pull Linear changes first (ask before absorbing); push status/checklists as work happens; issue sizing habits |
 | Stuck-agent watchdog | [`stuck-agent-watchdog.mdc`](.cursor/rules/stuck-agent-watchdog.mdc) + [`.cursor/hooks/`](.cursor/hooks/) | Background Task heartbeat via `run-stuck-agent-watchdog.sh` (idle-exit when watch file empty); nudge/replace stuck agents |
 
