@@ -1,0 +1,67 @@
+---
+description: Delete merged feature branches and worktrees; keep only main + open PRs
+alwaysApply: true
+---
+
+# Branch hygiene
+
+Keep the repo to **`main` + branches with an open PR + the branch you are actively coding**. Merged ticket branches are not archives — history lives in `main` and the merged PR.
+
+## When to run
+
+- **After merging a PR** (same session if you merged it).
+- **Before opening a new issue branch** (prune first so `git branch` stays readable).
+- **When the user asks to clean branches** or stale remotes pile up.
+
+Skip only if the user says **skip branch cleanup**.
+
+## After every merge
+
+1. Merge with **`gh pr merge --merge --delete-branch`** (or `--squash` / `--rebase` if that PR used it).
+2. Repo setting **`delete_branch_on_merge`** should stay **on** (see `.cursor/scripts/prune-merged-branches.sh`).
+3. Locally:
+   ```bash
+   git checkout main && git pull --ff-only
+   git fetch --prune
+   git branch --merged main | rg -v '^\*?\s*main$' | xargs -r git branch -d
+   ```
+4. Remove **worktrees** for merged branches before deleting the branch:
+   ```bash
+   git worktree list
+   git worktree remove --force <path>   # only when that ticket is merged/abandoned
+   git worktree prune
+   ```
+
+## What to keep vs delete
+
+| Keep | Delete after merge |
+| --- | --- |
+| `main` | `domagojpoljancic/dom-<n>-…` whose PR is **Merged** |
+| Open PR head (check `gh pr list --state open`) | Old `cursor/product-test-coverage-*` test-agent heads |
+| Current active coding branch | Sibling slice branches superseded by one merged PR (e.g. three DOM-34 branches → one on `main`) |
+
+**Before deleting a remote**, confirm no unique commits: `git log origin/main..origin/<branch>` must be empty (or user explicitly abandons the work).
+
+## Test-agent branches
+
+`cursor/product-test-coverage-*` exist for automation. When the real PR merged:
+
+- Do **not** keep the test-agent branch “just in case”.
+- If its unique test landed on `main`, delete the remote head.
+- If unique tests did **not** land, open a thin follow-up on the feature branch — do not hoard the automation branch.
+
+## Do not
+
+- Force-push `main`.
+- Delete a branch that still has an **open** PR or unmerged commits without user confirmation.
+- Reuse a merged ticket branch for new scope — new Linear issue → new branch from current `main`.
+
+## Helper script
+
+Run from repo root when many stale remotes remain:
+
+```bash
+bash .cursor/scripts/prune-merged-branches.sh
+```
+
+Dry-run first: `DRY_RUN=1 bash .cursor/scripts/prune-merged-branches.sh`

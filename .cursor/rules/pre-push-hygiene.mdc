@@ -40,8 +40,9 @@ Before any `git push`, creating a PR, or merging to `main`, run this checklist. 
 ## 5. Git / branch hygiene (dev phase)
 
 1. Prefer landing work on `main` via PR (no force-push to `main`).
-2. After merge, delete merged feature branches locally and on `origin` when the user wants a single-branch workflow.
-3. Do not leave empty remote branches that share the same tip as `main` with no unique commits.
+2. Follow [`.cursor/rules/branch-hygiene.mdc`](branch-hygiene.mdc): merge with `--delete-branch`, prune locals after merge, remove worktrees for merged tickets, delete stale `cursor/product-test-coverage-*` remotes when tests landed.
+3. Run `bash .cursor/scripts/prune-merged-branches.sh` (or `DRY_RUN=1 …` first) when many merged remotes linger.
+4. Do not leave empty remote branches that share the same tip as `main` with no unique commits.
 
 ## 6. Verification before push (when feasible)
 
